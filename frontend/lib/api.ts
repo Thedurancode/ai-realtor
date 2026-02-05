@@ -97,7 +97,7 @@ api.interceptors.response.use(
           icon: '✓'
         })
       } else if (url.includes('/enrich')) {
-        const zestimate = data.data?.zestimate
+        const zestimate: number | undefined = data.data?.zestimate;
         (window as any).showBigActivity({
           type: 'enrichment',
           title: 'ENRICHMENT COMPLETE!',
