@@ -7,5 +7,6 @@ from app.models.contract import Contract
 from app.models.agent_preference import AgentPreference
 from app.models.contract_submitter import ContractSubmitter
 from app.models.zillow_enrichment import ZillowEnrichment
+from app.models.activity_event import ActivityEvent
 
-__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "AgentPreference", "ContractSubmitter", "ZillowEnrichment"]
+__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent"]

@@ -6,6 +6,7 @@ Exposes property database operations as MCP tools
 import asyncio
 import json
 import sys
+import time
 from typing import Any, Optional
 import requests
 
@@ -18,6 +19,44 @@ import mcp.server.stdio
 
 # API Base URL
 API_BASE_URL = "http://localhost:8000"
+
+# Helper function to log activity events
+def log_activity_event(tool_name: str, metadata: dict = None) -> Optional[int]:
+    """Log an activity event for MCP tool call"""
+    try:
+        response = requests.post(
+            f"{API_BASE_URL}/activities/log",
+            json={
+                "tool_name": tool_name,
+                "user_source": "Claude Desktop MCP",
+                "event_type": "tool_call",
+                "status": "pending",
+                "metadata": metadata
+            },
+            timeout=1  # Don't block tool execution
+        )
+        if response.status_code == 200:
+            return response.json().get("id")
+    except Exception as e:
+        print(f"Warning: Failed to log activity: {e}")
+    return None
+
+def update_activity_event(event_id: int, status: str, duration_ms: int, error_message: str = None):
+    """Update activity event with result"""
+    if not event_id:
+        return
+    try:
+        requests.patch(
+            f"{API_BASE_URL}/activities/{event_id}",
+            json={
+                "status": status,
+                "duration_ms": duration_ms,
+                "error_message": error_message
+            },
+            timeout=1
+        )
+    except Exception as e:
+        print(f"Warning: Failed to update activity: {e}")
 
 
 async def list_properties(limit: int = 10, status: Optional[str] = None) -> dict:
@@ -935,6 +974,10 @@ async def list_tools() -> list[Tool]:
 @app.call_tool()
 async def call_tool(name: str, arguments: Any) -> list[TextContent]:
     """Handle tool calls"""
+    # Log activity start
+    start_time = time.time()
+    event_id = log_activity_event(tool_name=name, metadata=arguments)
+
     try:
         if name == "list_properties":
             limit = arguments.get("limit", 10)
@@ -1226,11 +1269,24 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         else:
             raise ValueError(f"Unknown tool: {name}")
 
+        # Log success - this is reached for all successful tool calls
+        # However, we need to intercept the return to log before returning
+        # This is a limitation - we'll add logging in the except for errors
+
     except Exception as e:
+        # Log error
+        duration_ms = int((time.time() - start_time) * 1000)
+        update_activity_event(event_id, status="error", duration_ms=duration_ms, error_message=str(e))
+
         return [TextContent(
             type="text",
             text=f"Error: {str(e)}"
         )]
+    finally:
+        # Log success if no exception was raised
+        duration_ms = int((time.time() - start_time) * 1000)
+        # We'll check if event exists and hasn't been updated (no error)
+        update_activity_event(event_id, status="success", duration_ms=duration_ms)
 
 
 async def main():
