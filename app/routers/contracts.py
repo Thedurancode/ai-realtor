@@ -27,8 +27,23 @@ from app.schemas.contract_submitter import (
 )
 from app.services.docuseal import docuseal_client
 from app.services.resend_service import resend_service
+from app.services.notification_service import notification_service
+from app.services.contract_auto_attach import contract_auto_attach_service
+from app.models.contract_template import ContractRequirement
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
+
+
+# Helper function to get WebSocket manager
+def get_ws_manager():
+    """Get WebSocket manager from main module"""
+    try:
+        import sys
+        if 'app.main' in sys.modules:
+            return sys.modules['app.main'].manager
+    except:
+        pass
+    return None
 
 
 @router.get("/", response_model=list[ContractResponse])
@@ -341,6 +356,7 @@ async def get_contract_status(
 
             # Update contract status based on DocuSeal response
             docuseal_status = docuseal_response.get("status", "").lower()
+            old_status = contract.status
 
             if docuseal_status == "completed":
                 contract.status = ContractStatus.COMPLETED
@@ -353,6 +369,22 @@ async def get_contract_status(
 
             db.commit()
             db.refresh(contract)
+
+            # Send notification if status changed to completed
+            if old_status != ContractStatus.COMPLETED and contract.status == ContractStatus.COMPLETED:
+                manager = get_ws_manager()
+                property = db.query(Property).filter(Property.id == contract.property_id).first()
+                property_address = property.address if property else "Unknown"
+
+                await notification_service.notify_contract_signed(
+                    db=db,
+                    manager=manager,
+                    contract_id=contract.id,
+                    contract_name=contract.name,
+                    signer_name="All Parties",
+                    property_address=property_address,
+                    remaining_signers=0
+                )
 
             return ContractStatusResponse(
                 contract_id=contract.id,
@@ -1098,4 +1130,193 @@ async def _handle_legacy_webhook(data: dict, db: Session):
         "contract_id": contract.id,
         "contract_status": contract.status.value,
         "submitters_updated": updated_submitters
+    }
+
+
+# ========== AUTO-ATTACH CONTRACT ENDPOINTS ==========
+
+@router.post("/property/{property_id}/auto-attach", response_model=dict)
+def auto_attach_contracts_to_property(
+    property_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually trigger auto-attach of required contracts to a property.
+
+    This is useful if:
+    1. Property was created before contract templates were configured
+    2. New contract templates were added
+    3. Property details changed (state, type, price)
+
+    Returns list of contracts that were attached.
+    """
+    property = db.query(Property).filter(Property.id == property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    attached_contracts = contract_auto_attach_service.auto_attach_contracts(db, property)
+
+    return {
+        "property_id": property_id,
+        "property_address": property.address,
+        "contracts_attached": len(attached_contracts),
+        "contracts": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "description": c.description,
+                "status": c.status.value
+            }
+            for c in attached_contracts
+        ]
+    }
+
+
+@router.get("/property/{property_id}/required-status", response_model=dict)
+def get_property_required_contracts_status(
+    property_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get status of all required contracts for a property.
+
+    This shows:
+    - How many required contracts exist
+    - How many are completed
+    - How many are in progress
+    - What's missing
+    - Whether property is ready to close
+
+    Useful for checking if property can proceed to closing.
+    """
+    property = db.query(Property).filter(Property.id == property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    status = contract_auto_attach_service.get_required_contracts_status(db, property)
+
+    # Format for response
+    return {
+        "property_id": property_id,
+        "property_address": property.address,
+        "total_required": status["total_required"],
+        "completed": status["completed"],
+        "in_progress": status["in_progress"],
+        "missing": status["missing"],
+        "is_ready_to_close": status["is_ready_to_close"],
+        "missing_templates": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "description": t.description,
+                "category": t.category.value
+            }
+            for t in status["missing_templates"]
+        ],
+        "incomplete_contracts": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "status": c.status.value,
+                "sent_at": c.sent_at
+            }
+            for c in status["incomplete_contracts"]
+        ]
+    }
+
+
+@router.get("/property/{property_id}/missing-contracts", response_model=dict)
+def get_missing_contracts(
+    property_id: int,
+    required_only: bool = False,
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of contracts that should be attached to this property but aren't.
+
+    Args:
+        required_only: If true, only show REQUIRED contracts. Otherwise show all applicable.
+
+    Useful for compliance checking and closing readiness.
+    """
+    property = db.query(Property).filter(Property.id == property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    requirement_filter = ContractRequirement.REQUIRED if required_only else None
+    missing = contract_auto_attach_service.get_missing_contracts(
+        db, property, requirement=requirement_filter
+    )
+
+    return {
+        "property_id": property_id,
+        "property_address": property.address,
+        "missing_count": len(missing),
+        "missing_contracts": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "description": t.description,
+                "category": t.category.value,
+                "requirement": t.requirement.value,
+                "docuseal_template_id": t.docuseal_template_id
+            }
+            for t in missing
+        ]
+    }
+
+
+@router.post("/voice/check-contracts", response_model=dict)
+def check_contracts_voice(
+    address_query: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Voice: "Check contract status for 141 throop"
+    Returns voice-friendly summary of contract requirements.
+    """
+    # Find property
+    query = address_query.lower()
+    property = db.query(Property).filter(Property.address.ilike(f"%{query}%")).first()
+
+    if not property:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No property found matching '{address_query}'"
+        )
+
+    # Get status
+    status = contract_auto_attach_service.get_required_contracts_status(db, property)
+
+    # Build voice response
+    if status["is_ready_to_close"]:
+        voice_response = (
+            f"Great news! {property.address} has all {status['total_required']} "
+            f"required contracts completed. The property is ready to close."
+        )
+    else:
+        voice_response = f"Contract status for {property.address}:\n"
+
+        if status["completed"] > 0:
+            voice_response += f"✅ {status['completed']} contracts completed\n"
+
+        if status["in_progress"] > 0:
+            voice_response += f"⏳ {status['in_progress']} contracts in progress\n"
+
+        if status["missing"] > 0:
+            voice_response += f"❌ {status['missing']} contracts not yet created\n"
+            voice_response += "\nMissing contracts:\n"
+            for t in status["missing_templates"][:3]:
+                voice_response += f"• {t.name}\n"
+
+        voice_response += f"\nThe property is not ready to close yet."
+
+    return {
+        "property_address": property.address,
+        "is_ready_to_close": status["is_ready_to_close"],
+        "total_required": status["total_required"],
+        "completed": status["completed"],
+        "in_progress": status["in_progress"],
+        "missing": status["missing"],
+        "voice_response": voice_response
     }

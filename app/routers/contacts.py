@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.property import Property
 from app.models.contact import Contact, ContactRole
+from app.services.notification_service import notification_service
 from app.schemas.contact import (
     ContactCreate,
     ContactUpdate,
@@ -15,6 +16,18 @@ from app.schemas.contact import (
 )
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
+
+
+# Helper function to get WebSocket manager
+def get_ws_manager():
+    """Get WebSocket manager from main module"""
+    try:
+        import sys
+        if 'app.main' in sys.modules:
+            return sys.modules['app.main'].manager
+    except:
+        pass
+    return None
 
 
 # Role aliases for voice input
@@ -85,7 +98,7 @@ def format_role_for_voice(role: ContactRole) -> str:
 
 
 @router.post("/", response_model=ContactResponse, status_code=201)
-def create_contact(contact: ContactCreate, db: Session = Depends(get_db)):
+async def create_contact(contact: ContactCreate, db: Session = Depends(get_db)):
     """Create a contact for a property."""
     property = db.query(Property).filter(Property.id == contact.property_id).first()
     if not property:
@@ -107,6 +120,22 @@ def create_contact(contact: ContactCreate, db: Session = Depends(get_db)):
     db.add(new_contact)
     db.commit()
     db.refresh(new_contact)
+
+    # Send notification for new leads (buyers/sellers)
+    if contact.role in [ContactRole.BUYER, ContactRole.SELLER]:
+        manager = get_ws_manager()
+        await notification_service.notify_new_lead(
+            db=db,
+            manager=manager,
+            contact_id=new_contact.id,
+            contact_name=new_contact.name,
+            contact_email=new_contact.email,
+            contact_phone=new_contact.phone,
+            property_address=property.address,
+            property_id=property.id,
+            lead_source="Manual Entry"
+        )
+
     return new_contact
 
 

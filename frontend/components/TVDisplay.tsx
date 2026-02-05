@@ -10,6 +10,10 @@ import { LiveIndicator } from './LiveIndicator'
 import { PropertyDetailView } from './PropertyDetailView'
 import { LiveNotification } from './LiveNotification'
 import { EnrichmentAnimation } from './EnrichmentAnimation'
+import { NotificationContainer } from './NotificationToast'
+import { RealtimeActivityFeed } from './RealtimeActivityFeed'
+import { ConnectionStatus } from './ConnectionStatus'
+import { FullScreenActivityDisplay } from './FullScreenActivityDisplay'
 
 interface Notification {
   id: string
@@ -32,6 +36,8 @@ export const TVDisplay: React.FC = () => {
     setFocusedProperty,
     isEnriching,
     enrichingPropertyAddress,
+    notifications: storeNotifications,
+    dismissNotification: storeDismissNotification,
   } = useAgentStore()
 
   const [isLoading, setIsLoading] = useState(true)
@@ -308,8 +314,17 @@ export const TVDisplay: React.FC = () => {
         <EnrichmentAnimation propertyAddress={enrichingPropertyAddress} />
       )}
 
+      {/* Full Screen Activity Display */}
+      <FullScreenActivityDisplay />
+
+      {/* Connection Status */}
+      <ConnectionStatus />
+
+      {/* Realtime Activity Feed */}
+      <RealtimeActivityFeed />
+
       {/* Live Notifications */}
-      <div className="fixed top-24 right-8 z-50 space-y-4">
+      <div className="fixed top-24 right-8 z-40 space-y-4">
         {notifications.map((notification, index) => (
           <div
             key={notification.id}
@@ -340,6 +355,12 @@ export const TVDisplay: React.FC = () => {
           background: rgba(59, 130, 246, 1);
         }
       `}</style>
+
+      {/* Real-time Notification Toasts */}
+      <NotificationContainer
+        notifications={storeNotifications}
+        onDismiss={storeDismissNotification}
+      />
     </div>
   )
 }

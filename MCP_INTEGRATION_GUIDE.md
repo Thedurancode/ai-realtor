@@ -6,6 +6,43 @@
 
 ---
 
+## Property Management MCP Tools
+
+The AI Realtor MCP server now includes **12 tools** for managing properties, notifications, and contracts:
+
+### Property Tools (7)
+1. **list_properties** - List all properties with optional filtering
+2. **get_property** - Get detailed property information
+3. **create_property** - Create new property with address validation
+4. **delete_property** - Delete property and related data
+5. **enrich_property** - Enrich with Zillow data
+6. **skip_trace_property** - Find property owner information
+7. **add_contact** - Add contacts to properties
+
+### Notification Tools (2)
+8. **send_notification** - Send custom notifications to TV display
+9. **list_notifications** - View notification history
+
+### Contract Tools (3) ✨ NEW
+10. **send_contract** - Send contracts via DocuSeal for e-signature
+11. **check_contract_status** - Check contract signing status
+12. **list_contracts** - List all contracts with details
+
+**Quick Examples:**
+```
+"Create a property at 456 Oak St for $425,000"
+"Enrich property 5 with Zillow data"
+"Send a celebration notification - we closed 10 deals!"
+"Send a purchase agreement to the buyer for property 3"
+"Check the status of contract 5"
+```
+
+For detailed documentation:
+- Notifications: [MCP_NOTIFICATIONS.md](./MCP_NOTIFICATIONS.md)
+- Contracts: [MCP_CONTRACTS.md](./MCP_CONTRACTS.md)
+
+---
+
 ## Available MCP Servers
 
 ### 1. Context7 MCP (Documentation)

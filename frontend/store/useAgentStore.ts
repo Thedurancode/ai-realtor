@@ -99,6 +99,20 @@ export interface Property {
   skip_traces?: SkipTrace[]
 }
 
+export interface Notification {
+  id: number
+  type: string
+  priority: string
+  title: string
+  message: string
+  icon?: string
+  property_id?: number
+  contact_id?: number
+  contract_id?: number
+  auto_dismiss_seconds?: number
+  created_at: string
+}
+
 interface AgentState {
   // Agent state
   isSpeaking: boolean
@@ -117,6 +131,9 @@ interface AgentState {
   enrichingPropertyId: number | null
   enrichingPropertyAddress: string | null
 
+  // Notifications
+  notifications: Notification[]
+
   // Actions
   setIsSpeaking: (speaking: boolean) => void
   setCurrentMessage: (message: string) => void
@@ -127,6 +144,8 @@ interface AgentState {
   setCurrentProperty: (property: Property | null) => void
   setFocusedProperty: (property: Property | null) => void
   setEnrichmentStatus: (isEnriching: boolean, propertyId?: number | null, address?: string | null) => void
+  addNotification: (notification: Notification) => void
+  dismissNotification: (id: number) => void
 }
 
 export const useAgentStore = create<AgentState>((set) => ({
@@ -141,6 +160,7 @@ export const useAgentStore = create<AgentState>((set) => ({
   isEnriching: false,
   enrichingPropertyId: null,
   enrichingPropertyAddress: null,
+  notifications: [],
 
   setIsSpeaking: (speaking) => set({ isSpeaking: speaking }),
   setCurrentMessage: (message) => set({ currentMessage: message }),
@@ -152,4 +172,12 @@ export const useAgentStore = create<AgentState>((set) => ({
   setFocusedProperty: (property) => set({ focusedProperty: property }),
   setEnrichmentStatus: (isEnriching, propertyId = null, address = null) =>
     set({ isEnriching, enrichingPropertyId: propertyId, enrichingPropertyAddress: address }),
+  addNotification: (notification) =>
+    set((state) => ({
+      notifications: [notification, ...state.notifications].slice(0, 5), // Keep last 5
+    })),
+  dismissNotification: (id) =>
+    set((state) => ({
+      notifications: state.notifications.filter((n) => n.id !== id),
+    })),
 }))

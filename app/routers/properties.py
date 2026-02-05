@@ -12,8 +12,21 @@ from app.schemas.property import (
     PropertyCreateFromVoiceResponse,
 )
 from app.services.google_places import google_places_service
+from app.services.contract_auto_attach import contract_auto_attach_service
 
 router = APIRouter(prefix="/properties", tags=["properties"])
+
+
+# Helper function to get WebSocket manager
+def get_ws_manager():
+    """Get WebSocket manager from main module"""
+    try:
+        import sys
+        if 'app.main' in sys.modules:
+            return sys.modules['app.main'].manager
+    except:
+        pass
+    return None
 
 
 @router.post("/", response_model=PropertyResponse, status_code=201)
@@ -26,6 +39,10 @@ def create_property(property: PropertyCreate, db: Session = Depends(get_db)):
     db.add(new_property)
     db.commit()
     db.refresh(new_property)
+
+    # Auto-attach required contracts
+    contract_auto_attach_service.auto_attach_contracts(db, new_property)
+
     return new_property
 
 
@@ -71,6 +88,9 @@ async def create_property_from_voice(
     db.commit()
     db.refresh(new_property)
 
+    # Auto-attach required contracts
+    attached_contracts = contract_auto_attach_service.auto_attach_contracts(db, new_property)
+
     price_formatted = f"${property.price:,.0f}"
     beds_info = f"{property.bedrooms} bedroom" if property.bedrooms else ""
     baths_info = f"{property.bathrooms} bathroom" if property.bathrooms else ""
@@ -83,6 +103,12 @@ async def create_property_from_voice(
     )
     if property_details:
         voice_confirmation += f", {property_details}"
+
+    # Mention attached contracts
+    if attached_contracts:
+        contract_count = len(attached_contracts)
+        voice_confirmation += f". I've also attached {contract_count} required contract{'s' if contract_count != 1 else ''} that need to be signed"
+
     voice_confirmation += ". Is there anything you'd like to change?"
 
     return PropertyCreateFromVoiceResponse(
@@ -148,12 +174,18 @@ def get_property(property_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/{property_id}", response_model=PropertyResponse)
-def update_property(
+async def update_property(
     property_id: int, property: PropertyUpdate, db: Session = Depends(get_db)
 ):
+    from app.services.notification_service import notification_service
+
     db_property = db.query(Property).filter(Property.id == property_id).first()
     if not db_property:
         raise HTTPException(status_code=404, detail="Property not found")
+
+    # Store old values for change detection
+    old_price = db_property.price
+    old_status = db_property.status
 
     update_data = property.model_dump(exclude_unset=True)
 
@@ -167,6 +199,34 @@ def update_property(
 
     db.commit()
     db.refresh(db_property)
+
+    # Send notifications for changes
+    manager = get_ws_manager()
+
+    # Price change notification
+    if "price" in update_data and old_price and db_property.price != old_price:
+        await notification_service.notify_property_price_change(
+            db=db,
+            manager=manager,
+            property_id=db_property.id,
+            property_address=db_property.address,
+            old_price=old_price,
+            new_price=db_property.price,
+            agent_id=db_property.agent_id
+        )
+
+    # Status change notification
+    if "status" in update_data and old_status and db_property.status != old_status:
+        await notification_service.notify_property_status_change(
+            db=db,
+            manager=manager,
+            property_id=db_property.id,
+            property_address=db_property.address,
+            old_status=old_status.value if old_status else "unknown",
+            new_status=db_property.status.value if db_property.status else "unknown",
+            agent_id=db_property.agent_id
+        )
+
     return db_property
 
 
