@@ -888,6 +888,13 @@ async def call_property_owner_skip_trace(
         db.close()
 
 
+async def test_webhook_configuration() -> dict:
+    """Test webhook configuration and get setup instructions"""
+    response = requests.get(f"{API_BASE_URL}/webhooks/docuseal/test")
+    response.raise_for_status()
+    return response.json()
+
+
 # Create MCP server
 app = Server("property-management")
 
@@ -1399,6 +1406,14 @@ async def list_tools() -> list[Tool]:
                     }
                 },
                 "required": ["property_id"]
+            }
+        ),
+        Tool(
+            name="test_webhook_configuration",
+            description="🔗 TEST WEBHOOK SETUP: Check DocuSeal webhook configuration status and get setup instructions. Shows webhook URL, whether secret is configured, supported events, and step-by-step setup guide for connecting DocuSeal to automatically update contracts when signed.",
+            inputSchema={
+                "type": "object",
+                "properties": {}
             }
         )
     ]
@@ -1964,6 +1979,30 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(
                 type="text",
                 text=call_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "test_webhook_configuration":
+            result = await test_webhook_configuration()
+
+            # Format result
+            webhook_text = f"🔗 WEBHOOK CONFIGURATION STATUS\n\n"
+            webhook_text += f"Webhook URL: {result['webhook_url']}\n"
+            webhook_text += f"Secret Configured: {'✅ YES' if result['webhook_secret_configured'] else '⚠️ NO'}\n\n"
+
+            webhook_text += f"📋 SUPPORTED EVENTS:\n"
+            for event in result['supported_events']:
+                webhook_text += f"  • {event}\n"
+
+            webhook_text += f"\n📝 SETUP INSTRUCTIONS:\n"
+            for step_num, instruction in result['instructions'].items():
+                webhook_text += f"  {step_num}. {instruction}\n"
+
+            if not result['webhook_secret_configured']:
+                webhook_text += f"\n⚠️ WARNING: Webhook secret not configured! Set DOCUSEAL_WEBHOOK_SECRET environment variable for security.\n"
+
+            return [TextContent(
+                type="text",
+                text=webhook_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
             )]
 
         else:

@@ -10,9 +10,11 @@ class ContractStatus(str, enum.Enum):
     DRAFT = "draft"
     SENT = "sent"
     IN_PROGRESS = "in_progress"
+    PENDING_SIGNATURE = "pending_signature"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     EXPIRED = "expired"
+    ARCHIVED = "archived"
 
 
 class RequirementSource(str, enum.Enum):
