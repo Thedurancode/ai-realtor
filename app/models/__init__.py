@@ -4,9 +4,11 @@ from app.models.skip_trace import SkipTrace
 from app.models.contact import Contact
 from app.models.todo import Todo
 from app.models.contract import Contract
+from app.models.contract_template import ContractTemplate
 from app.models.agent_preference import AgentPreference
 from app.models.contract_submitter import ContractSubmitter
 from app.models.zillow_enrichment import ZillowEnrichment
 from app.models.activity_event import ActivityEvent
+from app.models.property_recap import PropertyRecap
 
-__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent"]
+__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap"]
