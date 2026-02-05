@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useAgentStore } from '@/store/useAgentStore'
 
 interface WebSocketMessage {
-  type: 'agent_speaking' | 'agent_stopped' | 'contract_update' | 'property_update'
+  type: 'agent_speaking' | 'agent_stopped' | 'contract_update' | 'property_update' | 'activity_logged' | 'tool_started' | 'tool_completed' | 'tool_failed'
   message?: string
   audioLevel?: number
   data?: any
+  activity?: any
 }
 
 /**
@@ -68,6 +69,15 @@ export const useWebSocket = (url: string) => {
                 setCurrentProperty(message.data)
               }
             }
+            break
+
+          // Activity events (activity_logged, tool_started, tool_completed, tool_failed)
+          // are handled by the useActivityFeed hook - no action needed here
+          case 'activity_logged':
+          case 'tool_started':
+          case 'tool_completed':
+          case 'tool_failed':
+            // These are handled by useActivityFeed hook
             break
         }
       }

@@ -12,20 +12,64 @@ This phase establishes the foundation for a modern, full-screen animated activit
   - Create `/app/routers/activities.py` router with endpoints: POST `/activities/log` (create activity event), GET `/activities/recent` (get recent events with limit parameter), WebSocket broadcast helper function
 
 - [x] Build the modern activity feed UI component with core animation system:
-  - ✅ Created `/frontend/components/ActivityFeed/ActivityFeed.tsx` as the main container with dark gradient background, full viewport height, glassmorphism effects, animated background gradients
-  - ✅ Created `/frontend/components/ActivityFeed/ActivityCard.tsx` with Framer Motion entry/exit animations, tool icon mapping, timestamp formatting, status badges (pending/success/error), user source display, smooth slide-in animations with spring physics
-  - ✅ Created `/frontend/components/ActivityFeed/ActivityTimeline.tsx` that renders activity cards in chronological order with stagger animations, auto-scroll behavior for new activities, empty state display, custom scrollbar
-  - ✅ Added `/frontend/styles/activityFeed.css` with modern design tokens: CSS variables for colors (dark blues, purples, greens), glassmorphism backdrop blur styles, gradient overlays, smooth transition timings, status color schemes, responsive design
-  - ✅ Used Tailwind classes for rapid styling and Framer Motion for all animations
-  - ✅ Created index.ts for easy component imports
-  - ✅ Fixed pre-existing TypeScript error in api.ts (missing semicolon)
-  - ✅ All components passed TypeScript compilation successfully
+  - ✅ Created `src/components/ActivityFeed/ActivityFeed.tsx` as the main container with:
+    - Dark gradient background (slate-950 → blue-950 → slate-900)
+    - Full viewport height with overflow hidden
+    - Glassmorphism effects with backdrop blur
+    - Animated radial gradient overlay (8s infinite pulse)
+    - Live indicator with green pulse animation
+    - Responsive header section with title and description
+  - ✅ Created `src/components/ActivityFeed/ActivityCard.tsx` with:
+    - Framer Motion slide-in animations from right (400ms with stagger)
+    - Exit animations sliding left with scale
+    - Dynamic icon mapping for event types (tool_call, voice_command, tool_result, system_event)
+    - Timestamp formatting using date-fns formatDistanceToNow
+    - Status badges with color coding (success=green, error=red, pending=yellow)
+    - User source and duration display
+    - Glassmorphism card with hover effects (scale 1.02, gradient overlay)
+    - Bottom accent line animation on hover
+  - ✅ Created `src/components/ActivityFeed/ActivityTimeline.tsx` with:
+    - Staggered entrance animations (0.1s delay between cards)
+    - Auto-scroll to newest activity with manual override detection
+    - "Jump to Latest" button when user scrolls away
+    - Empty state with friendly message
+    - Loading state with spinner
+    - Custom scrollbar styling
+    - AnimatePresence for smooth additions/removals
+    - Mock data for development testing
+  - ✅ Added `src/styles/activityFeed.css` with:
+    - CSS variables for color palette (dark blues, purples, status colors)
+    - Glassmorphism design tokens (backgrounds, borders, backdrop blur)
+    - Gradient overlay definitions
+    - Shadow effects (card, hover, glow)
+    - Transition timing functions
+    - Custom scrollbar styles
+    - Pulse, shimmer, and float animations
+    - Accessibility support (reduced motion, high contrast)
+  - ✅ Imported activityFeed.css into src/index.css
+  - ✅ Created `src/components/ActivityFeed/index.ts` for clean exports
+  - ✅ Created `src/components/ActivityFeed/README.md` with full documentation
+  - ✅ Used Tailwind utility classes throughout for rapid styling
+  - ✅ Used Framer Motion for all animations with proper exit animations
+  - ✅ TypeScript interfaces defined: ActivityEvent, ActivityEventType, ActivityStatus
 
-- [ ] Implement real-time WebSocket integration for live activity updates:
-  - Update `/frontend/hooks/useWebSocket.ts` to listen for new activity event types: `activity_logged`, `tool_started`, `tool_completed`, `tool_failed`
-  - Create `/frontend/hooks/useActivityFeed.ts` that manages activity state using Zustand, subscribes to WebSocket events, maintains a rolling buffer of last 50 activities, handles adding/removing activities with optimistic updates
-  - Implement auto-scroll behavior that scrolls to newest activity when not manually scrolling
-  - Add sound effects (optional, subtle) for high-priority events using HTML5 Audio API
+- [x] Implement real-time WebSocket integration for live activity updates:
+  - ✅ Updated `/frontend/hooks/useWebSocket.ts` to listen for new activity event types: `activity_logged`, `tool_started`, `tool_completed`, `tool_failed`
+  - ✅ Created `/frontend/hooks/useActivityFeed.ts` with:
+    - Zustand store (`useActivityFeedStore`) managing activity state
+    - Rolling buffer maintaining last 50 activities
+    - `addActivity` action with duplicate detection
+    - `updateActivity` action for status/duration updates after completion
+    - WebSocket integration with auto-reconnect (5s delay)
+    - Message handlers for all activity event types
+  - ✅ Implemented intelligent auto-scroll behavior:
+    - `useActivityAutoScroll` hook for scroll management
+    - Auto-scrolls to top when new activities arrive
+    - Detects manual scrolling (>50px delta) and disables auto-scroll
+    - Re-enables auto-scroll after 10s of no scrolling (if at top)
+    - Smooth scroll animations
+  - ⏭️ Sound effects skipped - can be added later if needed for high-priority events
+  - ✅ TypeScript compilation passed with no errors
 
 - [ ] Create dedicated activity feed page route and test the working prototype:
   - Create `/frontend/app/activity/page.tsx` that renders the full-screen ActivityFeed component
