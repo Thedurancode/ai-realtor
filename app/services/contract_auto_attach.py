@@ -153,6 +153,9 @@ class ContractAutoAttachService:
         """
         Get status of all required contracts for a property.
 
+        Now respects manual overrides and AI suggestions - only considers
+        contracts where is_required=True.
+
         Returns:
         {
             "total_required": 5,
@@ -164,44 +167,39 @@ class ContractAutoAttachService:
             "incomplete_contracts": [...]
         }
         """
-        # Get all required templates
+        # Get existing contracts marked as required
+        existing_contracts = db.query(Contract).filter(
+            Contract.property_id == property.id,
+            Contract.is_required == True
+        ).all()
+
+        # Categorize by status
+        completed = [c for c in existing_contracts if c.status == ContractStatus.COMPLETED]
+        in_progress = [c for c in existing_contracts if c.status != ContractStatus.COMPLETED]
+
+        # Check for missing required templates (templates not yet attached)
         required_templates = self.get_applicable_templates(db, property)
         required_templates = [
             t for t in required_templates
             if t.requirement == ContractRequirement.REQUIRED
         ]
 
-        # Get existing contracts
-        existing_contracts = db.query(Contract).filter(
-            Contract.property_id == property.id
-        ).all()
+        existing_names = {c.name.lower() for c in existing_contracts}
+        missing_templates = [
+            t for t in required_templates
+            if t.name.lower() not in existing_names
+        ]
 
-        # Map contracts by name
-        contract_map = {c.name.lower(): c for c in existing_contracts}
-
-        completed = []
-        in_progress = []
-        missing_templates = []
-
-        for template in required_templates:
-            contract = contract_map.get(template.name.lower())
-
-            if not contract:
-                # Missing contract
-                missing_templates.append(template)
-            elif contract.status == ContractStatus.COMPLETED:
-                completed.append(contract)
-            else:
-                in_progress.append(contract)
+        total_required = len(existing_contracts) + len(missing_templates)
 
         is_ready_to_close = (
             len(missing_templates) == 0 and
             len(in_progress) == 0 and
-            len(completed) == len(required_templates)
+            total_required > 0  # Must have at least one required contract
         )
 
         return {
-            "total_required": len(required_templates),
+            "total_required": total_required,
             "completed": len(completed),
             "in_progress": len(in_progress),
             "missing": len(missing_templates),

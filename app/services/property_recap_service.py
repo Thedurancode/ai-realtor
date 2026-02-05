@@ -1,0 +1,323 @@
+"""
+Property Recap Service
+
+Generates and maintains AI-powered property summaries that automatically
+update when property data changes. Used for phone calls and voice interactions.
+"""
+import os
+from typing import Optional
+from sqlalchemy.orm import Session
+from anthropic import Anthropic
+import json
+
+from app.models.property import Property
+from app.models.property_recap import PropertyRecap
+from app.models.contract import Contract, ContractStatus
+from app.models.zillow_enrichment import ZillowEnrichment
+from app.models.contact import Contact
+from app.services.contract_auto_attach import contract_auto_attach_service
+
+
+class PropertyRecapService:
+    """Generate and manage AI property recaps"""
+
+    def __init__(self):
+        self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+    async def generate_recap(
+        self,
+        db: Session,
+        property: Property,
+        trigger: str = "manual"
+    ) -> PropertyRecap:
+        """
+        Generate or update AI recap for a property.
+
+        Args:
+            db: Database session
+            property: Property to recap
+            trigger: What triggered this update (e.g., "property_created", "contract_signed")
+
+        Returns:
+            PropertyRecap with AI-generated content
+        """
+        # Gather all property data
+        context = self._gather_property_context(db, property)
+
+        # Generate AI recap
+        recap_text, voice_summary, structured_context = await self._generate_ai_recap(context)
+
+        # Get or create recap record
+        recap = db.query(PropertyRecap).filter(
+            PropertyRecap.property_id == property.id
+        ).first()
+
+        if recap:
+            # Update existing
+            recap.recap_text = recap_text
+            recap.voice_summary = voice_summary
+            recap.recap_context = structured_context
+            recap.last_trigger = trigger
+            recap.version += 1
+        else:
+            # Create new
+            recap = PropertyRecap(
+                property_id=property.id,
+                recap_text=recap_text,
+                voice_summary=voice_summary,
+                recap_context=structured_context,
+                last_trigger=trigger,
+                version=1
+            )
+            db.add(recap)
+
+        db.commit()
+        db.refresh(recap)
+
+        return recap
+
+    def _gather_property_context(self, db: Session, property: Property) -> dict:
+        """Gather all relevant property data for recap generation"""
+
+        # Get contracts
+        contracts = db.query(Contract).filter(
+            Contract.property_id == property.id
+        ).all()
+
+        # Get enrichment data
+        enrichment = db.query(ZillowEnrichment).filter(
+            ZillowEnrichment.property_id == property.id
+        ).first()
+
+        # Get contacts
+        contacts = db.query(Contact).filter(
+            Contact.property_id == property.id
+        ).all()
+
+        # Get contract readiness
+        readiness = contract_auto_attach_service.get_required_contracts_status(db, property)
+
+        return {
+            "property": {
+                "id": property.id,
+                "address": f"{property.address}, {property.city}, {property.state} {property.zip_code}",
+                "price": property.price,
+                "bedrooms": property.bedrooms,
+                "bathrooms": property.bathrooms,
+                "square_feet": property.square_feet,
+                "property_type": property.property_type.value if property.property_type else None,
+                "status": property.status.value if property.status else None,
+                "year_built": property.year_built,
+            },
+            "contracts": [
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "status": c.status.value,
+                    "is_required": c.is_required,
+                    "requirement_source": c.requirement_source.value if c.requirement_source else None,
+                }
+                for c in contracts
+            ],
+            "contract_readiness": {
+                "is_ready_to_close": readiness.get("is_ready_to_close", False),
+                "total_required": readiness.get("total_required", 0),
+                "completed": readiness.get("completed", 0),
+                "in_progress": readiness.get("in_progress", 0),
+                "missing": readiness.get("missing", 0),
+            },
+            "enrichment": {
+                "zestimate": enrichment.zestimate if enrichment else None,
+                "rent_zestimate": enrichment.rent_zestimate if enrichment else None,
+                "schools": enrichment.schools[:3] if enrichment and enrichment.schools else [],
+            } if enrichment else None,
+            "contacts": [
+                {
+                    "name": c.name,
+                    "role": c.role,
+                    "email": c.email,
+                    "phone": c.phone,
+                }
+                for c in contacts
+            ],
+        }
+
+    async def _generate_ai_recap(self, context: dict) -> tuple[str, str, dict]:
+        """
+        Generate AI recap from property context.
+
+        Returns:
+            (recap_text, voice_summary, structured_context)
+        """
+        property_info = context["property"]
+        contracts_info = context["contracts"]
+        readiness_info = context["contract_readiness"]
+        enrichment_info = context.get("enrichment")
+        contacts_info = context["contacts"]
+
+        # Build prompt
+        prompt = f"""You are a real estate assistant generating a comprehensive property summary for phone calls and voice interactions.
+
+PROPERTY DETAILS:
+Address: {property_info['address']}
+Price: ${property_info['price']:,.0f}
+Type: {property_info['property_type']}
+Status: {property_info['status']}
+Bedrooms: {property_info['bedrooms'] or 'N/A'}
+Bathrooms: {property_info['bathrooms'] or 'N/A'}
+Square Feet: {property_info['square_feet'] or 'N/A'}
+Year Built: {property_info['year_built'] or 'N/A'}
+
+CONTRACT STATUS:
+Ready to Close: {'YES' if readiness_info['is_ready_to_close'] else 'NO'}
+Total Required Contracts: {readiness_info['total_required']}
+Completed: {readiness_info['completed']}
+In Progress: {readiness_info['in_progress']}
+Missing: {readiness_info['missing']}
+
+Contracts:
+{self._format_contracts_for_prompt(contracts_info)}
+
+{"ENRICHMENT DATA:" if enrichment_info else ""}
+{self._format_enrichment_for_prompt(enrichment_info) if enrichment_info else ""}
+
+CONTACTS ({len(contacts_info)}):
+{self._format_contacts_for_prompt(contacts_info)}
+
+Generate TWO summaries:
+
+1. DETAILED RECAP (3-4 paragraphs):
+   - Comprehensive property overview
+   - Current status and transaction readiness
+   - Contract status and what's needed
+   - Key highlights and concerns
+   - Next steps
+
+2. VOICE SUMMARY (2-3 sentences):
+   - Ultra-concise for phone/TTS
+   - Focus on most critical info
+   - Natural conversational tone
+   - Perfect for "Tell me about this property"
+
+Return as JSON:
+{{
+    "detailed_recap": "...",
+    "voice_summary": "...",
+    "key_facts": [
+        "3 bed, 2 bath condo",
+        "Ready to close",
+        "All contracts signed"
+    ],
+    "concerns": [
+        "Missing lead paint disclosure"
+    ],
+    "next_steps": [
+        "Schedule final walkthrough",
+        "Review closing documents"
+    ]
+}}"""
+
+        # Call Claude
+        response = self.client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        # Parse response
+        response_text = response.content[0].text
+
+        # Extract JSON
+        import re
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+        else:
+            result = json.loads(response_text)
+
+        # Build structured context for VAPI
+        structured_context = {
+            "property": property_info,
+            "contracts": contracts_info,
+            "readiness": readiness_info,
+            "enrichment": enrichment_info,
+            "contacts": contacts_info,
+            "ai_summary": {
+                "detailed": result.get("detailed_recap", ""),
+                "voice": result.get("voice_summary", ""),
+                "key_facts": result.get("key_facts", []),
+                "concerns": result.get("concerns", []),
+                "next_steps": result.get("next_steps", []),
+            }
+        }
+
+        recap_text = result.get("detailed_recap", "")
+        voice_summary = result.get("voice_summary", "")
+
+        return recap_text, voice_summary, structured_context
+
+    def _format_contracts_for_prompt(self, contracts: list) -> str:
+        """Format contracts for AI prompt"""
+        if not contracts:
+            return "  None"
+
+        lines = []
+        for c in contracts:
+            req_status = "REQUIRED" if c.get("is_required") else "OPTIONAL"
+            lines.append(
+                f"  - {c['name']}: {c['status'].upper()} ({req_status}, source: {c.get('requirement_source', 'unknown')})"
+            )
+        return "\n".join(lines)
+
+    def _format_enrichment_for_prompt(self, enrichment: dict) -> str:
+        """Format enrichment data for AI prompt"""
+        if not enrichment:
+            return ""
+
+        lines = []
+        if enrichment.get("zestimate"):
+            lines.append(f"Zestimate: ${enrichment['zestimate']:,.0f}")
+        if enrichment.get("rent_zestimate"):
+            lines.append(f"Rent Zestimate: ${enrichment['rent_zestimate']:,.0f}/month")
+        if enrichment.get("schools"):
+            lines.append(f"Nearby Schools: {len(enrichment['schools'])} (top rated)")
+
+        return "\n".join(lines)
+
+    def _format_contacts_for_prompt(self, contacts: list) -> str:
+        """Format contacts for AI prompt"""
+        if not contacts:
+            return "  None"
+
+        lines = []
+        for c in contacts:
+            lines.append(f"  - {c['name']} ({c['role']})")
+        return "\n".join(lines)
+
+    def get_recap(self, db: Session, property_id: int) -> Optional[PropertyRecap]:
+        """Get existing recap for a property"""
+        return db.query(PropertyRecap).filter(
+            PropertyRecap.property_id == property_id
+        ).first()
+
+    async def ensure_recap_exists(
+        self,
+        db: Session,
+        property: Property,
+        trigger: str = "auto"
+    ) -> PropertyRecap:
+        """
+        Ensure a recap exists for a property, creating if needed.
+        Used for lazy generation.
+        """
+        recap = self.get_recap(db, property.id)
+
+        if not recap:
+            # Generate for first time
+            recap = await self.generate_recap(db, property, trigger)
+
+        return recap
+
+
+# Singleton instance
+property_recap_service = PropertyRecapService()

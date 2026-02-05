@@ -29,7 +29,9 @@ from app.services.docuseal import docuseal_client
 from app.services.resend_service import resend_service
 from app.services.notification_service import notification_service
 from app.services.contract_auto_attach import contract_auto_attach_service
-from app.models.contract_template import ContractRequirement
+from app.services.contract_ai_service import contract_ai_service
+from app.models.contract_template import ContractRequirement, ContractTemplate
+from app.models.contract import RequirementSource
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
@@ -1319,4 +1321,258 @@ def check_contracts_voice(
         "in_progress": status["in_progress"],
         "missing": status["missing"],
         "voice_response": voice_response
+    }
+
+
+# ========== AI-POWERED CONTRACT SUGGESTIONS ==========
+
+@router.post("/property/{property_id}/ai-suggest", response_model=dict)
+async def ai_suggest_contracts(
+    property_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Use AI to analyze property and suggest which contracts are required.
+
+    Claude AI analyzes:
+    - Property location, type, price
+    - State/local regulations
+    - Standard industry practices
+    - Risk factors
+
+    Returns detailed suggestions with reasoning for each contract.
+    """
+    property = db.query(Property).filter(Property.id == property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    suggestions = await contract_ai_service.suggest_required_contracts(db, property)
+
+    return suggestions
+
+
+@router.post("/property/{property_id}/ai-apply-suggestions", response_model=dict)
+async def apply_ai_suggestions(
+    property_id: int,
+    only_required: bool = True,
+    db: Session = Depends(get_db)
+):
+    """
+    Apply AI suggestions by creating contracts for the property.
+
+    Args:
+        only_required: If true, only create contracts AI marked as required.
+                      If false, create all suggested contracts.
+
+    Returns list of contracts created.
+    """
+    property = db.query(Property).filter(Property.id == property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    # Get AI suggestions
+    suggestions = await contract_ai_service.suggest_required_contracts(db, property)
+
+    # Get existing contracts to avoid duplicates
+    existing_contracts = db.query(Contract).filter(
+        Contract.property_id == property_id
+    ).all()
+    existing_names = {c.name.lower() for c in existing_contracts}
+
+    created_contracts = []
+
+    # Process required contracts
+    for suggestion in suggestions.get("required_contracts", []):
+        template_id = suggestion.get("template_id")
+        contract_name = suggestion.get("name")
+        reason = suggestion.get("reason")
+
+        # Skip if already exists
+        if contract_name.lower() in existing_names:
+            continue
+
+        # Get template
+        template = db.query(ContractTemplate).filter(
+            ContractTemplate.id == template_id
+        ).first()
+
+        if template:
+            contract = Contract(
+                property_id=property_id,
+                name=template.name,
+                description=template.description,
+                docuseal_template_id=template.docuseal_template_id,
+                is_required=True,
+                requirement_source=RequirementSource.AI_SUGGESTED,
+                requirement_reason=reason,
+                status=ContractStatus.DRAFT
+            )
+            db.add(contract)
+            created_contracts.append(contract)
+
+    # Process optional contracts if requested
+    if not only_required:
+        for suggestion in suggestions.get("optional_contracts", []):
+            template_id = suggestion.get("template_id")
+            contract_name = suggestion.get("name")
+            reason = suggestion.get("reason")
+
+            # Skip if already exists
+            if contract_name.lower() in existing_names:
+                continue
+
+            # Get template
+            template = db.query(ContractTemplate).filter(
+                ContractTemplate.id == template_id
+            ).first()
+
+            if template:
+                contract = Contract(
+                    property_id=property_id,
+                    name=template.name,
+                    description=template.description,
+                    docuseal_template_id=template.docuseal_template_id,
+                    is_required=False,
+                    requirement_source=RequirementSource.AI_SUGGESTED,
+                    requirement_reason=reason,
+                    status=ContractStatus.DRAFT
+                )
+                db.add(contract)
+                created_contracts.append(contract)
+
+    db.commit()
+
+    # Refresh all
+    for contract in created_contracts:
+        db.refresh(contract)
+
+    return {
+        "property_id": property_id,
+        "property_address": property.address,
+        "contracts_created": len(created_contracts),
+        "ai_summary": suggestions.get("summary"),
+        "contracts": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "is_required": c.is_required,
+                "requirement_reason": c.requirement_reason
+            }
+            for c in created_contracts
+        ]
+    }
+
+
+@router.get("/property/{property_id}/ai-analyze-gaps", response_model=dict)
+async def analyze_contract_gaps(
+    property_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Analyze what contracts are missing for a property.
+
+    Uses AI to determine critical vs recommended missing contracts.
+    """
+    property = db.query(Property).filter(Property.id == property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    analysis = await contract_ai_service.analyze_contract_gaps(db, property)
+
+    return analysis
+
+
+# ========== MANUAL CONTRACT REQUIREMENT MANAGEMENT ==========
+
+@router.patch("/contracts/{contract_id}/mark-required", response_model=dict)
+def mark_contract_required(
+    contract_id: int,
+    is_required: bool = True,
+    reason: Optional[str] = None,
+    required_by_date: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually mark a contract as required or optional.
+
+    Use this to override AI suggestions or template defaults.
+
+    Args:
+        is_required: True = required, False = optional
+        reason: Optional explanation for why
+        required_by_date: Optional deadline (ISO format: 2026-03-15)
+    """
+    contract = db.query(Contract).filter(Contract.id == contract_id).first()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    contract.is_required = is_required
+    contract.requirement_source = RequirementSource.MANUAL
+
+    if reason:
+        contract.requirement_reason = reason
+
+    if required_by_date:
+        from datetime import datetime
+        contract.required_by_date = datetime.fromisoformat(required_by_date)
+
+    db.commit()
+    db.refresh(contract)
+
+    return {
+        "contract_id": contract.id,
+        "name": contract.name,
+        "is_required": contract.is_required,
+        "requirement_source": contract.requirement_source.value,
+        "requirement_reason": contract.requirement_reason,
+        "required_by_date": contract.required_by_date
+    }
+
+
+@router.post("/property/{property_id}/set-required-contracts", response_model=dict)
+def set_required_contracts_for_property(
+    property_id: int,
+    contract_ids: List[int],
+    mark_all_others_optional: bool = False,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually set which contracts are required for a property.
+
+    Args:
+        contract_ids: List of contract IDs to mark as required
+        mark_all_others_optional: If true, mark all other contracts as optional
+
+    This gives you full control over which contracts are required.
+    """
+    property = db.query(Property).filter(Property.id == property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    # Get all contracts for property
+    all_contracts = db.query(Contract).filter(
+        Contract.property_id == property_id
+    ).all()
+
+    updated_contracts = []
+
+    for contract in all_contracts:
+        if contract.id in contract_ids:
+            # Mark as required
+            contract.is_required = True
+            contract.requirement_source = RequirementSource.MANUAL
+            updated_contracts.append({"id": contract.id, "name": contract.name, "is_required": True})
+        elif mark_all_others_optional:
+            # Mark as optional
+            contract.is_required = False
+            contract.requirement_source = RequirementSource.MANUAL
+            updated_contracts.append({"id": contract.id, "name": contract.name, "is_required": False})
+
+    db.commit()
+
+    return {
+        "property_id": property_id,
+        "property_address": property.address,
+        "updated_count": len(updated_contracts),
+        "contracts": updated_contracts
     }

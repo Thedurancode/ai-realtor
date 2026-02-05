@@ -51,3 +51,4 @@ class Property(Base):
     todos = relationship("Todo", back_populates="property")
     contracts = relationship("Contract", back_populates="property")
     zillow_enrichment = relationship("ZillowEnrichment", back_populates="property", uselist=False)
+    recap = relationship("PropertyRecap", back_populates="property", uselist=False)

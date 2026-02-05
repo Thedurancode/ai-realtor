@@ -4,7 +4,7 @@ from typing import List
 import json
 
 from app.database import engine, Base
-from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router
+from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -37,6 +37,7 @@ app.include_router(notifications_router)
 app.include_router(compliance_knowledge_router)
 app.include_router(compliance_router)
 app.include_router(activities_router)
+app.include_router(property_recap_router)
 
 
 # WebSocket connection manager

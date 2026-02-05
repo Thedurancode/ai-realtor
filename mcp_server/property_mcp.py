@@ -622,6 +622,272 @@ async def attach_required_contracts(property_id: Optional[int] = None, address_q
     return response.json()
 
 
+async def ai_suggest_contracts_for_property(property_id: Optional[int] = None, address_query: Optional[str] = None) -> dict:
+    """
+    Use AI to analyze property and suggest which contracts are required vs optional.
+    Returns AI-powered recommendations based on property characteristics and regulations.
+    """
+    # Find property if address provided
+    if address_query and not property_id:
+        from app.database import SessionLocal
+        from app.models.property import Property
+        from sqlalchemy import func, or_
+
+        db = SessionLocal()
+        try:
+            query_variations = normalize_voice_query(address_query)
+            property_obj = db.query(Property).filter(
+                or_(*[func.lower(Property.address).contains(var) for var in query_variations])
+            ).first()
+
+            if not property_obj:
+                raise ValueError(f"No property found matching: {address_query}")
+
+            property_id = property_obj.id
+        finally:
+            db.close()
+
+    if not property_id:
+        raise ValueError("Either property_id or address_query must be provided")
+
+    response = requests.post(f"{API_BASE_URL}/contracts/property/{property_id}/ai-suggest")
+    response.raise_for_status()
+    return response.json()
+
+
+async def apply_ai_contract_suggestions(
+    property_id: Optional[int] = None,
+    address_query: Optional[str] = None,
+    only_required: bool = True
+) -> dict:
+    """
+    Apply AI suggestions by creating contracts for the property.
+    By default, only creates contracts that AI marked as 'required'.
+    """
+    # Find property if address provided
+    if address_query and not property_id:
+        from app.database import SessionLocal
+        from app.models.property import Property
+        from sqlalchemy import func, or_
+
+        db = SessionLocal()
+        try:
+            query_variations = normalize_voice_query(address_query)
+            property_obj = db.query(Property).filter(
+                or_(*[func.lower(Property.address).contains(var) for var in query_variations])
+            ).first()
+
+            if not property_obj:
+                raise ValueError(f"No property found matching: {address_query}")
+
+            property_id = property_obj.id
+        finally:
+            db.close()
+
+    if not property_id:
+        raise ValueError("Either property_id or address_query must be provided")
+
+    response = requests.post(
+        f"{API_BASE_URL}/contracts/property/{property_id}/ai-apply-suggestions",
+        params={"only_required": only_required}
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+async def mark_contract_required(
+    contract_id: int,
+    is_required: bool = True,
+    reason: Optional[str] = None,
+    required_by_date: Optional[str] = None
+) -> dict:
+    """
+    Manually mark a contract as required or optional.
+    This overrides AI suggestions and template defaults.
+    """
+    response = requests.patch(
+        f"{API_BASE_URL}/contracts/{contract_id}/mark-required",
+        params={
+            "is_required": is_required,
+            "reason": reason,
+            "required_by_date": required_by_date
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+async def generate_property_recap(property_id: int, trigger: str = "manual") -> dict:
+    """
+    Generate or update AI recap for a property.
+    The recap includes property summary, contract status, and voice-optimized content.
+    """
+    response = requests.post(
+        f"{API_BASE_URL}/property-recap/property/{property_id}/generate",
+        params={"trigger": trigger}
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+async def get_property_recap(property_id: int) -> dict:
+    """Get existing AI recap for a property"""
+    response = requests.get(f"{API_BASE_URL}/property-recap/property/{property_id}")
+    response.raise_for_status()
+    return response.json()
+
+
+async def make_property_phone_call(
+    property_id: int,
+    phone_number: str,
+    call_purpose: str = "property_update"
+) -> dict:
+    """
+    Make a phone call about a property using VAPI.
+    Phone number must be in E.164 format (e.g., +14155551234).
+
+    Call purposes:
+    - property_update: General update
+    - contract_reminder: Remind about pending contracts
+    - closing_ready: Celebrate property ready to close
+    """
+    response = requests.post(
+        f"{API_BASE_URL}/property-recap/property/{property_id}/call",
+        json={
+            "phone_number": phone_number,
+            "call_purpose": call_purpose
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+async def call_contact_about_contract(
+    property_id: int,
+    contact_id: int,
+    contract_id: int,
+    custom_message: Optional[str] = None
+) -> dict:
+    """
+    Call a contact about a specific contract.
+
+    Example: "Call John about the Purchase Agreement that needs his signature"
+
+    The AI will:
+    - Reference the specific contract by name
+    - Explain what's needed (signature, review, etc.)
+    - Answer questions about the contract
+    - Offer to resend contract link
+    """
+    # Get contact phone number
+    from app.database import SessionLocal
+    from app.models.contact import Contact
+    from app.models.contract import Contract
+
+    db = SessionLocal()
+    try:
+        contact = db.query(Contact).filter(Contact.id == contact_id).first()
+        if not contact or not contact.phone:
+            raise ValueError(f"Contact {contact_id} not found or has no phone number")
+
+        contract = db.query(Contract).filter(Contract.id == contract_id).first()
+        if not contract:
+            raise ValueError(f"Contract {contract_id} not found")
+
+        # Build custom call with specific contract context
+        response = requests.post(
+            f"{API_BASE_URL}/property-recap/property/{property_id}/call",
+            json={
+                "phone_number": contact.phone,
+                "call_purpose": "specific_contract_reminder",
+                "custom_context": {
+                    "contact_name": contact.name,
+                    "contract_id": contract_id,
+                    "contract_name": contract.name,
+                    "contract_status": contract.status.value,
+                    "custom_message": custom_message
+                }
+            }
+        )
+        response.raise_for_status()
+
+        result = response.json()
+        result["contact_name"] = contact.name
+        result["contract_name"] = contract.name
+        return result
+
+    finally:
+        db.close()
+
+
+async def call_property_owner_skip_trace(
+    property_id: int,
+    custom_message: Optional[str] = None
+) -> dict:
+    """
+    Call property owner from skip trace data and ask if interested in selling.
+
+    Example: "Call the owner of this property and ask if they're interested in selling"
+
+    The AI will:
+    - Introduce as real estate professional
+    - Ask if they've considered selling
+    - Discuss current market conditions
+    - Answer questions about selling process
+    - Not be pushy, just exploratory
+    """
+    from app.database import SessionLocal
+    from app.models.skip_trace import SkipTrace
+    from app.models.property import Property
+
+    db = SessionLocal()
+    try:
+        # Get skip trace data
+        skip_trace = db.query(SkipTrace).filter(
+            SkipTrace.property_id == property_id
+        ).first()
+
+        if not skip_trace:
+            raise ValueError(f"No skip trace data found for property {property_id}")
+
+        # Get best phone number from skip trace
+        phone_number = None
+        if skip_trace.phone_numbers:
+            # Parse phone numbers and pick first one
+            import json
+            phones = json.loads(skip_trace.phone_numbers) if isinstance(skip_trace.phone_numbers, str) else skip_trace.phone_numbers
+            if phones and len(phones) > 0:
+                phone_number = phones[0]
+
+        if not phone_number:
+            raise ValueError("No phone number found in skip trace data")
+
+        property = db.query(Property).filter(Property.id == property_id).first()
+
+        # Make skip trace outreach call
+        response = requests.post(
+            f"{API_BASE_URL}/property-recap/property/{property_id}/call",
+            json={
+                "phone_number": phone_number,
+                "call_purpose": "skip_trace_outreach",
+                "custom_context": {
+                    "owner_name": skip_trace.owner_name,
+                    "property_address": f"{property.address}, {property.city}, {property.state}",
+                    "custom_message": custom_message
+                }
+            }
+        )
+        response.raise_for_status()
+
+        result = response.json()
+        result["owner_name"] = skip_trace.owner_name
+        result["call_type"] = "skip_trace_outreach"
+        return result
+
+    finally:
+        db.close()
+
+
 # Create MCP server
 app = Server("property-management")
 
@@ -967,6 +1233,173 @@ async def list_tools() -> list[Tool]:
                     }
                 }
             }
+        ),
+        Tool(
+            name="ai_suggest_contracts",
+            description="🤖 AI-POWERED: Use Claude AI to analyze a property and suggest which contracts are required vs optional. AI considers state/local regulations, property type, price range, and best practices. Returns intelligent recommendations with reasoning for each contract. Perfect for asking 'What contracts does this property need?'",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID to analyze (optional if address_query provided)"
+                    },
+                    "address_query": {
+                        "type": "string",
+                        "description": "Natural language address (voice-friendly). Examples: 'suggest contracts for one forty one throop', 'what contracts does main street need'. Handles phonetic variations."
+                    }
+                }
+            }
+        ),
+        Tool(
+            name="apply_ai_contract_suggestions",
+            description="🤖 AI-POWERED: Apply AI suggestions by automatically creating the recommended contracts for a property. By default, only creates contracts marked as 'required' by AI analysis. This respects AI's intelligence about what's legally necessary vs nice-to-have. Perfect for 'Apply AI contract suggestions to this property'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID (optional if address_query provided)"
+                    },
+                    "address_query": {
+                        "type": "string",
+                        "description": "Natural language address (voice-friendly). Examples: 'apply suggestions to one forty one throop', 'add AI contracts to main street'. Handles phonetic variations."
+                    },
+                    "only_required": {
+                        "type": "boolean",
+                        "description": "If true, only create contracts AI marked as 'required'. If false, create both required and optional. Default: true",
+                        "default": True
+                    }
+                }
+            }
+        ),
+        Tool(
+            name="mark_contract_required",
+            description="✋ MANUAL OVERRIDE: Manually mark a specific contract as required or optional for a property. This gives you full control to override AI suggestions and template defaults. Use when you know better than the automated systems. Perfect for 'Mark this contract as required' or 'This contract is optional'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "contract_id": {
+                        "type": "number",
+                        "description": "Contract ID to update (required)"
+                    },
+                    "is_required": {
+                        "type": "boolean",
+                        "description": "True = required, False = optional. Default: true",
+                        "default": True
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Optional: Reason for this requirement (e.g., 'Client specifically requested', 'State law requires')"
+                    },
+                    "required_by_date": {
+                        "type": "string",
+                        "description": "Optional: Deadline in ISO format (e.g., '2024-12-31T23:59:59Z')"
+                    }
+                },
+                "required": ["contract_id"]
+            }
+        ),
+        Tool(
+            name="generate_property_recap",
+            description="🤖 AI PROPERTY RECAP: Generate comprehensive AI summary of property including status, contracts, and readiness. Creates both detailed and voice-optimized summaries perfect for phone calls. Auto-updates whenever property changes. Use this before making calls or when you need a quick property overview.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID to generate recap for"
+                    },
+                    "trigger": {
+                        "type": "string",
+                        "description": "What triggered this recap (manual, property_updated, contract_signed, etc.). Default: manual",
+                        "default": "manual"
+                    }
+                },
+                "required": ["property_id"]
+            }
+        ),
+        Tool(
+            name="get_property_recap",
+            description="📖 GET PROPERTY RECAP: Retrieve existing AI-generated property summary. Returns detailed overview, voice summary, and structured context. Faster than generate if recap already exists.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID to get recap for"
+                    }
+                },
+                "required": ["property_id"]
+            }
+        ),
+        Tool(
+            name="make_property_phone_call",
+            description="📞 MAKE PHONE CALL: Make an AI-powered phone call about a property using VAPI. The AI assistant will have full property context and can answer questions. Perfect for property updates, contract reminders, or celebrating closing readiness. Automatically generates property recap if needed.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID to discuss in the call"
+                    },
+                    "phone_number": {
+                        "type": "string",
+                        "description": "Phone number to call in E.164 format (e.g., +14155551234 for US, +442071234567 for UK)"
+                    },
+                    "call_purpose": {
+                        "type": "string",
+                        "description": "Purpose of the call",
+                        "enum": ["property_update", "contract_reminder", "closing_ready"],
+                        "default": "property_update"
+                    }
+                },
+                "required": ["property_id", "phone_number"]
+            }
+        ),
+        Tool(
+            name="call_contact_about_contract",
+            description="📞💼 CALL ABOUT SPECIFIC CONTRACT: Call a contact about a specific contract that needs attention. Perfect for 'Call John about the Purchase Agreement that needs his signature'. AI will reference the exact contract, explain what's needed, and offer to resend links. More targeted than general property update.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID"
+                    },
+                    "contact_id": {
+                        "type": "number",
+                        "description": "Contact ID (the person to call)"
+                    },
+                    "contract_id": {
+                        "type": "number",
+                        "description": "Contract ID (the specific contract to discuss)"
+                    },
+                    "custom_message": {
+                        "type": "string",
+                        "description": "Optional custom message to include in the call (e.g., 'This is urgent, closing is Friday')"
+                    }
+                },
+                "required": ["property_id", "contact_id", "contract_id"]
+            }
+        ),
+        Tool(
+            name="call_property_owner_skip_trace",
+            description="📞🏠 SKIP TRACE OUTREACH CALL: Call property owner (from skip trace data) and ask if they're interested in selling. Perfect for cold calling and lead generation. AI will: introduce as real estate professional, ask about interest in selling, discuss market conditions, be respectful and not pushy. Uses phone number from skip trace data.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID (must have skip trace data)"
+                    },
+                    "custom_message": {
+                        "type": "string",
+                        "description": "Optional custom message (e.g., 'We have a buyer interested in your area', 'Market values are up 15% this year')"
+                    }
+                },
+                "required": ["property_id"]
+            }
         )
     ]
 
@@ -1264,6 +1697,273 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(
                 type="text",
                 text=contracts_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "ai_suggest_contracts":
+            property_id = arguments.get("property_id")
+            address_query = arguments.get("address_query")
+            result = await ai_suggest_contracts_for_property(property_id=property_id, address_query=address_query)
+
+            # Format AI suggestions
+            ai_text = f"🤖 AI CONTRACT SUGGESTIONS\n\n"
+            ai_text += f"Property: {result.get('property_address', 'Unknown')}\n"
+            ai_text += f"Total Suggested: {result.get('total_suggested', 0)}\n\n"
+
+            # Required contracts
+            required = result.get('required_contracts', [])
+            if required:
+                ai_text += f"✅ REQUIRED CONTRACTS ({len(required)}):\n"
+                for contract in required:
+                    ai_text += f"  • {contract['name']}\n"
+                    ai_text += f"    Reason: {contract.get('reason', 'N/A')}\n\n"
+
+            # Optional contracts
+            optional = result.get('optional_contracts', [])
+            if optional:
+                ai_text += f"ℹ️  OPTIONAL CONTRACTS ({len(optional)}):\n"
+                for contract in optional:
+                    ai_text += f"  • {contract['name']}\n"
+                    ai_text += f"    Reason: {contract.get('reason', 'N/A')}\n\n"
+
+            # AI summary
+            if result.get('summary'):
+                ai_text += f"📊 AI ANALYSIS:\n{result['summary']}\n"
+
+            return [TextContent(
+                type="text",
+                text=ai_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "apply_ai_contract_suggestions":
+            property_id = arguments.get("property_id")
+            address_query = arguments.get("address_query")
+            only_required = arguments.get("only_required", True)
+            result = await apply_ai_contract_suggestions(
+                property_id=property_id,
+                address_query=address_query,
+                only_required=only_required
+            )
+
+            # Format result
+            created_count = result.get('contracts_created', 0)
+            apply_text = f"🤖 AI SUGGESTIONS APPLIED\n\n"
+            apply_text += f"Property: {result.get('property_address', 'Unknown')}\n"
+            apply_text += f"Contracts Created: {created_count}\n"
+            apply_text += f"Mode: {'Required only' if only_required else 'Required + Optional'}\n\n"
+
+            if created_count > 0:
+                apply_text += f"📝 CREATED CONTRACTS:\n"
+                for contract in result.get('contracts', []):
+                    apply_text += f"  • {contract['name']} (ID: {contract['id']})\n"
+                    if contract.get('requirement_reason'):
+                        apply_text += f"    AI Reason: {contract['requirement_reason']}\n"
+            else:
+                apply_text += "ℹ️ No new contracts created (all suggested contracts already exist)\n"
+
+            return [TextContent(
+                type="text",
+                text=apply_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "mark_contract_required":
+            contract_id = arguments["contract_id"]
+            is_required = arguments.get("is_required", True)
+            reason = arguments.get("reason")
+            required_by_date = arguments.get("required_by_date")
+            result = await mark_contract_required(
+                contract_id=contract_id,
+                is_required=is_required,
+                reason=reason,
+                required_by_date=required_by_date
+            )
+
+            # Format result
+            status = "REQUIRED" if is_required else "OPTIONAL"
+            override_text = f"✋ MANUAL OVERRIDE APPLIED\n\n"
+            override_text += f"Contract ID: {contract_id}\n"
+            override_text += f"Contract: {result.get('contract_name', 'Unknown')}\n"
+            override_text += f"Status: {status}\n"
+
+            if reason:
+                override_text += f"Reason: {reason}\n"
+
+            if required_by_date:
+                override_text += f"Required By: {required_by_date}\n"
+
+            override_text += f"\nProperty: {result.get('property_address', 'Unknown')}\n"
+            override_text += f"Source: MANUAL (user override)\n"
+
+            return [TextContent(
+                type="text",
+                text=override_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "generate_property_recap":
+            property_id = arguments["property_id"]
+            trigger = arguments.get("trigger", "manual")
+            result = await generate_property_recap(property_id=property_id, trigger=trigger)
+
+            # Format recap
+            recap_text = f"🤖 AI PROPERTY RECAP GENERATED\n\n"
+            recap_text += f"Property: {result['property_address']}\n"
+            recap_text += f"Version: {result['version']}\n"
+            recap_text += f"Trigger: {result.get('last_trigger', 'unknown')}\n\n"
+
+            recap_text += f"📝 DETAILED SUMMARY:\n{result['recap_text']}\n\n"
+            recap_text += f"🎤 VOICE SUMMARY (for calls):\n{result['voice_summary']}\n\n"
+
+            # Show key facts from structured context
+            if result.get('recap_context', {}).get('ai_summary', {}).get('key_facts'):
+                recap_text += f"🔑 KEY FACTS:\n"
+                for fact in result['recap_context']['ai_summary']['key_facts']:
+                    recap_text += f"  • {fact}\n"
+
+            return [TextContent(
+                type="text",
+                text=recap_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "get_property_recap":
+            property_id = arguments["property_id"]
+            result = await get_property_recap(property_id=property_id)
+
+            # Format recap
+            recap_text = f"📖 EXISTING PROPERTY RECAP\n\n"
+            recap_text += f"Property: {result['property_address']}\n"
+            recap_text += f"Version: {result['version']}\n"
+            recap_text += f"Last Updated: {result.get('last_trigger', 'unknown')}\n\n"
+
+            recap_text += f"📝 SUMMARY:\n{result['voice_summary']}\n\n"
+
+            # Show readiness info
+            if result.get('recap_context', {}).get('readiness'):
+                readiness = result['recap_context']['readiness']
+                recap_text += f"📊 CONTRACT STATUS:\n"
+                recap_text += f"  Ready to Close: {'YES' if readiness['is_ready_to_close'] else 'NO'}\n"
+                recap_text += f"  Completed: {readiness['completed']}/{readiness['total_required']}\n"
+                recap_text += f"  In Progress: {readiness['in_progress']}\n"
+                recap_text += f"  Missing: {readiness['missing']}\n"
+
+            return [TextContent(
+                type="text",
+                text=recap_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "make_property_phone_call":
+            property_id = arguments["property_id"]
+            phone_number = arguments["phone_number"]
+            call_purpose = arguments.get("call_purpose", "property_update")
+            result = await make_property_phone_call(
+                property_id=property_id,
+                phone_number=phone_number,
+                call_purpose=call_purpose
+            )
+
+            # Format call result
+            call_text = f"📞 PHONE CALL INITIATED\n\n"
+            call_text += f"Property: {result['property_address']}\n"
+            call_text += f"Phone Number: {result['phone_number']}\n"
+            call_text += f"Call Purpose: {result['call_purpose']}\n"
+            call_text += f"Call ID: {result['call_id']}\n"
+            call_text += f"Status: {result['status']}\n\n"
+
+            call_text += f"✅ {result['message']}\n\n"
+
+            call_text += f"The AI assistant will:\n"
+            if call_purpose == "property_update":
+                call_text += "  • Provide comprehensive property update\n"
+                call_text += "  • Answer questions about the property\n"
+                call_text += "  • Offer to send more info via email\n"
+            elif call_purpose == "contract_reminder":
+                call_text += "  • Remind about pending contracts\n"
+                call_text += "  • Explain what needs attention\n"
+                call_text += "  • Offer to resend contract links\n"
+            elif call_purpose == "closing_ready":
+                call_text += "  • Celebrate that property is ready to close\n"
+                call_text += "  • Confirm all contracts are complete\n"
+                call_text += "  • Discuss next steps\n"
+
+            call_text += f"\nUse /call/{result['call_id']}/status to check call status\n"
+
+            return [TextContent(
+                type="text",
+                text=call_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "call_contact_about_contract":
+            property_id = arguments["property_id"]
+            contact_id = arguments["contact_id"]
+            contract_id = arguments["contract_id"]
+            custom_message = arguments.get("custom_message")
+
+            result = await call_contact_about_contract(
+                property_id=property_id,
+                contact_id=contact_id,
+                contract_id=contract_id,
+                custom_message=custom_message
+            )
+
+            # Format result
+            call_text = f"📞💼 CALLING CONTACT ABOUT CONTRACT\n\n"
+            call_text += f"Property: {result['property_address']}\n"
+            call_text += f"Contact: {result['contact_name']}\n"
+            call_text += f"Contract: {result['contract_name']}\n"
+            call_text += f"Phone: {result['phone_number']}\n"
+            call_text += f"Call ID: {result['call_id']}\n\n"
+
+            if custom_message:
+                call_text += f"📝 Custom Message:\n{custom_message}\n\n"
+
+            call_text += f"✅ {result['message']}\n\n"
+
+            call_text += f"The AI will:\n"
+            call_text += f"  • Greet {result['contact_name']} by name\n"
+            call_text += f"  • Remind about the {result['contract_name']}\n"
+            call_text += f"  • Explain what's needed (signature, review, etc.)\n"
+            call_text += f"  • Answer questions about the contract\n"
+            call_text += f"  • Offer to resend contract link\n"
+
+            return [TextContent(
+                type="text",
+                text=call_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "call_property_owner_skip_trace":
+            property_id = arguments["property_id"]
+            custom_message = arguments.get("custom_message")
+
+            result = await call_property_owner_skip_trace(
+                property_id=property_id,
+                custom_message=custom_message
+            )
+
+            # Format result
+            call_text = f"📞🏠 SKIP TRACE OUTREACH CALL INITIATED\n\n"
+            call_text += f"Property: {result['property_address']}\n"
+            call_text += f"Owner: {result['owner_name']}\n"
+            call_text += f"Phone: {result['phone_number']}\n"
+            call_text += f"Call ID: {result['call_id']}\n"
+            call_text += f"Call Type: Cold Call / Lead Generation\n\n"
+
+            if custom_message:
+                call_text += f"📝 Custom Message:\n{custom_message}\n\n"
+
+            call_text += f"✅ {result['message']}\n\n"
+
+            call_text += f"⚠️ COLD CALL - AI will:\n"
+            call_text += f"  • Introduce as real estate professional\n"
+            call_text += f"  • Ask if {result['owner_name']} has considered selling\n"
+            call_text += f"  • Discuss current favorable market conditions\n"
+            call_text += f"  • Offer no-obligation market analysis\n"
+            call_text += f"  • Answer questions about selling process\n"
+            call_text += f"  • Be respectful and not pushy\n"
+            call_text += f"  • Keep call under 2-3 minutes unless they engage\n\n"
+
+            call_text += f"📊 This is for lead generation/skip trace outreach\n"
+
+            return [TextContent(
+                type="text",
+                text=call_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
             )]
 
         else:
