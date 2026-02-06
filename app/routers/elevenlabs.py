@@ -15,10 +15,9 @@ from app.services.elevenlabs_service import elevenlabs_service
 router = APIRouter(prefix="/elevenlabs", tags=["elevenlabs"])
 
 
-class SetupResponse(BaseModel):
-    mcp_server: dict
-    agent: dict
-    widget_html: str
+class SetupRequest(BaseModel):
+    system_prompt: Optional[str] = None
+    first_message: Optional[str] = None
 
 
 class CallRequest(BaseModel):
@@ -31,17 +30,25 @@ class PromptUpdateRequest(BaseModel):
 
 
 @router.post("/setup", response_model=dict)
-def setup_elevenlabs_agent():
+def setup_elevenlabs_agent(setup_data: Optional[SetupRequest] = None):
     """
     One-time setup: Register the MCP SSE server and create the voice agent.
 
     This connects ElevenLabs to the MCP server at ai-realtor.fly.dev:8001/sse,
     giving the agent access to all 36+ property management tools.
 
+    Optionally pass system_prompt and/or first_message to customize the agent.
+
     Returns agent_id and widget embed HTML.
     """
     try:
-        result = elevenlabs_service.setup_agent()
+        kwargs = {}
+        if setup_data:
+            if setup_data.system_prompt:
+                kwargs["system_prompt"] = setup_data.system_prompt
+            if setup_data.first_message:
+                kwargs["first_message"] = setup_data.first_message
+        result = elevenlabs_service.setup_agent(**kwargs)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

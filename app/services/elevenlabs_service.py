@@ -140,10 +140,15 @@ class ElevenLabsService:
             "status": "created",
         }
 
-    def setup_agent(self) -> dict:
+    def setup_agent(self, system_prompt: str = None, first_message: str = None) -> dict:
         """Full setup: register MCP server + create agent. One-time operation."""
         mcp_result = self.setup_mcp_server()
-        agent_result = self.create_agent()
+        kwargs = {}
+        if system_prompt:
+            kwargs["system_prompt"] = system_prompt
+        if first_message:
+            kwargs["first_message"] = first_message
+        agent_result = self.create_agent(**kwargs)
         return {
             "mcp_server": mcp_result,
             "agent": agent_result,
