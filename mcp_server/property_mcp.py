@@ -2830,6 +2830,8 @@ def main_sse(port: int = 8001):
     from starlette.applications import Starlette
     from starlette.routing import Route, Mount
     from starlette.responses import JSONResponse
+    from starlette.middleware import Middleware
+    from starlette.middleware.cors import CORSMiddleware
     import uvicorn
 
     sse = SseServerTransport("/messages/")
@@ -2857,6 +2859,14 @@ def main_sse(port: int = 8001):
             Route("/health", health),
             Route("/sse", handle_sse),
             Route("/messages/", handle_messages, methods=["POST"]),
+        ],
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=["*"],
+                allow_methods=["*"],
+                allow_headers=["*"],
+            ),
         ],
     )
 
