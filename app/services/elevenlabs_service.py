@@ -11,11 +11,12 @@ from elevenlabs import (
     ElevenLabs,
     ConversationalConfig,
     AgentConfig,
-    PromptAgentApiModelInput,
-    PromptAgentApiModelInputToolsItem_System,
-    SystemToolConfigInput,
-    SystemToolConfigInputParams_EndCall,
-    EndCallToolConfig,
+    PromptAgentApiModelOutput,
+    PromptAgentApiModelOutputToolsItem_System,
+    SystemToolConfigOutputParams_EndCall,
+)
+from elevenlabs.conversational_ai.phone_numbers import (
+    PhoneNumbersCreateRequestBody_Twilio,
 )
 
 
@@ -103,13 +104,16 @@ class ElevenLabsService:
             )
 
         # Build tools list
-        end_call_tool = PromptAgentApiModelInputToolsItem_System(
+        end_call_tool = PromptAgentApiModelOutputToolsItem_System(
             name="end_call",
             type="system",
             description="End the call when the conversation is complete",
+            params=SystemToolConfigOutputParams_EndCall(
+                system_tool_type="end_call",
+            ),
         )
 
-        prompt_config = PromptAgentApiModelInput(
+        prompt_config = PromptAgentApiModelOutput(
             prompt=system_prompt,
             llm=llm,
             temperature=0.7,
@@ -177,7 +181,7 @@ class ElevenLabsService:
         if not self.agent_id:
             return {"error": "No agent configured. Run setup first."}
 
-        prompt_config = PromptAgentApiModelInput(prompt=prompt)
+        prompt_config = PromptAgentApiModelOutput(prompt=prompt)
         conversation_config = ConversationalConfig(
             agent=AgentConfig(prompt=prompt_config)
         )
@@ -187,6 +191,55 @@ class ElevenLabsService:
             conversation_config=conversation_config,
         )
         return {"agent_id": self.agent_id, "prompt_updated": True}
+
+    def import_twilio_number(
+        self,
+        phone_number: str,
+        label: str,
+        twilio_sid: str,
+        twilio_token: str,
+    ) -> dict:
+        """Import a Twilio phone number into ElevenLabs."""
+        result = self.client.conversational_ai.phone_numbers.create(
+            request=PhoneNumbersCreateRequestBody_Twilio(
+                phone_number=phone_number,
+                label=label,
+                sid=twilio_sid,
+                token=twilio_token,
+            ),
+        )
+        phone_id = getattr(result, "phone_number_id", getattr(result, "id", None))
+
+        # Assign to agent if one exists
+        if self.agent_id and phone_id:
+            self.client.conversational_ai.phone_numbers.update(
+                phone_number_id=phone_id,
+                agent_id=self.agent_id,
+            )
+
+        self.phone_number_id = phone_id
+        return {
+            "phone_number_id": phone_id,
+            "phone_number": phone_number,
+            "label": label,
+            "agent_id": self.agent_id,
+        }
+
+    def assign_phone_number(self, phone_number_id: str) -> dict:
+        """Assign an existing phone number to the agent."""
+        if not self.agent_id:
+            raise ValueError("No agent configured. Run setup first.")
+
+        self.client.conversational_ai.phone_numbers.update(
+            phone_number_id=phone_number_id,
+            agent_id=self.agent_id,
+        )
+        self.phone_number_id = phone_number_id
+        return {
+            "phone_number_id": phone_number_id,
+            "agent_id": self.agent_id,
+            "assigned": True,
+        }
 
     def list_phone_numbers(self) -> list:
         """List available ElevenLabs phone numbers."""
@@ -229,9 +282,17 @@ class ElevenLabsService:
 
         result = self.client.conversational_ai.twilio.outbound_call(**kwargs)
 
+        # Check if call was successful
+        success = getattr(result, "success", True)
+        message = getattr(result, "message", None)
+
+        if not success:
+            raise ValueError(f"Call failed: {message}")
+
         return {
-            "call_id": getattr(result, "call_id", getattr(result, "id", None)),
-            "status": getattr(result, "status", "initiated"),
+            "call_id": getattr(result, "call_sid", None),
+            "conversation_id": getattr(result, "conversation_id", None),
+            "status": "initiated",
             "to_number": phone_number,
             "agent_id": self.agent_id,
         }

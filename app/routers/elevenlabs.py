@@ -20,6 +20,13 @@ class SetupRequest(BaseModel):
     first_message: Optional[str] = None
 
 
+class ImportTwilioRequest(BaseModel):
+    phone_number: str
+    label: str = "Twilio"
+    twilio_sid: str
+    twilio_token: str
+
+
 class CallRequest(BaseModel):
     phone_number: str
     custom_first_message: Optional[str] = None
@@ -54,6 +61,37 @@ def setup_elevenlabs_agent(setup_data: Optional[SetupRequest] = None):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Setup failed: {str(e)}")
+
+
+@router.post("/import-twilio-number", response_model=dict)
+def import_twilio_number(data: ImportTwilioRequest):
+    """
+    Import a Twilio phone number into ElevenLabs and assign it to the agent.
+
+    After importing, the number can be used for outbound calls.
+    """
+    try:
+        result = elevenlabs_service.import_twilio_number(
+            phone_number=data.phone_number,
+            label=data.label,
+            twilio_sid=data.twilio_sid,
+            twilio_token=data.twilio_token,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
+
+@router.post("/assign-phone/{phone_number_id}", response_model=dict)
+def assign_phone_to_agent(phone_number_id: str):
+    """Assign an existing ElevenLabs phone number to the agent."""
+    try:
+        result = elevenlabs_service.assign_phone_number(phone_number_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Assignment failed: {str(e)}")
 
 
 @router.post("/call", response_model=dict)

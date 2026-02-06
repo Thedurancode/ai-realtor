@@ -125,6 +125,64 @@ async def create_property_with_address(
     return create_resp.json()
 
 
+def find_property_by_address(address_query: str) -> int:
+    """Find a single property by address. Raises ValueError with options if multiple matches."""
+    from app.database import SessionLocal
+    from app.models.property import Property
+    from sqlalchemy import func, or_
+
+    db = SessionLocal()
+    try:
+        query_variations = normalize_voice_query(address_query)
+        properties = db.query(Property).filter(
+            or_(*[func.lower(Property.address).contains(var) for var in query_variations])
+        ).all()
+
+        if not properties:
+            from difflib import get_close_matches
+            all_addresses = [p.address.lower() for p in db.query(Property).limit(100).all()]
+            matches = get_close_matches(query_variations[0], all_addresses, n=3, cutoff=0.6)
+            if matches:
+                raise ValueError(f"No exact match for '{address_query}'. Did you mean: {', '.join(matches)}?")
+            raise ValueError(f"No property found matching address: {address_query}")
+
+        if len(properties) > 1:
+            listing = "\n".join(
+                f"  - Property {p.id}: {p.address}, {p.city or ''}, {p.state or ''}"
+                + (f" (${p.price:,.0f})" if p.price else "")
+                for p in properties
+            )
+            raise ValueError(
+                f"Found {len(properties)} properties matching '{address_query}'. "
+                f"Please specify which one:\n{listing}\n\n"
+                f"Try again with the city, state, or property ID to narrow it down."
+            )
+
+        return properties[0].id
+    finally:
+        db.close()
+
+
+async def update_property(property_id: Optional[int] = None, address_query: Optional[str] = None, **fields) -> dict:
+    """Update a property's fields (price, status, bedrooms, etc.) by ID or address."""
+    if address_query and not property_id:
+        property_id = find_property_by_address(address_query)
+
+    if not property_id:
+        raise ValueError("Provide either a property_id or address to update")
+
+    update_data = {k: v for k, v in fields.items() if v is not None}
+    if not update_data:
+        raise ValueError("No fields to update")
+
+    response = requests.put(
+        f"{API_BASE_URL}/properties/{property_id}",
+        json=update_data
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 async def delete_property(property_id: int) -> dict:
     """Delete a property by ID"""
     # Import here to avoid circular imports
@@ -1089,6 +1147,55 @@ async def list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="update_property",
+            description="Update a property's details such as price, status, bedrooms, bathrooms, square footage, property type, or deal type. Can use address or property ID. Example: 'Update the price on 123 Main Street to $900,000' or 'Change the Avondale property status to sold'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "The ID of the property to update (optional if address is provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Avondale property')"
+                    },
+                    "price": {
+                        "type": "number",
+                        "description": "New price in dollars"
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "New status",
+                        "enum": ["available", "pending", "sold", "rented", "off_market"]
+                    },
+                    "bedrooms": {
+                        "type": "number",
+                        "description": "Number of bedrooms"
+                    },
+                    "bathrooms": {
+                        "type": "number",
+                        "description": "Number of bathrooms"
+                    },
+                    "square_feet": {
+                        "type": "number",
+                        "description": "Square footage"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "description": "Property type",
+                        "enum": ["house", "condo", "townhouse", "apartment", "land", "commercial", "multi_family"]
+                    },
+                    "deal_type": {
+                        "type": "string",
+                        "description": "Deal type",
+                        "enum": ["traditional", "wholesale", "creative_finance", "subject_to", "novation", "lease_option"]
+                    }
+                },
+                "required": ["property_id"]
+            }
+        ),
+        Tool(
             name="enrich_property",
             description="Enrich a property with comprehensive Zillow data including photos, Zestimate, rent estimate, tax history, price history, schools with ratings, property details, and market statistics. Triggers enrichment animation on TV display.",
             inputSchema={
@@ -1896,6 +2003,34 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             text = f"Property {property_id} deleted successfully."
             if result.get('address'):
                 text = f"Property {property_id} at {result['address']} has been deleted."
+
+            return [TextContent(type="text", text=text)]
+
+        elif name == "update_property":
+            property_id = arguments.pop("property_id", None)
+            address_query = arguments.pop("address", None)
+            result = await update_property(property_id=property_id, address_query=address_query, **arguments)
+
+            prop_id = result.get('id', property_id or '?')
+            address = result.get('address', 'N/A')
+            city = result.get('city', '')
+            state = result.get('state', '')
+            text = f"Property {prop_id} updated successfully.\n\n"
+            text += f"Property {prop_id}: {address}, {city}, {state}\n"
+            if result.get('price'):
+                text += f"Price: ${result['price']:,.0f}\n"
+            if result.get('status'):
+                text += f"Status: {result['status']}\n"
+            if result.get('bedrooms'):
+                text += f"Bedrooms: {result['bedrooms']}\n"
+            if result.get('bathrooms'):
+                text += f"Bathrooms: {result['bathrooms']}\n"
+            if result.get('square_footage'):
+                text += f"Square footage: {result['square_footage']:,.0f}\n"
+            if result.get('property_type'):
+                text += f"Type: {result['property_type']}\n"
+            if result.get('deal_type'):
+                text += f"Deal type: {result['deal_type']}\n"
 
             return [TextContent(type="text", text=text)]
 
