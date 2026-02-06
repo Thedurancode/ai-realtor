@@ -4,6 +4,7 @@ Zillow property enrichment service using RapidAPI
 import httpx
 from typing import Dict, Any, Optional
 from app.config import settings
+from app.services.cache import zillow_cache
 
 
 class ZillowEnrichmentService:
@@ -27,6 +28,11 @@ class ZillowEnrichmentService:
         Raises:
             httpx.HTTPError: If API request fails
         """
+        cache_key = f"zillow:{address.strip().lower()}"
+        cached = zillow_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         headers = {
             "x-rapidapi-host": self.api_host,
             "x-rapidapi-key": self.api_key,
@@ -47,7 +53,9 @@ class ZillowEnrichmentService:
             data = response.json()
 
         # Parse the response
-        return self._parse_zillow_response(data)
+        result = self._parse_zillow_response(data)
+        zillow_cache.set(cache_key, result, ttl_seconds=21600)  # 6 hours
+        return result
 
     def _parse_zillow_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """

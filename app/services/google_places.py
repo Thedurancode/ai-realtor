@@ -1,5 +1,6 @@
 import httpx
 from app.config import settings
+from app.services.cache import google_places_cache
 
 
 class GooglePlacesService:
@@ -15,6 +16,11 @@ class GooglePlacesService:
         Get address suggestions from Google Places Autocomplete.
         Returns a list of predictions with place_id and description.
         """
+        cache_key = f"autocomplete:{input_text}:{country}"
+        cached = google_places_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{self.BASE_URL}/autocomplete/json",
@@ -30,7 +36,7 @@ class GooglePlacesService:
             if data.get("status") != "OK":
                 return []
 
-            return [
+            results = [
                 {
                     "place_id": p["place_id"],
                     "description": p["description"],
@@ -42,11 +48,19 @@ class GooglePlacesService:
                 for p in data.get("predictions", [])
             ]
 
+            google_places_cache.set(cache_key, results, ttl_seconds=3600)  # 1 hour
+            return results
+
     async def get_place_details(self, place_id: str) -> dict | None:
         """
         Get full address details from a place_id.
         Returns parsed address components.
         """
+        cache_key = f"place:{place_id}"
+        cached = google_places_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{self.BASE_URL}/details/json",
@@ -67,7 +81,7 @@ class GooglePlacesService:
                 for c in result.get("address_components", [])
             }
 
-            return {
+            details = {
                 "formatted_address": result.get("formatted_address", ""),
                 "street_number": components.get("street_number", ""),
                 "street": components.get("route", ""),
@@ -79,6 +93,9 @@ class GooglePlacesService:
                 "lat": result.get("geometry", {}).get("location", {}).get("lat"),
                 "lng": result.get("geometry", {}).get("location", {}).get("lng"),
             }
+
+            google_places_cache.set(cache_key, details, ttl_seconds=86400)  # 24 hours
+            return details
 
 
 google_places_service = GooglePlacesService()

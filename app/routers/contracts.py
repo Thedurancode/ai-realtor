@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 import httpx
 
 from app.database import get_db
+from app.rate_limit import limiter
 from app.models.property import Property
 from app.models.contact import Contact, ContactRole
 from app.models.contract import Contract, ContractStatus
@@ -1556,7 +1557,9 @@ def check_contracts_voice(
 # ========== AI-POWERED CONTRACT SUGGESTIONS ==========
 
 @router.post("/property/{property_id}/ai-suggest", response_model=dict)
+@limiter.limit("20/minute")
 async def ai_suggest_contracts(
+    request: Request,
     property_id: int,
     db: Session = Depends(get_db)
 ):
@@ -1581,7 +1584,9 @@ async def ai_suggest_contracts(
 
 
 @router.post("/property/{property_id}/ai-apply-suggestions", response_model=dict)
+@limiter.limit("20/minute")
 async def apply_ai_suggestions(
+    request: Request,
     property_id: int,
     only_required: bool = True,
     db: Session = Depends(get_db)
@@ -1693,7 +1698,9 @@ async def apply_ai_suggestions(
 
 
 @router.get("/property/{property_id}/ai-analyze-gaps", response_model=dict)
+@limiter.limit("20/minute")
 async def analyze_contract_gaps(
+    request: Request,
     property_id: int,
     db: Session = Depends(get_db)
 ):

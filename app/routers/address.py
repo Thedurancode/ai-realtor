@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
+from app.rate_limit import limiter
 from app.services.google_places import google_places_service
 from app.schemas.address import (
     AddressAutocompleteRequest,
@@ -14,15 +15,16 @@ router = APIRouter(prefix="/address", tags=["address"])
 
 
 @router.post("/autocomplete", response_model=AddressAutocompleteResponse)
-async def autocomplete_address(request: AddressAutocompleteRequest):
+@limiter.limit("60/minute")
+async def autocomplete_address(request: Request, body: AddressAutocompleteRequest):
     """
     Get address suggestions from partial input.
     Voice agent says: "141 throop ave new brunswick"
     Returns suggestions with voice-friendly prompts.
     """
     suggestions = await google_places_service.autocomplete(
-        input_text=request.input,
-        country=request.country,
+        input_text=body.input,
+        country=body.country,
     )
 
     if not suggestions:
@@ -48,13 +50,14 @@ async def autocomplete_address(request: AddressAutocompleteRequest):
 
 
 @router.post("/details", response_model=AddressDetailsResponse)
-async def get_address_details(request: AddressDetailsRequest):
+@limiter.limit("60/minute")
+async def get_address_details(request: Request, body: AddressDetailsRequest):
     """
     Get full address details from a place_id.
     Called after user confirms an autocomplete suggestion.
     Returns parsed address components for property creation.
     """
-    details = await google_places_service.get_place_details(request.place_id)
+    details = await google_places_service.get_place_details(body.place_id)
 
     if not details:
         raise HTTPException(status_code=404, detail="Address not found")

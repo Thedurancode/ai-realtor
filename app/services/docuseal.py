@@ -162,6 +162,13 @@ class DocuSealClient:
         Returns:
             List of templates
         """
+        from app.services.cache import docuseal_cache
+
+        cache_key = f"templates:{limit}"
+        cached = docuseal_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         url = f"{self.base_url}/templates"
         params = {"limit": limit}
 
@@ -178,8 +185,12 @@ class DocuSealClient:
             # Handle both self-hosted (returns {"data": [...]})
             # and cloud (returns [...]) response formats
             if isinstance(result, dict) and "data" in result:
-                return result["data"]
-            return result
+                templates = result["data"]
+            else:
+                templates = result
+
+            docuseal_cache.set(cache_key, templates, ttl_seconds=86400)  # 24 hours
+            return templates
 
 
 # Global DocuSeal client instance

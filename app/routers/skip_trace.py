@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.rate_limit import limiter
 from app.models.property import Property
 from app.models.skip_trace import SkipTrace
 from app.schemas.skip_trace import (
@@ -79,8 +80,9 @@ def build_voice_response(result: SkipTrace, property: Property) -> SkipTraceVoic
 
 
 @router.post("/voice", response_model=SkipTraceVoiceResponse)
+@limiter.limit("5/minute")
 async def skip_trace_by_address_voice(
-    request: SkipTraceRequest, db: Session = Depends(get_db)
+    request: Request, body: SkipTraceRequest, db: Session = Depends(get_db)
 ):
     """
     Voice-optimized skip trace by address.
@@ -88,7 +90,7 @@ async def skip_trace_by_address_voice(
     Searches for matching property and runs skip trace.
     """
     # Search for property matching the address query
-    query = request.address_query.lower()
+    query = body.address_query.lower()
     property = (
         db.query(Property)
         .filter(Property.address.ilike(f"%{query}%"))
@@ -98,7 +100,7 @@ async def skip_trace_by_address_voice(
     if not property:
         raise HTTPException(
             status_code=404,
-            detail=f"No property found matching '{request.address_query}'. Please add the property first.",
+            detail=f"No property found matching '{body.address_query}'. Please add the property first.",
         )
 
     # Check if we already have a recent skip trace
@@ -142,8 +144,9 @@ async def skip_trace_by_address_voice(
 
 
 @router.post("/property/{property_id}", response_model=SkipTraceVoiceResponse)
+@limiter.limit("5/minute")
 async def skip_trace_by_property_id(
-    property_id: int, db: Session = Depends(get_db)
+    request: Request, property_id: int, db: Session = Depends(get_db)
 ):
     """
     Run skip trace on a property by ID.
@@ -218,7 +221,8 @@ def get_skip_trace_for_property(property_id: int, db: Session = Depends(get_db))
 
 
 @router.post("/property/{property_id}/refresh", response_model=SkipTraceVoiceResponse)
-async def refresh_skip_trace(property_id: int, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+async def refresh_skip_trace(request: Request, property_id: int, db: Session = Depends(get_db)):
     """
     Force a new skip trace, even if one already exists.
     """

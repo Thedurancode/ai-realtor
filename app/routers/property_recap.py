@@ -3,11 +3,12 @@ Property Recap and Phone Call Endpoints
 
 API endpoints for AI-generated property summaries and VAPI phone calls.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 import requests
 
 from app.database import get_db
+from app.rate_limit import limiter
 from app.models.property import Property
 from app.models.property_recap import PropertyRecap
 from app.services.property_recap_service import property_recap_service
@@ -18,7 +19,9 @@ from app.schemas.property_recap import RecapResponse, PhoneCallRequest, PhoneCal
 router = APIRouter(prefix="/property-recap", tags=["property_recap"])
 
 @router.post("/property/{property_id}/generate", response_model=RecapResponse)
+@limiter.limit("20/minute")
 async def generate_property_recap(
+    request: Request,
     property_id: int,
     trigger: str = "manual",
     db: Session = Depends(get_db)
@@ -88,7 +91,9 @@ def get_property_recap(property_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/property/{property_id}/call", response_model=PhoneCallResponse)
+@limiter.limit("5/minute")
 async def make_property_call(
+    request: Request,
     property_id: int,
     call_request: PhoneCallRequest,
     db: Session = Depends(get_db)

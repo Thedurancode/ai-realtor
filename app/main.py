@@ -1,9 +1,13 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 from typing import List
+import asyncio
 import json
 
 from app.database import engine, Base
+from app.rate_limit import limiter
 from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router
 import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
@@ -12,6 +16,10 @@ app = FastAPI(
     description="API for real estate agents to manage properties (voice-optimized)",
     version="1.0.0",
 )
+
+# Rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add CORS middleware
 app.add_middleware(
@@ -99,3 +107,43 @@ async def send_display_command(command: dict):
 @app.get("/")
 def root():
     return {"message": "Real Estate API", "docs": "/docs"}
+
+
+# --- Cache management endpoints ---
+
+@app.get("/cache/stats")
+def cache_stats():
+    """Get cache statistics for monitoring."""
+    from app.services.cache import google_places_cache, zillow_cache, docuseal_cache
+    return {
+        "google_places": google_places_cache.stats(),
+        "zillow": zillow_cache.stats(),
+        "docuseal": docuseal_cache.stats(),
+    }
+
+
+@app.post("/cache/clear")
+def cache_clear():
+    """Clear all caches."""
+    from app.services.cache import google_places_cache, zillow_cache, docuseal_cache
+    google_places_cache.clear()
+    zillow_cache.clear()
+    docuseal_cache.clear()
+    return {"message": "All caches cleared"}
+
+
+# --- Periodic cache cleanup ---
+
+async def _periodic_cache_cleanup():
+    """Clean expired cache entries every hour."""
+    while True:
+        await asyncio.sleep(3600)
+        from app.services.cache import google_places_cache, zillow_cache, docuseal_cache
+        google_places_cache.cleanup_expired()
+        zillow_cache.cleanup_expired()
+        docuseal_cache.cleanup_expired()
+
+
+@app.on_event("startup")
+async def startup():
+    asyncio.create_task(_periodic_cache_cleanup())

@@ -1,12 +1,13 @@
 """
 Context-aware endpoints for natural conversation flow
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 
 from app.database import get_db
+from app.rate_limit import limiter
 from app.models.property import Property
 from app.services.conversation_context import get_context, resolve_property_reference
 from app.services.skip_trace import skip_trace_service
@@ -132,8 +133,10 @@ async def create_property_with_context(
 
 
 @router.post("/skip-trace", response_model=ContextResponse)
+@limiter.limit("5/minute")
 async def skip_trace_with_context(
-    request: ContextSkipTraceRequest,
+    request: Request,
+    body: ContextSkipTraceRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -147,14 +150,14 @@ async def skip_trace_with_context(
     """
     # Resolve property reference
     property_id = resolve_property_reference(
-        request.property_ref,
-        request.session_id
+        body.property_ref,
+        body.session_id
     )
 
     if not property_id:
         # Try to search by address if provided
-        if request.property_ref:
-            query = request.property_ref.lower()
+        if body.property_ref:
+            query = body.property_ref.lower()
             property = (
                 db.query(Property)
                 .filter(Property.address.ilike(f"%{query}%"))
@@ -212,7 +215,7 @@ async def skip_trace_with_context(
         db.refresh(skip_trace)
 
     # Remember in context
-    context = get_context(request.session_id)
+    context = get_context(body.session_id)
     context.set_last_skip_trace(skip_trace.id, property.id)
 
     return ContextResponse(
@@ -249,8 +252,10 @@ class ContextEnrichRequest(BaseModel):
 
 
 @router.post("/enrich", response_model=ContextResponse)
+@limiter.limit("10/minute")
 async def enrich_property_with_zillow(
-    request: ContextEnrichRequest,
+    request: Request,
+    body: ContextEnrichRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -266,14 +271,14 @@ async def enrich_property_with_zillow(
     """
     # Resolve property reference
     property_id = resolve_property_reference(
-        request.property_ref,
-        request.session_id
+        body.property_ref,
+        body.session_id
     )
 
     if not property_id:
         # Try to search by address if provided
-        if request.property_ref:
-            query = request.property_ref.lower()
+        if body.property_ref:
+            query = body.property_ref.lower()
             property = (
                 db.query(Property)
                 .filter(Property.address.ilike(f"%{query}%"))
@@ -364,7 +369,7 @@ async def enrich_property_with_zillow(
     db.refresh(enrichment)
 
     # Remember in context
-    context = get_context(request.session_id)
+    context = get_context(body.session_id)
 
     # Build enrichment message
     message_parts = [f"Enriched {property.address} with Zillow data"]

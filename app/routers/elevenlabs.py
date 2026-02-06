@@ -4,10 +4,11 @@ ElevenLabs Conversational AI Router
 Endpoints for setting up and managing the ElevenLabs voice agent
 that connects to the MCP SSE server for property management tools.
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 
+from app.rate_limit import limiter
 from app.services.elevenlabs_service import elevenlabs_service
 
 
@@ -49,7 +50,8 @@ def setup_elevenlabs_agent():
 
 
 @router.post("/call", response_model=dict)
-def make_elevenlabs_call(request: CallRequest):
+@limiter.limit("3/minute")
+def make_elevenlabs_call(request: Request, call_data: CallRequest):
     """
     Make an outbound call using the ElevenLabs voice agent.
 
@@ -60,8 +62,8 @@ def make_elevenlabs_call(request: CallRequest):
     """
     try:
         result = elevenlabs_service.make_call(
-            phone_number=request.phone_number,
-            custom_first_message=request.custom_first_message,
+            phone_number=call_data.phone_number,
+            custom_first_message=call_data.custom_first_message,
         )
         return result
     except ValueError as e:
