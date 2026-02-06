@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
@@ -11,8 +13,11 @@ from app.schemas.property import (
     PropertyCreateFromVoice,
     PropertyCreateFromVoiceResponse,
 )
+from app.models.property import DealType
 from app.services.google_places import google_places_service
 from app.services.contract_auto_attach import contract_auto_attach_service
+from app.services.deal_type_service import apply_deal_type, get_deal_type_summary
+from app.services.scheduled_compliance import schedule_compliance_check
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
@@ -30,7 +35,7 @@ def get_ws_manager():
 
 
 @router.post("/", response_model=PropertyResponse, status_code=201)
-def create_property(property: PropertyCreate, db: Session = Depends(get_db)):
+async def create_property(property: PropertyCreate, db: Session = Depends(get_db)):
     agent = db.query(Agent).filter(Agent.id == property.agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -42,6 +47,9 @@ def create_property(property: PropertyCreate, db: Session = Depends(get_db)):
 
     # Auto-attach required contracts
     contract_auto_attach_service.auto_attach_contracts(db, new_property)
+
+    # Schedule auto compliance check in 20 minutes
+    asyncio.create_task(schedule_compliance_check(new_property.id))
 
     return new_property
 
@@ -90,6 +98,9 @@ async def create_property_from_voice(
 
     # Auto-attach required contracts
     attached_contracts = contract_auto_attach_service.auto_attach_contracts(db, new_property)
+
+    # Schedule auto compliance check in 20 minutes
+    asyncio.create_task(schedule_compliance_check(new_property.id))
 
     price_formatted = f"${property.price:,.0f}"
     beds_info = f"{property.bedrooms} bedroom" if property.bedrooms else ""
@@ -239,3 +250,43 @@ def delete_property(property_id: int, db: Session = Depends(get_db)):
     db.delete(db_property)
     db.commit()
     return None
+
+
+@router.post("/{property_id}/set-deal-type")
+def set_property_deal_type(
+    property_id: int,
+    deal_type_name: str,
+    clear_previous: bool = False,
+    db: Session = Depends(get_db),
+):
+    """
+    Set a deal type on a property and trigger the full workflow.
+
+    Args:
+        clear_previous: If True and switching deal types, removes draft
+                        contracts and pending todos from the old deal type
+                        before applying the new one. Completed/signed
+                        contracts are never removed.
+    """
+    db_property = db.query(Property).filter(Property.id == property_id).first()
+    if not db_property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    result = apply_deal_type(db, db_property, deal_type_name, clear_previous=clear_previous)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to apply deal type"))
+
+    return result
+
+
+@router.get("/{property_id}/deal-status")
+def get_property_deal_status(
+    property_id: int,
+    db: Session = Depends(get_db),
+):
+    """Check deal progress: contracts, checklist, missing contacts."""
+    db_property = db.query(Property).filter(Property.id == property_id).first()
+    if not db_property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    return get_deal_type_summary(db, db_property)

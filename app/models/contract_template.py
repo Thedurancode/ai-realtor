@@ -60,12 +60,16 @@ class ContractTemplate(Base):
     min_price = Column(Integer, nullable=True)  # Only properties >= this price
     max_price = Column(Integer, nullable=True)  # Only properties <= this price
 
+    # Deal type filter
+    deal_type_filter = Column(JSON, nullable=True)  # ["short_sale", "reo"] or null=all deal types
+
     # Configuration
     auto_attach_on_create = Column(Boolean, default=True)  # Auto-attach when property created
     auto_send = Column(Boolean, default=False)  # Auto-send to contacts when attached
 
     # Recipient configuration
     default_recipient_role = Column(String(50), nullable=True)  # "seller", "buyer", "lawyer", etc.
+    required_signer_roles = Column(JSON, nullable=True)  # ["buyer", "seller"] - roles that must sign this contract
     message_template = Column(Text, nullable=True)  # Default message when sending
 
     # Status
@@ -97,5 +101,11 @@ class ContractTemplate(Base):
             return False
         if self.max_price and property.price > self.max_price:
             return False
+
+        # Check deal type
+        if self.deal_type_filter:
+            deal_type_str = property.deal_type.value if property.deal_type else None
+            if deal_type_str not in self.deal_type_filter:
+                return False
 
         return True

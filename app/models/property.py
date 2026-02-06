@@ -23,6 +23,17 @@ class PropertyType(str, enum.Enum):
     COMMERCIAL = "commercial"
 
 
+class DealType(str, enum.Enum):
+    TRADITIONAL = "traditional"
+    SHORT_SALE = "short_sale"
+    REO = "reo"
+    FSBO = "fsbo"
+    NEW_CONSTRUCTION = "new_construction"
+    WHOLESALE = "wholesale"
+    RENTAL = "rental"
+    COMMERCIAL = "commercial"
+
+
 class Property(Base):
     __tablename__ = "properties"
 
@@ -41,6 +52,7 @@ class Property(Base):
     year_built = Column(Integer, nullable=True)
     property_type = Column(Enum(PropertyType), default=PropertyType.HOUSE)
     status = Column(Enum(PropertyStatus), default=PropertyStatus.AVAILABLE)
+    deal_type = Column(Enum(DealType), nullable=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

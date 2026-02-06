@@ -14,5 +14,6 @@ from app.routers.compliance import router as compliance_router
 from app.routers.activities import router as activities_router
 from app.routers.property_recap import router as property_recap_router
 from app.routers.webhooks import router as webhooks_router
+from app.routers.deal_types import router as deal_types_router
 
-__all__ = ["agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router"]
+__all__ = ["agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router", "deal_types_router"]

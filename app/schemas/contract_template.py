@@ -25,11 +25,13 @@ class ContractTemplateBase(BaseModel):
     property_type_filter: Optional[List[str]] = None
     min_price: Optional[int] = None
     max_price: Optional[int] = None
+    deal_type_filter: Optional[List[str]] = None
 
     # Configuration
     auto_attach_on_create: bool = True
     auto_send: bool = False
     default_recipient_role: Optional[str] = None
+    required_signer_roles: Optional[List[str]] = None
     message_template: Optional[str] = None
 
     is_active: bool = True
@@ -54,9 +56,11 @@ class ContractTemplateUpdate(BaseModel):
     property_type_filter: Optional[List[str]] = None
     min_price: Optional[int] = None
     max_price: Optional[int] = None
+    deal_type_filter: Optional[List[str]] = None
     auto_attach_on_create: Optional[bool] = None
     auto_send: Optional[bool] = None
     default_recipient_role: Optional[str] = None
+    required_signer_roles: Optional[List[str]] = None
     message_template: Optional[str] = None
     is_active: Optional[bool] = None
     priority: Optional[int] = None

@@ -18,6 +18,8 @@ from app.schemas.contract import (
     ContractStatusResponse,
     ContractSendVoiceRequest,
     ContractVoiceResponse,
+    ContractSmartSendRequest,
+    ContractSmartSendResponse,
 )
 from app.schemas.contract_submitter import (
     MultiPartyContractRequest,
@@ -31,6 +33,7 @@ from app.services.resend_service import resend_service
 from app.services.notification_service import notification_service
 from app.services.contract_auto_attach import contract_auto_attach_service
 from app.services.contract_ai_service import contract_ai_service
+from app.services.contract_smart_send import get_required_roles, find_contacts_for_roles, build_submitters
 from app.models.contract_template import ContractRequirement, ContractTemplate
 from app.models.contract import RequirementSource
 
@@ -611,6 +614,143 @@ async def send_contract_voice(
         raise HTTPException(
             status_code=500, detail=f"Failed to send contract: {str(e)}"
         )
+
+@router.post("/voice/smart-send", response_model=ContractSmartSendResponse)
+async def smart_send_contract(
+    request: ContractSmartSendRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Smart contract sending - auto-determines who needs to sign.
+
+    Example: "Send the purchase agreement for 123 contract lane"
+    The system automatically knows Purchase Agreement needs buyer + seller,
+    finds those contacts on the property, and sends to both.
+
+    No need to specify contact roles - the template's required_signer_roles
+    (or the default role map) handles it.
+    """
+    # 1. Find property by partial address
+    query = request.address_query.lower()
+    property = db.query(Property).filter(Property.address.ilike(f"%{query}%")).first()
+
+    if not property:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No property found matching '{request.address_query}'. Please add the property first.",
+        )
+
+    # 2. Find or create contract
+    contract_name_lower = request.contract_name.lower()
+    contract = (
+        db.query(Contract)
+        .filter(
+            Contract.property_id == property.id,
+            Contract.name.ilike(f"%{contract_name_lower}%"),
+        )
+        .first()
+    )
+
+    if not contract and request.create_if_missing:
+        # Try to find a matching template for docuseal_template_id
+        template = db.query(ContractTemplate).filter(
+            ContractTemplate.name.ilike(f"%{contract_name_lower}%"),
+            ContractTemplate.is_active == True,
+        ).first()
+
+        contract = Contract(
+            property_id=property.id,
+            name=request.contract_name.title(),
+            description=f"Auto-created via smart send for {property.address}",
+            docuseal_template_id=template.docuseal_template_id if template else None,
+            status=ContractStatus.DRAFT,
+        )
+        db.add(contract)
+        db.commit()
+        db.refresh(contract)
+
+    if not contract:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No contract matching '{request.contract_name}' found for {property.address}. Set create_if_missing=true to auto-create.",
+        )
+
+    # 3. Determine required signer roles
+    roles = get_required_roles(contract, db)
+
+    if not roles:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No signer roles configured for '{contract.name}'. "
+                   f"Set required_signer_roles on the contract template, or specify contact roles manually with /voice/send-multi-party.",
+        )
+
+    # 4. Find contacts for those roles
+    found_contacts, missing_roles = find_contacts_for_roles(db, property.id, roles)
+
+    if not found_contacts:
+        missing_list = ", ".join(missing_roles)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can't send {contract.name} - missing all required contacts: {missing_list}. Add them first.",
+        )
+
+    if missing_roles:
+        missing_list = ", ".join(missing_roles)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can't send {contract.name} - missing: {missing_list}. Add the missing contact(s) first.",
+        )
+
+    # 5. Check DocuSeal template
+    if not contract.docuseal_template_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Contract '{contract.name}' doesn't have a DocuSeal template ID. Please set one first.",
+        )
+
+    # 6. Build submitters and send via multi-party
+    submitters = build_submitters(found_contacts)
+
+    multi_party_request = MultiPartyContractRequest(
+        submitters=submitters,
+        order=request.order,
+        message=request.message,
+    )
+
+    result = await send_contract_multi_party(contract.id, multi_party_request, db)
+
+    # 7. Build voice-friendly response
+    signer_parts = []
+    for entry in found_contacts:
+        contact = entry["contact"]
+        role = entry["role_str"]
+        signer_parts.append(f"{contact.name} ({role})")
+
+    if len(signer_parts) == 1:
+        signers_text = signer_parts[0]
+    elif len(signer_parts) == 2:
+        signers_text = f"{signer_parts[0]} and {signer_parts[1]}"
+    else:
+        signers_text = f"{', '.join(signer_parts[:-1])}, and {signer_parts[-1]}"
+
+    voice_confirmation = (
+        f"Sent the {contract.name} to {signers_text} for {property.address}."
+    )
+
+    return ContractSmartSendResponse(
+        contract_id=contract.id,
+        contract_name=contract.name,
+        property_address=property.address,
+        submitters=[
+            {"name": e["contact"].name, "email": e["contact"].email, "role": e["role_str"]}
+            for e in found_contacts
+        ],
+        missing_roles=[],
+        voice_confirmation=voice_confirmation,
+        docuseal_url=result.docuseal_url,
+    )
+
 
 @router.post("/voice/send-multi-party", response_model=MultiPartyContractResponse)
 async def send_contract_multi_party_voice(
@@ -1225,6 +1365,94 @@ def get_property_required_contracts_status(
             }
             for c in status["incomplete_contracts"]
         ]
+    }
+
+
+@router.get("/property/{property_id}/signing-status", response_model=dict)
+def get_property_signing_status(
+    property_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Get signing status for all contracts on a property.
+    Shows who signed, who hasn't, and what's still waiting — across all contracts.
+    Voice-optimized response included.
+    """
+    property = db.query(Property).filter(Property.id == property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    contracts = db.query(Contract).filter(Contract.property_id == property_id).all()
+    submitters = db.query(ContractSubmitter).filter(
+        ContractSubmitter.contract_id.in_([c.id for c in contracts])
+    ).all() if contracts else []
+
+    # Build per-contract breakdown
+    contract_signing = []
+    total_signed = 0
+    total_pending = 0
+    pending_names = []
+
+    for contract in contracts:
+        contract_submitters = [s for s in submitters if s.contract_id == contract.id]
+        signed = [s for s in contract_submitters if s.status.value == "completed"]
+        waiting = [s for s in contract_submitters if s.status.value != "completed"]
+
+        total_signed += len(signed)
+        total_pending += len(waiting)
+
+        for s in waiting:
+            if s.name not in pending_names:
+                pending_names.append(s.name)
+
+        contract_signing.append({
+            "contract_id": contract.id,
+            "contract_name": contract.name,
+            "contract_status": contract.status.value,
+            "signers": [
+                {
+                    "name": s.name,
+                    "role": s.role,
+                    "email": s.email,
+                    "status": s.status.value,
+                    "signing_order": s.signing_order,
+                    "sent_at": s.sent_at.isoformat() if s.sent_at else None,
+                    "opened_at": s.opened_at.isoformat() if s.opened_at else None,
+                    "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+                }
+                for s in contract_submitters
+            ],
+            "signed_count": len(signed),
+            "pending_count": len(waiting),
+        })
+
+    # Build voice summary
+    if not submitters:
+        voice_summary = f"No contracts have been sent for signing yet for {property.address}."
+    elif total_pending == 0:
+        voice_summary = f"All {total_signed} signers have completed across {len(contracts)} contracts for {property.address}."
+    else:
+        if len(pending_names) == 1:
+            names_text = pending_names[0]
+        elif len(pending_names) == 2:
+            names_text = f"{pending_names[0]} and {pending_names[1]}"
+        else:
+            names_text = f"{', '.join(pending_names[:-1])}, and {pending_names[-1]}"
+        voice_summary = (
+            f"{total_signed} of {total_signed + total_pending} signers have completed "
+            f"for {property.address}. Still waiting on {names_text}."
+        )
+
+    return {
+        "property_id": property_id,
+        "property_address": property.address,
+        "total_signers": total_signed + total_pending,
+        "signed": total_signed,
+        "pending": total_pending,
+        "pending_names": pending_names,
+        "all_signed": total_pending == 0 and total_signed > 0,
+        "contracts": contract_signing,
+        "voice_summary": voice_summary,
     }
 
 

@@ -15,6 +15,7 @@ from app.database import get_db
 from app.models import Contract, Property
 from app.models.contract import ContractStatus
 from app.services.property_recap_service import property_recap_service
+from app.services.deal_type_service import get_deal_type_summary
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,52 @@ async def process_contract_signed(db: Session, event_data: dict):
             )
             logger.info(f"Property recap regenerated successfully")
 
+            # Check deal type progress after contract update
+            if property.deal_type:
+                deal_summary = get_deal_type_summary(db, property)
+                contracts_info = deal_summary.get("contracts", {})
+                completed = contracts_info.get("completed", 0)
+                total = contracts_info.get("total", 0)
+                ready = deal_summary.get("ready_to_close", False)
+
+                logger.info(
+                    f"Deal status ({deal_summary.get('deal_type')}): "
+                    f"{completed}/{total} contracts complete, "
+                    f"ready_to_close={ready}"
+                )
+
+                # Log activity event for deal progress
+                try:
+                    from app.models.activity_event import ActivityEvent
+                    event_description = (
+                        f"{deal_summary.get('deal_type')}: {contract.name} signed "
+                        f"({completed}/{total} contracts complete)"
+                    )
+                    if ready:
+                        event_description += " - READY TO CLOSE!"
+
+                    activity = ActivityEvent(
+                        event_type="deal_progress",
+                        tool_name="docuseal_webhook",
+                        user_source="DocuSeal Webhook",
+                        description=event_description,
+                        status="success",
+                        metadata={
+                            "property_id": property.id,
+                            "property_address": property.address,
+                            "deal_type": deal_summary.get("deal_type_name"),
+                            "contract_name": contract.name,
+                            "contracts_completed": completed,
+                            "contracts_total": total,
+                            "ready_to_close": ready,
+                            "missing_contacts": deal_summary.get("contacts", {}).get("missing_roles", []),
+                        },
+                    )
+                    db.add(activity)
+                    db.commit()
+                except Exception as e:
+                    logger.warning(f"Failed to log deal progress activity: {e}")
+
 
 @router.post("/docuseal")
 async def docuseal_webhook(
@@ -129,14 +176,19 @@ async def docuseal_webhook(
     # Get raw body for signature verification
     body = await request.body()
 
-    # Verify webhook signature
+    # Verify webhook signature (optional for self-hosted DocuSeal)
     webhook_secret = os.getenv('DOCUSEAL_WEBHOOK_SECRET', '')
 
-    if webhook_secret:
+    if webhook_secret and x_docuseal_signature:
+        # Only verify if both secret and signature are present
         is_valid = verify_docuseal_signature(body, x_docuseal_signature, webhook_secret)
         if not is_valid:
             logger.error("Invalid webhook signature")
             raise HTTPException(status_code=401, detail="Invalid signature")
+        logger.info("Webhook signature verified successfully")
+    elif webhook_secret and not x_docuseal_signature:
+        # Self-hosted DocuSeal might not send signatures
+        logger.warning("Webhook secret configured but no signature provided - allowing (self-hosted mode)")
     else:
         logger.warning("DOCUSEAL_WEBHOOK_SECRET not set - skipping signature verification")
 

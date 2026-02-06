@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
-from app.models.property import PropertyStatus, PropertyType
+from app.models.property import PropertyStatus, PropertyType, DealType
 
 
 class PropertyBase(BaseModel):
@@ -20,6 +20,7 @@ class PropertyBase(BaseModel):
     year_built: int | None = None
     property_type: PropertyType = PropertyType.HOUSE
     status: PropertyStatus = PropertyStatus.AVAILABLE
+    deal_type: DealType | None = None
 
 
 class PropertyCreate(PropertyBase):
@@ -41,6 +42,7 @@ class PropertyCreateFromVoice(BaseModel):
     year_built: int | None = None
     property_type: PropertyType = PropertyType.HOUSE
     status: PropertyStatus = PropertyStatus.AVAILABLE
+    deal_type: DealType | None = None
 
 
 class PropertyCreateFromVoiceResponse(BaseModel):
@@ -65,6 +67,7 @@ class PropertyUpdate(BaseModel):
     year_built: int | None = None
     property_type: PropertyType | None = None
     status: PropertyStatus | None = None
+    deal_type: DealType | None = None
     agent_id: int | None = None
 
 

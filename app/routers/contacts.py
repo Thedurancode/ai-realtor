@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.property import Property
 from app.models.contact import Contact, ContactRole
+from app.models.contract import Contract, ContractStatus
 from app.services.notification_service import notification_service
+from app.services.contract_smart_send import get_required_roles, find_contacts_for_roles
 from app.schemas.contact import (
     ContactCreate,
     ContactUpdate,
@@ -349,6 +351,104 @@ def update_contact(
     db.commit()
     db.refresh(db_contact)
     return db_contact
+
+
+@router.post("/{contact_id}/send-pending-contracts", response_model=dict)
+def send_pending_contracts_to_contact(
+    contact_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Find all draft contracts on the contact's property that need this contact's role
+    and return them for sending.
+
+    Example: Contact is a lawyer → finds contracts needing a lawyer signature.
+    """
+    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    property = db.query(Property).filter(Property.id == contact.property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    # Find all draft contracts on this property
+    draft_contracts = db.query(Contract).filter(
+        Contract.property_id == contact.property_id,
+        Contract.status == ContractStatus.DRAFT,
+    ).all()
+
+    if not draft_contracts:
+        role_text = contact.role.value.replace("_", " ")
+        return {
+            "contact_id": contact.id,
+            "contact_name": contact.name,
+            "property_address": property.address,
+            "matched_contracts": [],
+            "sent_count": 0,
+            "voice_summary": f"No draft contracts found for {property.address} to send to {contact.name}.",
+        }
+
+    # Find contracts that need this contact's role
+    contact_role_str = contact.role.value  # e.g., "lawyer", "buyer"
+    matched = []
+
+    for contract in draft_contracts:
+        roles = get_required_roles(contract, db)
+        if not roles:
+            continue
+        # Check if this contact's role is needed
+        role_lower = [r.lower() for r in roles]
+        if contact_role_str.lower() in role_lower:
+            # Check if all required signers are available
+            found_contacts, missing_roles = find_contacts_for_roles(
+                db, contact.property_id, roles
+            )
+            matched.append({
+                "contract_id": contract.id,
+                "contract_name": contract.name,
+                "required_roles": roles,
+                "found_signers": [
+                    {"name": f["contact"].name, "role": f["role_str"], "email": f["contact"].email}
+                    for f in found_contacts
+                ],
+                "missing_roles": missing_roles,
+                "ready_to_send": len(missing_roles) == 0,
+            })
+
+    role_text = contact.role.value.replace("_", " ")
+    if not matched:
+        voice_summary = (
+            f"No contracts on {property.address} require a {role_text}'s signature."
+        )
+    else:
+        ready = [m for m in matched if m["ready_to_send"]]
+        not_ready = [m for m in matched if not m["ready_to_send"]]
+        parts = []
+        if ready:
+            names = ", ".join(m["contract_name"] for m in ready)
+            parts.append(f"{len(ready)} contract{'s' if len(ready) != 1 else ''} ready to send: {names}")
+        if not_ready:
+            for m in not_ready:
+                parts.append(
+                    f"{m['contract_name']} needs {', '.join(m['missing_roles'])} before sending"
+                )
+        voice_summary = (
+            f"Found {len(matched)} contract{'s' if len(matched) != 1 else ''} "
+            f"needing {contact.name}'s signature on {property.address}. "
+            + ". ".join(parts) + "."
+        )
+
+    return {
+        "contact_id": contact.id,
+        "contact_name": contact.name,
+        "contact_role": contact_role_str,
+        "property_id": property.id,
+        "property_address": property.address,
+        "matched_contracts": matched,
+        "sent_count": len([m for m in matched if m["ready_to_send"]]),
+        "voice_summary": voice_summary,
+    }
 
 
 @router.delete("/{contact_id}", status_code=204)

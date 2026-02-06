@@ -10,5 +10,6 @@ from app.models.contract_submitter import ContractSubmitter
 from app.models.zillow_enrichment import ZillowEnrichment
 from app.models.activity_event import ActivityEvent
 from app.models.property_recap import PropertyRecap
+from app.models.deal_type_config import DealTypeConfig
 
-__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap"]
+__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig"]

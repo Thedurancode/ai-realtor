@@ -895,6 +895,102 @@ async def test_webhook_configuration() -> dict:
     return response.json()
 
 
+async def smart_send_contract(
+    address_query: str,
+    contract_name: str,
+    order: str = "preserved",
+    message: Optional[str] = None,
+    create_if_missing: bool = True
+) -> dict:
+    """
+    Smart-send a contract - auto-determines who needs to sign.
+    No need to specify roles - the system knows Purchase Agreement needs buyer + seller, etc.
+    """
+    response = requests.post(
+        f"{API_BASE_URL}/contracts/voice/smart-send",
+        json={
+            "address_query": address_query,
+            "contract_name": contract_name,
+            "order": order,
+            "message": message,
+            "create_if_missing": create_if_missing,
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+async def get_signing_status(property_id: int) -> dict:
+    """Get signing status for all contracts on a property."""
+    response = requests.get(f"{API_BASE_URL}/contracts/property/{property_id}/signing-status")
+    response.raise_for_status()
+    return response.json()
+
+
+async def set_deal_type(property_id: int, deal_type_name: str, clear_previous: bool = False) -> dict:
+    """Set a deal type on a property and trigger the full workflow."""
+    response = requests.post(
+        f"{API_BASE_URL}/properties/{property_id}/set-deal-type",
+        params={"deal_type_name": deal_type_name, "clear_previous": clear_previous}
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+async def get_deal_status(property_id: int) -> dict:
+    """Get deal progress for a property."""
+    response = requests.get(f"{API_BASE_URL}/properties/{property_id}/deal-status")
+    response.raise_for_status()
+    return response.json()
+
+
+async def list_deal_types_api() -> list:
+    """List all available deal type configs."""
+    response = requests.get(f"{API_BASE_URL}/deal-types/")
+    response.raise_for_status()
+    return response.json()
+
+
+async def get_deal_type_config(name: str) -> dict:
+    """Get a specific deal type config by name."""
+    response = requests.get(f"{API_BASE_URL}/deal-types/{name}")
+    response.raise_for_status()
+    return response.json()
+
+
+async def create_deal_type_config(data: dict) -> dict:
+    """Create a custom deal type config."""
+    response = requests.post(f"{API_BASE_URL}/deal-types/", json=data)
+    response.raise_for_status()
+    return response.json()
+
+
+async def update_deal_type_config(name: str, data: dict) -> dict:
+    """Update a deal type config."""
+    response = requests.put(f"{API_BASE_URL}/deal-types/{name}", json=data)
+    response.raise_for_status()
+    return response.json()
+
+
+async def delete_deal_type_config(name: str) -> dict:
+    """Delete a custom deal type config."""
+    response = requests.delete(f"{API_BASE_URL}/deal-types/{name}")
+    if response.status_code == 204:
+        return {"success": True, "name": name}
+    response.raise_for_status()
+    return response.json()
+
+
+async def preview_deal_type_api(name: str, property_id: int) -> dict:
+    """Preview what a deal type would trigger on a property (dry run)."""
+    response = requests.post(
+        f"{API_BASE_URL}/deal-types/{name}/preview",
+        params={"property_id": property_id}
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 # Create MCP server
 app = Server("property-management")
 
@@ -1011,7 +1107,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="add_contact",
-            description="Add a contact (buyer, seller, agent, or other) to a property for tracking interested parties and managing relationships.",
+            description="Add a contact to a property. Set send_contracts=true to automatically find and send any draft contracts that need this contact's role signature. Example: 'Add Daffy Duck as the lawyer and send him the contracts'.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1025,7 +1121,7 @@ async def list_tools() -> list[Tool]:
                     },
                     "email": {
                         "type": "string",
-                        "description": "Contact's email address"
+                        "description": "Contact's email address (required if send_contracts is true)"
                     },
                     "phone": {
                         "type": "string",
@@ -1034,8 +1130,13 @@ async def list_tools() -> list[Tool]:
                     "role": {
                         "type": "string",
                         "description": "Contact's role",
-                        "enum": ["buyer", "seller", "agent", "other"],
+                        "enum": ["buyer", "seller", "lawyer", "attorney", "contractor", "inspector", "appraiser", "lender", "mortgage_broker", "title_company", "tenant", "landlord", "property_manager", "handyman", "plumber", "electrician", "photographer", "stager", "other"],
                         "default": "buyer"
+                    },
+                    "send_contracts": {
+                        "type": "boolean",
+                        "description": "If true, automatically find draft contracts needing this role's signature and report which are ready to send",
+                        "default": False
                     }
                 },
                 "required": ["property_id", "name"]
@@ -1191,6 +1292,20 @@ async def list_tools() -> list[Tool]:
                     }
                 },
                 "required": ["address_query"]
+            }
+        ),
+        Tool(
+            name="get_signing_status",
+            description="✍️ WHO SIGNED? Voice-optimized signing status for a property. Shows who has signed, who hasn't, across ALL contracts. Perfect for 'Who still needs to sign for property 5?', 'Has John signed yet?', 'What's the signing status for 123 Main St?'. Returns natural language summary.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID to check signing status for"
+                    }
+                },
+                "required": ["property_id"]
             }
         ),
         Tool(
@@ -1415,7 +1530,227 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {}
             }
-        )
+        ),
+        Tool(
+            name="set_deal_type",
+            description="🏷️ SET DEAL TYPE: Set a deal type on a property to trigger a full workflow. Auto-attaches the right contracts, creates a step-by-step checklist, and flags required contact roles. Available deal types: traditional, short_sale, reo, fsbo, new_construction, wholesale, rental, commercial. When SWITCHING deal types, use clear_previous=true to remove old draft contracts and pending todos first. Example: 'Set property 5 as a short sale' or 'Change property 5 from short sale to traditional'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID to set the deal type on"
+                    },
+                    "deal_type": {
+                        "type": "string",
+                        "description": "Deal type name: traditional, short_sale, reo, fsbo, new_construction, wholesale, rental, commercial (or custom)"
+                    },
+                    "clear_previous": {
+                        "type": "boolean",
+                        "description": "If true and switching deal types, removes draft contracts and pending todos from the old deal type first. Completed/signed contracts are never removed. Default: false",
+                        "default": False
+                    }
+                },
+                "required": ["property_id", "deal_type"]
+            }
+        ),
+        Tool(
+            name="get_deal_status",
+            description="📊 DEAL STATUS: Check the deal progress for a property — contracts completed vs pending, checklist items done, and missing contacts. Great for 'Is this deal on track?' or 'What's left to do for property 5?'",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID to check deal status for"
+                    }
+                },
+                "required": ["property_id"]
+            }
+        ),
+        Tool(
+            name="list_deal_types",
+            description="📋 LIST DEAL TYPES: Show all available deal types and what each one triggers (contracts, checklist, required contacts). Useful for 'What deal types are available?' or 'What does a short sale include?'",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="get_deal_type_config",
+            description="🔍 GET DEAL TYPE CONFIG: Get full details of a specific deal type — its contracts, required contacts, checklist items, and compliance tags. Example: 'Show me the short sale config' or 'What contracts does a wholesale deal need?'",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Deal type name (e.g., 'short_sale', 'traditional', 'rental')"
+                    }
+                },
+                "required": ["name"]
+            }
+        ),
+        Tool(
+            name="create_deal_type_config",
+            description="➕ CREATE CUSTOM DEAL TYPE: Create a new deal type with custom contracts, required contacts, and checklist. Example: '1031 Exchange' with contracts like 'Exchange Agreement' and required roles like buyer + seller + intermediary.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Unique identifier (lowercase, underscores, e.g., '1031_exchange')"
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "description": "Human-readable name (e.g., '1031 Exchange')"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Description of this deal type"
+                    },
+                    "contract_templates": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Contract names to auto-attach (e.g., ['Purchase Agreement', 'Exchange Agreement'])"
+                    },
+                    "required_contact_roles": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Required contact roles (e.g., ['buyer', 'seller', 'lender'])"
+                    },
+                    "checklist": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string"},
+                                "description": {"type": "string"},
+                                "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]},
+                                "due_days": {"type": "number"}
+                            },
+                            "required": ["title"]
+                        },
+                        "description": "Checklist items to auto-create as todos"
+                    }
+                },
+                "required": ["name", "display_name"]
+            }
+        ),
+        Tool(
+            name="update_deal_type_config",
+            description="✏️ UPDATE DEAL TYPE CONFIG: Change the contracts, required contacts, checklist, or other settings on a deal type. Example: 'Add Bank Authorization to the short sale contracts' or 'Remove lender from traditional required contacts'. Changes apply to future deal type applications only.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Deal type name to update (e.g., 'short_sale')"
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "description": "New display name"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "New description"
+                    },
+                    "contract_templates": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Full list of contract names (replaces existing list)"
+                    },
+                    "required_contact_roles": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Full list of required roles (replaces existing list)"
+                    },
+                    "checklist": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string"},
+                                "description": {"type": "string"},
+                                "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]},
+                                "due_days": {"type": "number"}
+                            },
+                            "required": ["title"]
+                        },
+                        "description": "Full checklist (replaces existing list)"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "description": "Enable or disable this deal type"
+                    }
+                },
+                "required": ["name"]
+            }
+        ),
+        Tool(
+            name="delete_deal_type_config",
+            description="🗑️ DELETE DEAL TYPE: Delete a custom deal type config. Cannot delete built-in deal types (traditional, short_sale, etc). Example: 'Delete the 1031 exchange deal type'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Deal type name to delete"
+                    }
+                },
+                "required": ["name"]
+            }
+        ),
+        Tool(
+            name="preview_deal_type",
+            description="👀 PREVIEW DEAL TYPE: Dry run — see what contracts, todos, and contacts would be created if you applied a deal type to a property, WITHOUT actually doing it. Example: 'Preview what a short sale would do for property 5'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Deal type name to preview"
+                    },
+                    "property_id": {
+                        "type": "number",
+                        "description": "Property ID to preview against"
+                    }
+                },
+                "required": ["name", "property_id"]
+            }
+        ),
+        Tool(
+            name="smart_send_contract",
+            description="🚀 SMART SEND: Send a contract and automatically determine who needs to sign it. No need to specify contact roles! The system knows that a Purchase Agreement needs buyer + seller, an Inspection Report needs the inspector, etc. Just say the contract name and address. Example: 'Send the purchase agreement for 123 Main St' - system auto-finds buyer and seller contacts and sends to both.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "address_query": {
+                        "type": "string",
+                        "description": "Natural language address (voice-friendly). Examples: 'one forty one throop', '123 main street', 'contract lane'. Handles phonetic variations."
+                    },
+                    "contract_name": {
+                        "type": "string",
+                        "description": "Name of the contract to send. Examples: 'Purchase Agreement', 'Inspection Report', 'Disclosure Form', 'Lease Agreement'. Fuzzy-matched to templates."
+                    },
+                    "order": {
+                        "type": "string",
+                        "description": "Signing order: 'preserved' for sequential (buyer signs first, then seller) or 'random' for parallel (all sign at once). Default: preserved",
+                        "enum": ["preserved", "random"],
+                        "default": "preserved"
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Optional custom message to include in the signing email"
+                    },
+                    "create_if_missing": {
+                        "type": "boolean",
+                        "description": "If true, auto-create the contract if it doesn't exist yet. Default: true",
+                        "default": True
+                    }
+                },
+                "required": ["address_query", "contract_name"]
+            }
+        ),
     ]
 
 
@@ -1496,9 +1831,42 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 role=arguments.get("role", "buyer")
             )
 
+            contact_name = result.get("name", arguments["name"])
+            contact_role = result.get("role", arguments.get("role", "buyer")).replace("_", " ")
+            output = f"Added {contact_name} as {contact_role} for property {arguments['property_id']}.\n"
+
+            # If send_contracts requested, find matching draft contracts
+            if arguments.get("send_contracts"):
+                contact_id = result.get("id")
+                if contact_id:
+                    try:
+                        send_response = requests.post(
+                            f"{API_BASE_URL}/contacts/{contact_id}/send-pending-contracts"
+                        )
+                        send_response.raise_for_status()
+                        send_result = send_response.json()
+
+                        matched = send_result.get("matched_contracts", [])
+                        if matched:
+                            output += f"\n📋 Contract matching:\n"
+                            for m in matched:
+                                status = "✅ Ready to send" if m["ready_to_send"] else f"⚠️ Missing: {', '.join(m['missing_roles'])}"
+                                signers = ", ".join(s["name"] for s in m["found_signers"])
+                                output += f"  • {m['contract_name']}: {status}\n"
+                                if m["found_signers"]:
+                                    output += f"    Signers: {signers}\n"
+                        else:
+                            output += f"\nNo draft contracts need a {contact_role}'s signature on this property."
+
+                        output += f"\n{send_result.get('voice_summary', '')}"
+                    except Exception as e:
+                        output += f"\nCouldn't check contracts: {str(e)}"
+                else:
+                    output += "\nCouldn't check contracts: contact ID not returned."
+
             return [TextContent(
                 type="text",
-                text=json.dumps(result, indent=2)
+                text=output
             )]
 
         elif name == "send_notification":
@@ -1636,6 +2004,36 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(
                 type="text",
                 text=voice_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "get_signing_status":
+            property_id = arguments["property_id"]
+            result = await get_signing_status(property_id=property_id)
+
+            # Voice summary is already included
+            signing_text = f"✍️ SIGNING STATUS\n\n"
+            signing_text += f"Property: {result.get('property_address', 'Unknown')}\n"
+            signing_text += f"🎤 {result.get('voice_summary', '')}\n\n"
+
+            signing_text += f"📊 TOTALS: {result.get('signed', 0)}/{result.get('total_signers', 0)} signed\n\n"
+
+            for contract in result.get('contracts', []):
+                signing_text += f"📝 {contract['contract_name']} ({contract['contract_status']})\n"
+                for signer in contract.get('signers', []):
+                    status_icon = "✅" if signer['status'] == 'completed' else "⏳" if signer['status'] == 'pending' else "👀" if signer['status'] == 'opened' else "❌"
+                    signing_text += f"  {status_icon} {signer['name']} ({signer['role']}) - {signer['status']}\n"
+                if not contract.get('signers'):
+                    signing_text += f"  (no signers assigned yet)\n"
+                signing_text += "\n"
+
+            if result.get('pending_names'):
+                signing_text += f"⏳ Still waiting on: {', '.join(result['pending_names'])}\n"
+            elif result.get('all_signed'):
+                signing_text += f"🎉 All signers have completed!\n"
+
+            return [TextContent(
+                type="text",
+                text=signing_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
             )]
 
         elif name == "check_property_contract_readiness":
@@ -1979,6 +2377,289 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(
                 type="text",
                 text=call_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "smart_send_contract":
+            address_query = arguments["address_query"]
+            contract_name = arguments["contract_name"]
+            order = arguments.get("order", "preserved")
+            message = arguments.get("message")
+            create_if_missing = arguments.get("create_if_missing", True)
+
+            result = await smart_send_contract(
+                address_query=address_query,
+                contract_name=contract_name,
+                order=order,
+                message=message,
+                create_if_missing=create_if_missing,
+            )
+
+            # Format result
+            smart_text = f"🚀 SMART SEND COMPLETE\n\n"
+            smart_text += f"📝 Contract: {result['contract_name']}\n"
+            smart_text += f"🏠 Property: {result['property_address']}\n\n"
+
+            smart_text += f"✅ {result['voice_confirmation']}\n\n"
+
+            if result.get('submitters'):
+                smart_text += f"📋 SIGNERS ({len(result['submitters'])}):\n"
+                for s in result['submitters']:
+                    smart_text += f"  • {s['name']} ({s['role']}) - {s['email']}\n"
+
+            if result.get('missing_roles'):
+                smart_text += f"\n⚠️ MISSING ROLES: {', '.join(result['missing_roles'])}\n"
+
+            if result.get('docuseal_url'):
+                smart_text += f"\n🔗 DocuSeal URL: {result['docuseal_url']}\n"
+
+            return [TextContent(
+                type="text",
+                text=smart_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "set_deal_type":
+            property_id = arguments["property_id"]
+            deal_type_name = arguments["deal_type"]
+            clear_previous = arguments.get("clear_previous", False)
+            result = await set_deal_type(
+                property_id=property_id,
+                deal_type_name=deal_type_name,
+                clear_previous=clear_previous,
+            )
+
+            deal_text = f"🏷️ DEAL TYPE SET\n\n"
+            deal_text += f"Property: {result.get('property_address', 'Unknown')}\n"
+            deal_text += f"Deal Type: {result.get('deal_type', deal_type_name)}\n\n"
+
+            # Show removed items if switching
+            if result.get('contracts_removed', 0) > 0:
+                deal_text += f"🗑️ Removed {result['contracts_removed']} old contract(s): {', '.join(result.get('contracts_removed_names', []))}\n"
+            if result.get('todos_removed', 0) > 0:
+                deal_text += f"🗑️ Removed {result['todos_removed']} old todo(s): {', '.join(result.get('todos_removed_titles', []))}\n"
+            if result.get('contracts_removed', 0) > 0 or result.get('todos_removed', 0) > 0:
+                deal_text += "\n"
+
+            deal_text += f"📝 Contracts Attached: {result.get('contracts_attached', 0)}\n"
+            for name_c in result.get('contract_names', []):
+                deal_text += f"  • {name_c}\n"
+
+            deal_text += f"\n✅ Checklist Items Created: {result.get('todos_created', 0)}\n"
+            for title in result.get('todo_titles', []):
+                deal_text += f"  • {title}\n"
+
+            missing = result.get('missing_contacts', [])
+            if missing:
+                deal_text += f"\n⚠️ Missing Required Contacts: {', '.join(missing)}\n"
+                deal_text += "Add these contacts to proceed with the deal.\n"
+            else:
+                deal_text += f"\n✅ All required contacts are present.\n"
+
+            return [TextContent(
+                type="text",
+                text=deal_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "get_deal_status":
+            property_id = arguments["property_id"]
+            result = await get_deal_status(property_id=property_id)
+
+            status_text = f"📊 DEAL STATUS\n\n"
+            status_text += f"Property: {result.get('property_address', 'Unknown')}\n"
+            deal_type_display = result.get('deal_type')
+            if not deal_type_display:
+                status_text += "No deal type set for this property.\n"
+                return [TextContent(type="text", text=status_text)]
+
+            status_text += f"Deal Type: {deal_type_display}\n\n"
+
+            contracts = result.get('contracts', {})
+            status_text += f"📝 CONTRACTS: {contracts.get('completed', 0)}/{contracts.get('total', 0)} completed\n"
+            for n in contracts.get('pending_names', []):
+                status_text += f"  ⏳ {n}\n"
+            for n in contracts.get('completed_names', []):
+                status_text += f"  ✅ {n}\n"
+
+            checklist = result.get('checklist', {})
+            status_text += f"\n✅ CHECKLIST: {checklist.get('completed', 0)}/{checklist.get('total', 0)} completed\n"
+            for item in checklist.get('pending_items', []):
+                status_text += f"  ⏳ {item['title']} ({item['priority']})\n"
+
+            contacts_info = result.get('contacts', {})
+            missing = contacts_info.get('missing_roles', [])
+            if missing:
+                status_text += f"\n⚠️ Missing Contacts: {', '.join(missing)}\n"
+            else:
+                status_text += f"\n✅ All required contacts present\n"
+
+            status_text += f"\n{'🎉 READY TO CLOSE!' if result.get('ready_to_close') else '⏳ Not ready to close yet.'}\n"
+
+            return [TextContent(
+                type="text",
+                text=status_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "list_deal_types":
+            result = await list_deal_types_api()
+
+            types_text = f"📋 AVAILABLE DEAL TYPES ({len(result)})\n\n"
+            for dt in result:
+                types_text += f"🏷️ {dt['display_name']} ({dt['name']})\n"
+                if dt.get('description'):
+                    types_text += f"   {dt['description']}\n"
+                if dt.get('contract_templates'):
+                    types_text += f"   Contracts: {', '.join(dt['contract_templates'])}\n"
+                if dt.get('required_contact_roles'):
+                    types_text += f"   Required Contacts: {', '.join(dt['required_contact_roles'])}\n"
+                checklist = dt.get('checklist', [])
+                if checklist:
+                    types_text += f"   Checklist: {len(checklist)} items\n"
+                types_text += "\n"
+
+            return [TextContent(
+                type="text",
+                text=types_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "get_deal_type_config":
+            dt_name = arguments["name"]
+            result = await get_deal_type_config(dt_name)
+
+            config_text = f"🔍 DEAL TYPE CONFIG: {result['display_name']}\n\n"
+            if result.get('description'):
+                config_text += f"{result['description']}\n\n"
+            config_text += f"Name: {result['name']}\n"
+            config_text += f"Built-in: {'Yes' if result.get('is_builtin') else 'No'}\n"
+            config_text += f"Active: {'Yes' if result.get('is_active') else 'No'}\n\n"
+
+            if result.get('contract_templates'):
+                config_text += f"📝 Contracts ({len(result['contract_templates'])}):\n"
+                for ct in result['contract_templates']:
+                    config_text += f"  • {ct}\n"
+
+            if result.get('required_contact_roles'):
+                config_text += f"\n👥 Required Contacts: {', '.join(result['required_contact_roles'])}\n"
+
+            if result.get('checklist'):
+                config_text += f"\n✅ Checklist ({len(result['checklist'])} items):\n"
+                for item in result['checklist']:
+                    priority = item.get('priority', 'medium')
+                    config_text += f"  • {item['title']} ({priority})\n"
+                    if item.get('description'):
+                        config_text += f"    {item['description']}\n"
+
+            if result.get('compliance_tags'):
+                config_text += f"\n🏛️ Compliance Tags: {', '.join(result['compliance_tags'])}\n"
+
+            return [TextContent(
+                type="text",
+                text=config_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "create_deal_type_config":
+            data = {
+                "name": arguments["name"],
+                "display_name": arguments["display_name"],
+            }
+            if arguments.get("description"):
+                data["description"] = arguments["description"]
+            if arguments.get("contract_templates"):
+                data["contract_templates"] = arguments["contract_templates"]
+            if arguments.get("required_contact_roles"):
+                data["required_contact_roles"] = arguments["required_contact_roles"]
+            if arguments.get("checklist"):
+                data["checklist"] = arguments["checklist"]
+
+            result = await create_deal_type_config(data)
+
+            create_text = f"➕ DEAL TYPE CREATED: {result['display_name']}\n\n"
+            create_text += f"Name: {result['name']}\n"
+            if result.get('contract_templates'):
+                create_text += f"Contracts: {', '.join(result['contract_templates'])}\n"
+            if result.get('required_contact_roles'):
+                create_text += f"Required Contacts: {', '.join(result['required_contact_roles'])}\n"
+            if result.get('checklist'):
+                create_text += f"Checklist: {len(result['checklist'])} items\n"
+            create_text += f"\nYou can now use 'set_deal_type' to apply it to a property.\n"
+
+            return [TextContent(
+                type="text",
+                text=create_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "update_deal_type_config":
+            dt_name = arguments.pop("name")
+            # Only send fields that were provided
+            update_data = {k: v for k, v in arguments.items() if v is not None}
+
+            result = await update_deal_type_config(dt_name, update_data)
+
+            update_text = f"✏️ DEAL TYPE UPDATED: {result['display_name']}\n\n"
+            update_text += f"Name: {result['name']}\n"
+            if result.get('contract_templates'):
+                update_text += f"Contracts: {', '.join(result['contract_templates'])}\n"
+            if result.get('required_contact_roles'):
+                update_text += f"Required Contacts: {', '.join(result['required_contact_roles'])}\n"
+            if result.get('checklist'):
+                update_text += f"Checklist: {len(result['checklist'])} items\n"
+            update_text += f"\nNote: Changes apply to future deal type applications only.\n"
+            update_text += f"To update an existing property, re-apply with set_deal_type (clear_previous=true).\n"
+
+            return [TextContent(
+                type="text",
+                text=update_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
+            )]
+
+        elif name == "delete_deal_type_config":
+            dt_name = arguments["name"]
+            result = await delete_deal_type_config(dt_name)
+
+            return [TextContent(
+                type="text",
+                text=f"🗑️ Deal type '{dt_name}' deleted successfully."
+            )]
+
+        elif name == "preview_deal_type":
+            dt_name = arguments["name"]
+            property_id = arguments["property_id"]
+            result = await preview_deal_type_api(dt_name, property_id)
+
+            preview_text = f"👀 PREVIEW: {result.get('deal_type', dt_name)} on Property {property_id}\n\n"
+            preview_text += f"Property: {result.get('property_address', 'Unknown')}\n\n"
+
+            would_create = result.get('would_create_contracts', [])
+            would_skip = result.get('would_skip_contracts', [])
+            if would_create:
+                preview_text += f"📝 Would CREATE {len(would_create)} contract(s):\n"
+                for c in would_create:
+                    preview_text += f"  + {c}\n"
+            if would_skip:
+                preview_text += f"⏭️ Would SKIP {len(would_skip)} (already exist):\n"
+                for c in would_skip:
+                    preview_text += f"  - {c}\n"
+
+            would_create_todos = result.get('would_create_todos', [])
+            would_skip_todos = result.get('would_skip_todos', [])
+            if would_create_todos:
+                preview_text += f"\n✅ Would CREATE {len(would_create_todos)} checklist item(s):\n"
+                for t in would_create_todos:
+                    preview_text += f"  + {t.get('title', t)}\n"
+            if would_skip_todos:
+                preview_text += f"⏭️ Would SKIP {len(would_skip_todos)} (already exist):\n"
+                for t in would_skip_todos:
+                    preview_text += f"  - {t.get('title', t)}\n"
+
+            missing_roles = result.get('missing_contact_roles', [])
+            present_roles = result.get('present_contact_roles', [])
+            if missing_roles:
+                preview_text += f"\n⚠️ Missing contacts: {', '.join(missing_roles)}\n"
+            if present_roles:
+                preview_text += f"✅ Present contacts: {', '.join(present_roles)}\n"
+
+            preview_text += f"\nThis is a dry run — nothing was changed.\n"
+
+            return [TextContent(
+                type="text",
+                text=preview_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
             )]
 
         elif name == "test_webhook_configuration":

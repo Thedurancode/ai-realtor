@@ -16,6 +16,7 @@ from app.models.contract import Contract, ContractStatus
 from app.models.zillow_enrichment import ZillowEnrichment
 from app.models.contact import Contact
 from app.services.contract_auto_attach import contract_auto_attach_service
+from app.services.deal_type_service import get_deal_type_summary
 
 
 class PropertyRecapService:
@@ -97,6 +98,25 @@ class PropertyRecapService:
         # Get contract readiness
         readiness = contract_auto_attach_service.get_required_contracts_status(db, property)
 
+        # Get deal type info
+        deal_type_info = None
+        if property.deal_type:
+            deal_summary = get_deal_type_summary(db, property)
+            deal_type_info = {
+                "deal_type": deal_summary.get("deal_type"),
+                "deal_type_name": deal_summary.get("deal_type_name"),
+                "contracts_completed": deal_summary.get("contracts", {}).get("completed", 0),
+                "contracts_total": deal_summary.get("contracts", {}).get("total", 0),
+                "contracts_pending": deal_summary.get("contracts", {}).get("pending_names", []),
+                "checklist_completed": deal_summary.get("checklist", {}).get("completed", 0),
+                "checklist_total": deal_summary.get("checklist", {}).get("total", 0),
+                "checklist_pending": [
+                    item["title"] for item in deal_summary.get("checklist", {}).get("pending_items", [])
+                ],
+                "missing_contacts": deal_summary.get("contacts", {}).get("missing_roles", []),
+                "ready_to_close": deal_summary.get("ready_to_close", False),
+            }
+
         return {
             "property": {
                 "id": property.id,
@@ -108,7 +128,9 @@ class PropertyRecapService:
                 "property_type": property.property_type.value if property.property_type else None,
                 "status": property.status.value if property.status else None,
                 "year_built": property.year_built,
+                "deal_type": property.deal_type.value if property.deal_type else None,
             },
+            "deal_type": deal_type_info,
             "contracts": [
                 {
                     "id": c.id,
@@ -154,6 +176,7 @@ class PropertyRecapService:
         readiness_info = context["contract_readiness"]
         enrichment_info = context.get("enrichment")
         contacts_info = context["contacts"]
+        deal_type_info = context.get("deal_type")
 
         # Build prompt
         prompt = f"""You are a real estate assistant generating a comprehensive property summary for phone calls and voice interactions.
@@ -163,10 +186,13 @@ Address: {property_info['address']}
 Price: ${property_info['price']:,.0f}
 Type: {property_info['property_type']}
 Status: {property_info['status']}
+Deal Type: {property_info.get('deal_type') or 'Not set'}
 Bedrooms: {property_info['bedrooms'] or 'N/A'}
 Bathrooms: {property_info['bathrooms'] or 'N/A'}
 Square Feet: {property_info['square_feet'] or 'N/A'}
 Year Built: {property_info['year_built'] or 'N/A'}
+
+{self._format_deal_type_for_prompt(deal_type_info)}
 
 CONTRACT STATUS:
 Ready to Close: {'YES' if readiness_info['is_ready_to_close'] else 'NO'}
@@ -238,6 +264,7 @@ Return as JSON:
         # Build structured context for VAPI
         structured_context = {
             "property": property_info,
+            "deal_type": deal_type_info,
             "contracts": contracts_info,
             "readiness": readiness_info,
             "enrichment": enrichment_info,
@@ -255,6 +282,23 @@ Return as JSON:
         voice_summary = result.get("voice_summary", "")
 
         return recap_text, voice_summary, structured_context
+
+    def _format_deal_type_for_prompt(self, deal_type_info: dict) -> str:
+        """Format deal type info for AI prompt"""
+        if not deal_type_info:
+            return ""
+
+        lines = [f"DEAL TYPE: {deal_type_info['deal_type']}"]
+        lines.append(f"Contracts: {deal_type_info['contracts_completed']}/{deal_type_info['contracts_total']} completed")
+        if deal_type_info.get('contracts_pending'):
+            lines.append(f"Pending contracts: {', '.join(deal_type_info['contracts_pending'])}")
+        lines.append(f"Checklist: {deal_type_info['checklist_completed']}/{deal_type_info['checklist_total']} completed")
+        if deal_type_info.get('checklist_pending'):
+            lines.append(f"Pending checklist items: {', '.join(deal_type_info['checklist_pending'])}")
+        if deal_type_info.get('missing_contacts'):
+            lines.append(f"Missing required contacts: {', '.join(deal_type_info['missing_contacts'])}")
+        lines.append(f"Ready to close: {'YES' if deal_type_info['ready_to_close'] else 'NO'}")
+        return "\n".join(lines)
 
     def _format_contracts_for_prompt(self, contracts: list) -> str:
         """Format contracts for AI prompt"""
