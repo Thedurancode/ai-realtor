@@ -9,11 +9,17 @@ from typing import Optional
 from app.database import get_db
 from app.rate_limit import limiter
 from app.models.property import Property
-from app.services.conversation_context import get_context, resolve_property_reference
+from app.services.conversation_context import (
+    get_context,
+    hydrate_context_from_graph,
+    persist_context_to_graph,
+    resolve_property_reference,
+)
 from app.services.skip_trace import skip_trace_service
 from app.models.skip_trace import SkipTrace
 from app.services.zillow_enrichment import zillow_enrichment_service
 from app.models.zillow_enrichment import ZillowEnrichment
+from app.services.memory_graph import MemoryRef, memory_graph_service
 
 router = APIRouter(prefix="/context", tags=["context"])
 
@@ -55,15 +61,17 @@ class ContextResponse(BaseModel):
 
 
 @router.get("/summary")
-def get_context_summary(session_id: str = "default"):
+def get_context_summary(session_id: str = "default", db: Session = Depends(get_db)):
     """
     Get current conversation context.
 
     Shows what the system remembers about recent actions.
     """
-    context = get_context(session_id)
+    context = hydrate_context_from_graph(db=db, session_id=session_id)
+    graph_summary = memory_graph_service.get_session_summary(db=db, session_id=session_id)
     return {
         "context": context.get_summary(),
+        "persistent_memory": graph_summary,
         "status": "stale" if context.is_stale() else "active"
     }
 
@@ -117,6 +125,16 @@ async def create_property_with_context(
     # Remember in context
     context = get_context(request.session_id)
     context.set_last_property(new_property.id, street_address)
+    memory_graph_service.remember_property(
+        db=db,
+        session_id=request.session_id,
+        property_id=new_property.id,
+        address=street_address,
+        city=address_details["city"],
+        state=address_details["state"],
+    )
+    persist_context_to_graph(db=db, session_id=request.session_id)
+    db.commit()
 
     return ContextResponse(
         success=True,
@@ -216,7 +234,46 @@ async def skip_trace_with_context(
 
     # Remember in context
     context = get_context(body.session_id)
+    context.set_last_property(property.id, property.address)
     context.set_last_skip_trace(skip_trace.id, property.id)
+    memory_graph_service.remember_property(
+        db=db,
+        session_id=body.session_id,
+        property_id=property.id,
+        address=property.address,
+        city=property.city,
+        state=property.state,
+    )
+    if skip_trace.owner_name:
+        memory_graph_service.upsert_node(
+            db=db,
+            session_id=body.session_id,
+            node_type="owner",
+            node_key=f"skip_trace:{skip_trace.id}",
+            summary=skip_trace.owner_name,
+            payload={
+                "owner_name": skip_trace.owner_name,
+                "property_id": property.id,
+                "skip_trace_id": skip_trace.id,
+            },
+            importance=0.85,
+        )
+        memory_graph_service.upsert_edge(
+            db=db,
+            session_id=body.session_id,
+            source=MemoryRef("owner", f"skip_trace:{skip_trace.id}"),
+            target=MemoryRef("property", str(property.id)),
+            relation="owns",
+            weight=0.75,
+        )
+    memory_graph_service.remember_session_state(
+        db=db,
+        session_id=body.session_id,
+        key="last_skip_trace_id",
+        value=skip_trace.id,
+    )
+    persist_context_to_graph(db=db, session_id=body.session_id)
+    db.commit()
 
     return ContextResponse(
         success=True,
@@ -235,13 +292,16 @@ async def skip_trace_with_context(
 
 
 @router.delete("/clear")
-def clear_context(session_id: str = "default"):
+def clear_context(session_id: str = "default", db: Session = Depends(get_db)):
     """Clear conversation context"""
     context = get_context(session_id)
     context.clear()
+    cleared = memory_graph_service.clear_session(db=db, session_id=session_id)
+    db.commit()
     return {
         "success": True,
-        "message": "Context cleared"
+        "message": "Context cleared",
+        "persistent_memory": cleared,
     }
 
 
@@ -370,6 +430,39 @@ async def enrich_property_with_zillow(
 
     # Remember in context
     context = get_context(body.session_id)
+    context.set_last_property(property.id, property.address)
+    memory_graph_service.remember_property(
+        db=db,
+        session_id=body.session_id,
+        property_id=property.id,
+        address=property.address,
+        city=property.city,
+        state=property.state,
+    )
+    memory_graph_service.upsert_node(
+        db=db,
+        session_id=body.session_id,
+        node_type="enrichment",
+        node_key=str(property.id),
+        summary=f"Zillow enrichment for property #{property.id}",
+        payload={
+            "zestimate": enrichment.zestimate,
+            "rent_zestimate": enrichment.rent_zestimate,
+            "zpid": enrichment.zpid,
+            "photo_count": len(enrichment.photos) if enrichment.photos else 0,
+        },
+        importance=0.7,
+    )
+    memory_graph_service.upsert_edge(
+        db=db,
+        session_id=body.session_id,
+        source=MemoryRef("enrichment", str(property.id)),
+        target=MemoryRef("property", str(property.id)),
+        relation="about_property",
+        weight=0.7,
+    )
+    persist_context_to_graph(db=db, session_id=body.session_id)
+    db.commit()
 
     # Build enrichment message
     message_parts = [f"Enriched {property.address} with Zillow data"]

@@ -16,5 +16,16 @@ from app.models.research_template import ResearchTemplate
 from app.models.agent_conversation import AgentConversation
 from app.models.compliance_rule import ComplianceRule, ComplianceCheck, ComplianceViolation, ComplianceRuleTemplate
 from app.models.notification import Notification
+from app.models.agentic_property import ResearchProperty
+from app.models.agentic_job import AgenticJob, AgenticJobStatus
+from app.models.evidence_item import EvidenceItem
+from app.models.comp_sale import CompSale
+from app.models.comp_rental import CompRental
+from app.models.underwriting import Underwriting
+from app.models.risk_score import RiskScore
+from app.models.dossier import Dossier
+from app.models.portal_cache import PortalCache
+from app.models.worker_run import WorkerRun
+from app.models.voice_memory import VoiceMemoryNode, VoiceMemoryEdge
 
-__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification"]
+__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge"]

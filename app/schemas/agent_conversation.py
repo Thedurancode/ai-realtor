@@ -44,3 +44,44 @@ class AgentConversationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class VoiceGoalExecuteRequest(BaseModel):
+    """Request to run a goal-driven voice plan."""
+    goal: str
+    session_id: str = "default"
+    property_id: Optional[int] = None
+
+
+class VoiceGoalPlanStepResponse(BaseModel):
+    order: int
+    action: str
+    title: str
+    instruction: str
+
+
+class VoiceGoalCheckpointResponse(BaseModel):
+    order: int
+    action: str
+    title: str
+    status: str
+    message: str
+    data: dict
+
+
+class VoiceGoalExecuteResponse(BaseModel):
+    session_id: str
+    goal: str
+    plan: List[VoiceGoalPlanStepResponse]
+    checkpoints: List[VoiceGoalCheckpointResponse]
+    final_summary: str
+    memory_summary: dict
+
+
+class VoiceMemoryEventRequest(BaseModel):
+    """Manual memory write for important conversational events."""
+    session_id: str = "default"
+    event_type: str  # objection | promise
+    text: str
+    topic: Optional[str] = None
+    due_at: Optional[str] = None

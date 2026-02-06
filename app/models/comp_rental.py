@@ -1,0 +1,29 @@
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, JSON, ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
+from app.database import Base
+
+
+class CompRental(Base):
+    __tablename__ = "comps_rentals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    research_property_id = Column(Integer, ForeignKey("research_properties.id"), nullable=False, index=True)
+    job_id = Column(Integer, ForeignKey("agentic_jobs.id"), nullable=False, index=True)
+
+    address = Column(String, nullable=False)
+    distance_mi = Column(Float, nullable=True)
+    rent = Column(Float, nullable=True)
+    date_listed = Column(Date, nullable=True)
+    sqft = Column(Integer, nullable=True)
+    beds = Column(Integer, nullable=True)
+    baths = Column(Float, nullable=True)
+    similarity_score = Column(Float, nullable=False)
+    source_url = Column(String(1000), nullable=False)
+
+    details = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    research_property = relationship("ResearchProperty", back_populates="comp_rentals")
+    job = relationship("AgenticJob", back_populates="comp_rentals")

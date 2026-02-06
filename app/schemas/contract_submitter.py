@@ -61,6 +61,7 @@ class MultiPartyVoiceRequest(BaseModel):
     contact_roles: list[str]  # Roles like ["owner", "lawyer", "agent"]
     order: str = "preserved"  # "preserved" for sequential, "random" for parallel
     message: str | None = None
+    session_id: str = "default"
 
 
 class MultiPartyContractResponse(BaseModel):

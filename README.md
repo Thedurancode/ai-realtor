@@ -106,6 +106,44 @@ See `QUICK_DEPLOY.md` for details.
 - `POST /notifications/` - Create notification
 - `WS /ws` - WebSocket connection
 
+### Agentic Research
+- `POST /agentic/jobs` - Start async evidence-first research
+- `GET /agentic/jobs/{job_id}` - Get job status and progress
+- `GET /agentic/properties/{property_id}` - Get full structured research JSON
+- `GET /agentic/properties/{property_id}/dossier` - Get Markdown dossier
+- `POST /agentic/research` - Run synchronous research shortcut
+
+Example request:
+```json
+{
+  "address": "123 Main St",
+  "city": "Newark",
+  "state": "NJ",
+  "zip": "07102",
+  "strategy": "wholesale",
+  "assumptions": {"rehab_tier": "medium"},
+  "limits": {"max_steps": 7, "max_web_calls": 20, "timeout_seconds_per_step": 20}
+}
+```
+
+Example response shape:
+```json
+{
+  "property_id": 1,
+  "latest_job_id": 10,
+  "output": {
+    "property_profile": {},
+    "evidence": [],
+    "comps_sales": [],
+    "comps_rentals": [],
+    "underwrite": {},
+    "risk_score": {},
+    "dossier": {"markdown": "# Property Dossier"},
+    "worker_runs": []
+  }
+}
+```
+
 See full API docs at `/docs` endpoint.
 
 ## Environment Variables
@@ -127,6 +165,12 @@ FROM_NAME=Real Estate Contracts
 RAPIDAPI_KEY=your_key
 SKIP_TRACE_API_HOST=skip-tracing-working-api.p.rapidapi.com
 ZILLOW_API_HOST=private-zillow.p.rapidapi.com
+
+# Database
+DATABASE_URL=postgresql://localhost:5432/ai_realtor
+
+# LLM (optional for dossier expansion hooks)
+ANTHROPIC_API_KEY=your_key
 ```
 
 ## Tech Stack
@@ -134,7 +178,7 @@ ZILLOW_API_HOST=private-zillow.p.rapidapi.com
 ### Backend
 - **FastAPI** - Modern Python web framework
 - **SQLAlchemy** - ORM
-- **SQLite** - Database
+- **PostgreSQL** - Database
 - **Pydantic** - Data validation
 - **WebSockets** - Real-time communication
 
@@ -170,7 +214,7 @@ ZILLOW_API_HOST=private-zillow.p.rapidapi.com
                          ┌──────┴───────┐
                          │              │
                     ┌────▼────┐    ┌───▼────┐
-                    │  SQLite │    │  APIs  │
+                    │ Postgres│    │  APIs  │
                     │Database │    │External│
                     └─────────┘    └────────┘
                                         │

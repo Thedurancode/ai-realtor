@@ -4,9 +4,17 @@ from app.schemas.contract import ContractCreate, ContractUpdate, ContractRespons
 from app.schemas.notification import NotificationCreate, NotificationResponse
 from app.schemas.activity import ActivityEventCreate, ActivityEventUpdate, ActivityEventResponse
 from app.schemas.property_recap import RecapResponse, PhoneCallRequest, PhoneCallResponse
-from app.schemas.agent_conversation import AgentExecuteRequest, AgentFromTemplateRequest, AgentConversationResponse
+from app.schemas.agent_conversation import (
+    AgentExecuteRequest,
+    AgentFromTemplateRequest,
+    AgentConversationResponse,
+    VoiceGoalExecuteRequest,
+    VoiceGoalExecuteResponse,
+    VoiceMemoryEventRequest,
+)
 from app.schemas.research import ResearchCreateRequest, ResearchResponse, AIResearchRequest, APIResearchRequest
 from app.schemas.research_template import ResearchTemplateCreate, ResearchTemplateUpdate, ResearchTemplateResponse
+from app.schemas.agentic_research import ResearchInput, AgenticJobCreateResponse, AgenticJobStatusResponse, PropertyEnvelope, DossierEnvelope
 
 __all__ = [
     "AgentCreate",
@@ -29,6 +37,9 @@ __all__ = [
     "AgentExecuteRequest",
     "AgentFromTemplateRequest",
     "AgentConversationResponse",
+    "VoiceGoalExecuteRequest",
+    "VoiceGoalExecuteResponse",
+    "VoiceMemoryEventRequest",
     "ResearchCreateRequest",
     "ResearchResponse",
     "AIResearchRequest",
@@ -36,4 +47,9 @@ __all__ = [
     "ResearchTemplateCreate",
     "ResearchTemplateUpdate",
     "ResearchTemplateResponse",
+    "ResearchInput",
+    "AgenticJobCreateResponse",
+    "AgenticJobStatusResponse",
+    "PropertyEnvelope",
+    "DossierEnvelope",
 ]

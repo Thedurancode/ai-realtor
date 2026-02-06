@@ -121,6 +121,7 @@ class ContractSendVoiceRequest(BaseModel):
     recipient_role: str = "Signer"  # DocuSeal role
     message: str | None = None
     create_if_missing: bool = True  # Create contract if it doesn't exist
+    session_id: str = "default"
 
 
 class ContractVoiceResponse(BaseModel):
@@ -142,6 +143,7 @@ class ContractSmartSendRequest(BaseModel):
     order: str = "preserved"  # "preserved" for sequential, "random" for parallel
     message: str | None = None
     create_if_missing: bool = True  # Create contract if it doesn't exist
+    session_id: str = "default"
 
 
 class ContractSmartSendResponse(BaseModel):

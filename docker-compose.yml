@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai_realtor_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ai_realtor
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: ai_realtor_app
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ai_realtor
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      RAPIDAPI_KEY: ${RAPIDAPI_KEY:-}
+      SKIP_TRACE_API_HOST: ${SKIP_TRACE_API_HOST:-skip-tracing-working-api.p.rapidapi.com}
+      ZILLOW_API_HOST: ${ZILLOW_API_HOST:-private-zillow.p.rapidapi.com}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+
+volumes:
+  postgres_data:

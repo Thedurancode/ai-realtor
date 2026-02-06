@@ -35,6 +35,8 @@ from app.services.notification_service import notification_service
 from app.services.contract_auto_attach import contract_auto_attach_service
 from app.services.contract_ai_service import contract_ai_service
 from app.services.contract_smart_send import get_required_roles, find_contacts_for_roles, build_submitters
+from app.services.conversation_context import get_context, persist_context_to_graph
+from app.services.memory_graph import memory_graph_service
 from app.models.contract_template import ContractRequirement, ContractTemplate
 from app.models.contract import RequirementSource
 
@@ -595,6 +597,39 @@ async def send_contract_voice(
         db.commit()
         db.refresh(contract)
 
+        # Persist conversational memory graph state for follow-up voice commands.
+        context = get_context(request.session_id)
+        context.set_last_property(property.id, property.address)
+        context.set_last_contact(contact.id, contact.name)
+        context.set_last_contract(contract.id, contract.name)
+        memory_graph_service.remember_property(
+            db=db,
+            session_id=request.session_id,
+            property_id=property.id,
+            address=property.address,
+            city=property.city,
+            state=property.state,
+        )
+        memory_graph_service.remember_contact(
+            db=db,
+            session_id=request.session_id,
+            contact_id=contact.id,
+            name=contact.name,
+            role=contact.role.value if contact.role else None,
+            property_id=property.id,
+        )
+        memory_graph_service.remember_contract(
+            db=db,
+            session_id=request.session_id,
+            contract_id=contract.id,
+            name=contract.name,
+            status=contract.status.value if contract.status else None,
+            property_id=property.id,
+            contact_id=contact.id,
+        )
+        persist_context_to_graph(db=db, session_id=request.session_id)
+        db.commit()
+
         # Build voice confirmation
         voice_confirmation = (
             f"Done! I've sent the {contract.name} to {contact.name} "
@@ -739,6 +774,38 @@ async def smart_send_contract(
         f"Sent the {contract.name} to {signers_text} for {property.address}."
     )
 
+    context = get_context(request.session_id)
+    context.set_last_property(property.id, property.address)
+    context.set_last_contract(contract.id, contract.name)
+    memory_graph_service.remember_property(
+        db=db,
+        session_id=request.session_id,
+        property_id=property.id,
+        address=property.address,
+        city=property.city,
+        state=property.state,
+    )
+    memory_graph_service.remember_contract(
+        db=db,
+        session_id=request.session_id,
+        contract_id=contract.id,
+        name=contract.name,
+        status=contract.status.value if contract.status else None,
+        property_id=property.id,
+    )
+    for entry in found_contacts:
+        contact_entry = entry["contact"]
+        memory_graph_service.remember_contact(
+            db=db,
+            session_id=request.session_id,
+            contact_id=contact_entry.id,
+            name=contact_entry.name,
+            role=entry["role_str"],
+            property_id=property.id,
+        )
+    persist_context_to_graph(db=db, session_id=request.session_id)
+    db.commit()
+
     return ContractSmartSendResponse(
         contract_id=contract.id,
         contract_name=contract.name,
@@ -864,7 +931,40 @@ async def send_contract_multi_party_voice(
         message=request.message,
     )
 
-    return await send_contract_multi_party(contract.id, multi_party_request, db)
+    result = await send_contract_multi_party(contract.id, multi_party_request, db)
+
+    context = get_context(request.session_id)
+    context.set_last_property(property.id, property.address)
+    context.set_last_contract(contract.id, contract.name)
+    memory_graph_service.remember_property(
+        db=db,
+        session_id=request.session_id,
+        property_id=property.id,
+        address=property.address,
+        city=property.city,
+        state=property.state,
+    )
+    memory_graph_service.remember_contract(
+        db=db,
+        session_id=request.session_id,
+        contract_id=contract.id,
+        name=contract.name,
+        status=contract.status.value if contract.status else None,
+        property_id=property.id,
+    )
+    for submitter in result.submitters:
+        if submitter.contact_id is not None:
+            memory_graph_service.remember_contact(
+                db=db,
+                session_id=request.session_id,
+                contact_id=submitter.contact_id,
+                name=submitter.name,
+                role=submitter.role,
+                property_id=property.id,
+            )
+    persist_context_to_graph(db=db, session_id=request.session_id)
+    db.commit()
+    return result
 
 @router.post("/{contract_id}/send-multi-party", response_model=MultiPartyContractResponse)
 async def send_contract_multi_party(

@@ -51,6 +51,7 @@ class ContactCreateFromVoice(BaseModel):
     email: str | None = None
     company: str | None = None
     notes: str | None = None
+    session_id: str = "default"
 
 
 class ContactCreateFromVoiceResponse(BaseModel):

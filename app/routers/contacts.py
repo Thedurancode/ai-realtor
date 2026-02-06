@@ -8,6 +8,8 @@ from app.models.contact import Contact, ContactRole
 from app.models.contract import Contract, ContractStatus
 from app.services.notification_service import notification_service
 from app.services.contract_smart_send import get_required_roles, find_contacts_for_roles
+from app.services.conversation_context import get_context, persist_context_to_graph
+from app.services.memory_graph import memory_graph_service
 from app.schemas.contact import (
     ContactCreate,
     ContactUpdate,
@@ -182,6 +184,29 @@ def create_contact_from_voice(
     db.add(new_contact)
     db.commit()
     db.refresh(new_contact)
+
+    # Persist voice memory for people/property context.
+    context = get_context(request.session_id)
+    context.set_last_property(property.id, property.address)
+    context.set_last_contact(new_contact.id, new_contact.name)
+    memory_graph_service.remember_property(
+        db=db,
+        session_id=request.session_id,
+        property_id=property.id,
+        address=property.address,
+        city=property.city,
+        state=property.state,
+    )
+    memory_graph_service.remember_contact(
+        db=db,
+        session_id=request.session_id,
+        contact_id=new_contact.id,
+        name=new_contact.name,
+        role=new_contact.role.value if new_contact.role else None,
+        property_id=property.id,
+    )
+    persist_context_to_graph(db=db, session_id=request.session_id)
+    db.commit()
 
     # Build voice confirmation
     role_text = format_role_for_voice(role)

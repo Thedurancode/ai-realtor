@@ -13,7 +13,17 @@ from app.models.agent_conversation import AgentConversation, ConversationStatus
 from app.models.research_template import ResearchTemplate
 from app.models.property import Property
 from app.services.agent_executor import AgentExecutor
-from app.schemas.agent_conversation import AgentExecuteRequest, AgentFromTemplateRequest, AgentConversationResponse
+from app.services.conversation_context import get_context, hydrate_context_from_graph
+from app.services.memory_graph import memory_graph_service
+from app.services.voice_goal_planner import voice_goal_planner_service
+from app.schemas.agent_conversation import (
+    AgentExecuteRequest,
+    AgentFromTemplateRequest,
+    AgentConversationResponse,
+    VoiceGoalExecuteRequest,
+    VoiceGoalExecuteResponse,
+    VoiceMemoryEventRequest,
+)
 
 
 router = APIRouter(prefix="/ai-agents", tags=["ai-agents"])
@@ -123,6 +133,88 @@ async def execute_agent(
     background_tasks.add_task(_execute_agent_task, db, conversation.id)
 
     return conversation
+
+
+@router.post("/voice-goals/execute", response_model=VoiceGoalExecuteResponse)
+async def execute_voice_goal(
+    request: VoiceGoalExecuteRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Execute a goal-driven voice plan with explicit checkpoints.
+
+    Example:
+    {
+      "session_id": "call_abc_123",
+      "goal": "Handle this deal end-to-end",
+      "property_id": 42
+    }
+    """
+    if request.property_id:
+        property_record = db.query(Property).filter(Property.id == request.property_id).first()
+        if not property_record:
+            raise HTTPException(status_code=404, detail="Property not found")
+
+    result = await voice_goal_planner_service.execute_goal(
+        db=db,
+        goal=request.goal,
+        session_id=request.session_id,
+        property_id=request.property_id,
+    )
+
+    # Keep in-memory context hot for low-latency follow-up commands.
+    hydrate_context_from_graph(db=db, session_id=request.session_id)
+
+    return result
+
+
+@router.get("/voice-goals/memory/{session_id}", response_model=dict)
+def get_voice_goal_memory(
+    session_id: str,
+    max_nodes: int = 25,
+    db: Session = Depends(get_db),
+):
+    """Get persistent memory graph summary for a voice session."""
+    return memory_graph_service.get_session_summary(db=db, session_id=session_id, max_nodes=max_nodes)
+
+
+@router.post("/voice-goals/memory/event", response_model=dict)
+def write_voice_memory_event(
+    request: VoiceMemoryEventRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Persist important conversational memory events.
+
+    Supported event types:
+    - objection
+    - promise
+    """
+    event_type = request.event_type.strip().lower()
+    context = get_context(request.session_id)
+
+    if event_type == "objection":
+        memory_graph_service.remember_objection(
+            db=db,
+            session_id=request.session_id,
+            text=request.text,
+            topic=request.topic,
+        )
+        context.remember_objection(request.text, request.topic)
+    elif event_type == "promise":
+        memory_graph_service.remember_promise(
+            db=db,
+            session_id=request.session_id,
+            promise_text=request.text,
+            due_at=request.due_at,
+            fulfilled=False,
+        )
+        context.add_pending_promise(request.text, request.due_at)
+    else:
+        raise HTTPException(status_code=400, detail="event_type must be 'objection' or 'promise'")
+
+    db.commit()
+    return {"status": "ok", "event_type": event_type, "session_id": request.session_id}
 
 
 @router.post("/templates/{template_id}/execute", response_model=AgentConversationResponse, status_code=201)
