@@ -1813,19 +1813,52 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             status = arguments.get("status")
             result = await list_properties(limit=limit, status=status)
 
-            return [TextContent(
-                type="text",
-                text=json.dumps(result, indent=2)
-            )]
+            if not result:
+                text = "No properties found."
+                if status:
+                    text = f"No {status} properties found."
+            else:
+                text = f"Found {len(result)} property(ies):\n\n"
+                for p in result:
+                    price_str = f"${p['price']:,.0f}" if p.get('price') else "price not set"
+                    text += f"Property {p['id']}: {p.get('address', 'N/A')}, {p.get('city', '')}, {p.get('state', '')}\n"
+                    text += f"  Price: {price_str}"
+                    if p.get('bedrooms') or p.get('bathrooms'):
+                        text += f" | {p.get('bedrooms', '?')} bed / {p.get('bathrooms', '?')} bath"
+                    if p.get('square_footage'):
+                        text += f" | {p['square_footage']:,.0f} sqft"
+                    text += f"\n  Status: {p.get('status', 'available')}\n\n"
+
+            return [TextContent(type="text", text=text)]
 
         elif name == "get_property":
             property_id = arguments["property_id"]
             result = await get_property(property_id)
 
-            return [TextContent(
-                type="text",
-                text=json.dumps(result, indent=2)
-            )]
+            price_str = f"${result['price']:,.0f}" if result.get('price') else "price not set"
+            text = f"Property {result['id']}: {result.get('address', 'N/A')}, {result.get('city', '')}, {result.get('state', '')} {result.get('zip_code', '')}\n\n"
+            text += f"Price: {price_str}\n"
+            if result.get('bedrooms'):
+                text += f"Bedrooms: {result['bedrooms']}\n"
+            if result.get('bathrooms'):
+                text += f"Bathrooms: {result['bathrooms']}\n"
+            if result.get('square_footage'):
+                text += f"Square footage: {result['square_footage']:,.0f}\n"
+            text += f"Status: {result.get('status', 'available')}\n"
+            if result.get('property_type'):
+                text += f"Type: {result['property_type']}\n"
+
+            # Include enrichment highlights if available
+            enrichment = result.get('zillow_enrichment')
+            if enrichment:
+                if enrichment.get('zestimate'):
+                    text += f"\nZestimate: ${enrichment['zestimate']:,.0f}\n"
+                if enrichment.get('rent_zestimate'):
+                    text += f"Rent estimate: ${enrichment['rent_zestimate']:,.0f}/month\n"
+                if enrichment.get('year_built'):
+                    text += f"Year built: {enrichment['year_built']}\n"
+
+            return [TextContent(type="text", text=text)]
 
         elif name == "create_property":
             result = await create_property_with_address(
@@ -1836,37 +1869,91 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 agent_id=arguments.get("agent_id", 1)
             )
 
-            return [TextContent(
-                type="text",
-                text=json.dumps(result, indent=2)
-            )]
+            # Context API returns {success, message, data: {property_id, address, city, state, price}}
+            data = result.get("data", result)
+            prop_id = data.get("property_id", data.get("id", "?"))
+            address = data.get("address", arguments.get("address", "N/A"))
+            city = data.get("city", "")
+            state = data.get("state", "")
+            price = data.get("price", arguments.get("price"))
+            price_str = f"${price:,.0f}" if price else ""
+
+            text = f"Property created successfully.\n\n"
+            text += f"Property {prop_id}: {address}, {city}, {state}\n"
+            text += f"Price: {price_str}\n"
+            if arguments.get('bedrooms'):
+                text += f"Bedrooms: {arguments['bedrooms']}\n"
+            if arguments.get('bathrooms'):
+                text += f"Bathrooms: {arguments['bathrooms']}\n"
+            text += f"Status: available\n"
+
+            return [TextContent(type="text", text=text)]
 
         elif name == "delete_property":
             property_id = arguments["property_id"]
             result = await delete_property(property_id)
 
-            return [TextContent(
-                type="text",
-                text=json.dumps(result, indent=2)
-            )]
+            text = f"Property {property_id} deleted successfully."
+            if result.get('address'):
+                text = f"Property {property_id} at {result['address']} has been deleted."
+
+            return [TextContent(type="text", text=text)]
 
         elif name == "enrich_property":
             property_id = arguments["property_id"]
             result = await enrich_property(property_id)
 
-            return [TextContent(
-                type="text",
-                text=json.dumps(result, indent=2)
-            )]
+            text = f"Property {property_id} enriched with Zillow data.\n\n"
+            enrichment = result.get("enrichment", result)
+            if enrichment.get('zestimate'):
+                text += f"Zestimate: ${enrichment['zestimate']:,.0f}\n"
+            if enrichment.get('rent_zestimate'):
+                text += f"Rent estimate: ${enrichment['rent_zestimate']:,.0f}/month\n"
+            if enrichment.get('year_built'):
+                text += f"Year built: {enrichment['year_built']}\n"
+            if enrichment.get('bedrooms'):
+                text += f"Bedrooms: {enrichment['bedrooms']}\n"
+            if enrichment.get('bathrooms'):
+                text += f"Bathrooms: {enrichment['bathrooms']}\n"
+            if enrichment.get('living_area'):
+                text += f"Living area: {enrichment['living_area']:,.0f} sqft\n"
+            if enrichment.get('lot_size'):
+                text += f"Lot size: {enrichment['lot_size']}\n"
+            if enrichment.get('home_type'):
+                text += f"Home type: {enrichment['home_type']}\n"
+            photos = enrichment.get('photos', [])
+            if photos:
+                text += f"Photos: {len(photos)} available\n"
+            schools = enrichment.get('schools', [])
+            if schools:
+                text += f"\nNearby schools:\n"
+                for s in schools[:3]:
+                    rating = f" (rating: {s['rating']}/10)" if s.get('rating') else ""
+                    text += f"  - {s.get('name', 'Unknown')}{rating}\n"
+
+            return [TextContent(type="text", text=text)]
 
         elif name == "skip_trace_property":
             property_id = arguments["property_id"]
             result = await skip_trace_property(property_id)
 
-            return [TextContent(
-                type="text",
-                text=json.dumps(result, indent=2)
-            )]
+            text = f"Skip trace completed for property {property_id}.\n\n"
+            trace = result.get("skip_trace", result)
+            if trace.get('owner_name'):
+                text += f"Owner: {trace['owner_name']}\n"
+            phones = trace.get('phone_numbers', [])
+            if phones:
+                text += f"Phone numbers: {', '.join(phones)}\n"
+            emails = trace.get('email_addresses', [])
+            if emails:
+                text += f"Email addresses: {', '.join(emails)}\n"
+            if trace.get('mailing_address'):
+                text += f"Mailing address: {trace['mailing_address']}\n"
+            relatives = trace.get('relatives', [])
+            if relatives:
+                text += f"Relatives: {', '.join(relatives)}\n"
+
+            return [TextContent(type="text", text=text)]
 
         elif name == "add_contact":
             result = await add_contact_to_property(
@@ -1928,7 +2015,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=f"✅ Notification sent to TV display!\n\n{json.dumps(result, indent=2)}"
+                text=f"Notification sent to TV display. Title: {arguments['title']}, Message: {arguments['message']}"
             )]
 
         elif name == "list_notifications":
@@ -1946,8 +2033,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
                 return [TextContent(
                     type="text",
-                    text=summary + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-                )]
+                    text=summary                )]
             else:
                 return [TextContent(
                     type="text",
@@ -1964,7 +2050,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=f"✅ Contract sent for signing!\n\n{json.dumps(result, indent=2)}"
+                text=f"Contract '{arguments.get('contract_name', 'Purchase Agreement')}' sent for signing to contact {arguments['contact_id']} for property {arguments['property_id']}."
             )]
 
         elif name == "check_contract_status":
@@ -1986,8 +2072,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=status_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=status_text            )]
 
         elif name == "list_contracts":
             property_id = arguments.get("property_id")
@@ -2009,8 +2094,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
                 return [TextContent(
                     type="text",
-                    text=summary + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-                )]
+                    text=summary                )]
             else:
                 return [TextContent(
                     type="text",
@@ -2034,8 +2118,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=voice_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=voice_text            )]
 
         elif name == "check_contract_status_voice":
             address_query = arguments["address_query"]
@@ -2049,8 +2132,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=voice_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=voice_text            )]
 
         elif name == "get_signing_status":
             property_id = arguments["property_id"]
@@ -2079,8 +2161,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=signing_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=signing_text            )]
 
         elif name == "check_property_contract_readiness":
             property_id = arguments.get("property_id")
@@ -2112,8 +2193,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=report + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=report            )]
 
         elif name == "check_property_contract_readiness_voice":
             address_query = arguments["address_query"]
@@ -2132,8 +2212,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=voice_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=voice_text            )]
 
         elif name == "attach_required_contracts":
             property_id = arguments.get("property_id")
@@ -2155,8 +2234,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=contracts_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=contracts_text            )]
 
         elif name == "ai_suggest_contracts":
             property_id = arguments.get("property_id")
@@ -2190,8 +2268,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=ai_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=ai_text            )]
 
         elif name == "apply_ai_contract_suggestions":
             property_id = arguments.get("property_id")
@@ -2221,8 +2298,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=apply_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=apply_text            )]
 
         elif name == "mark_contract_required":
             contract_id = arguments["contract_id"]
@@ -2254,8 +2330,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=override_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=override_text            )]
 
         elif name == "generate_property_recap":
             property_id = arguments["property_id"]
@@ -2279,8 +2354,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=recap_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=recap_text            )]
 
         elif name == "get_property_recap":
             property_id = arguments["property_id"]
@@ -2305,8 +2379,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=recap_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=recap_text            )]
 
         elif name == "make_property_phone_call":
             property_id = arguments["property_id"]
@@ -2346,8 +2419,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=call_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=call_text            )]
 
         elif name == "call_contact_about_contract":
             property_id = arguments["property_id"]
@@ -2384,8 +2456,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=call_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=call_text            )]
 
         elif name == "call_property_owner_skip_trace":
             property_id = arguments["property_id"]
@@ -2422,8 +2493,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=call_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=call_text            )]
 
         elif name == "smart_send_contract":
             address_query = arguments["address_query"]
@@ -2460,8 +2530,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=smart_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=smart_text            )]
 
         elif name == "set_deal_type":
             property_id = arguments["property_id"]
@@ -2502,8 +2571,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=deal_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=deal_text            )]
 
         elif name == "get_deal_status":
             property_id = arguments["property_id"]
@@ -2541,8 +2609,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=status_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=status_text            )]
 
         elif name == "list_deal_types":
             result = await list_deal_types_api()
@@ -2563,8 +2630,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=types_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=types_text            )]
 
         elif name == "get_deal_type_config":
             dt_name = arguments["name"]
@@ -2598,8 +2664,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=config_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=config_text            )]
 
         elif name == "create_deal_type_config":
             data = {
@@ -2629,8 +2694,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=create_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=create_text            )]
 
         elif name == "update_deal_type_config":
             dt_name = arguments.pop("name")
@@ -2652,8 +2716,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=update_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=update_text            )]
 
         elif name == "delete_deal_type_config":
             dt_name = arguments["name"]
@@ -2705,8 +2768,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=preview_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=preview_text            )]
 
         elif name == "test_webhook_configuration":
             result = await test_webhook_configuration()
@@ -2729,8 +2791,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=webhook_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
-            )]
+                text=webhook_text            )]
 
         # ========== ELEVENLABS VOICE AGENT HANDLERS ==========
         elif name == "elevenlabs_setup":
