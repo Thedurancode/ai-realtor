@@ -5,8 +5,6 @@ API endpoints for AI-generated property summaries and VAPI phone calls.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional
-from pydantic import BaseModel
 import requests
 
 from app.database import get_db
@@ -14,47 +12,10 @@ from app.models.property import Property
 from app.models.property_recap import PropertyRecap
 from app.services.property_recap_service import property_recap_service
 from app.services.vapi_service import vapi_service
+from app.schemas.property_recap import RecapResponse, PhoneCallRequest, PhoneCallResponse
 
 
 router = APIRouter(prefix="/property-recap", tags=["property_recap"])
-
-
-# Schemas
-class RecapResponse(BaseModel):
-    """Property recap response"""
-    id: int
-    property_id: int
-    property_address: str
-    recap_text: str
-    voice_summary: str
-    recap_context: dict
-    version: int
-    last_trigger: Optional[str]
-
-    class Config:
-        from_attributes = True
-
-
-class PhoneCallRequest(BaseModel):
-    """Phone call request"""
-    phone_number: str  # E.164 format (e.g., +14155551234)
-    call_purpose: Optional[str] = "property_update"  # property_update, contract_reminder, closing_ready, specific_contract_reminder, skip_trace_outreach
-    custom_context: Optional[dict] = None  # Custom context for specific call types
-
-
-class PhoneCallResponse(BaseModel):
-    """Phone call response"""
-    success: bool
-    call_id: str
-    status: str
-    property_id: int
-    property_address: str
-    phone_number: str
-    call_purpose: str
-    message: str
-
-
-# Endpoints
 
 @router.post("/property/{property_id}/generate", response_model=RecapResponse)
 async def generate_property_recap(

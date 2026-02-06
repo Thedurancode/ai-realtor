@@ -3,13 +3,12 @@ Activity router for logging and retrieving activity events
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
 import json
 
 from app.database import get_db
 from app.models.activity_event import ActivityEvent, ActivityEventType, ActivityEventStatus
+from app.schemas.activity import ActivityEventCreate, ActivityEventUpdate, ActivityEventResponse
 
 
 router = APIRouter(prefix="/activities", tags=["activities"])
@@ -25,38 +24,6 @@ def get_ws_manager():
     except:
         pass
     return None
-
-
-class ActivityEventCreate(BaseModel):
-    """Create activity event request"""
-    tool_name: str
-    user_source: Optional[str] = "Unknown"
-    event_type: str = "tool_call"
-    status: str = "pending"
-    metadata: Optional[dict] = None
-
-
-class ActivityEventUpdate(BaseModel):
-    """Update activity event request"""
-    status: Optional[str] = None
-    duration_ms: Optional[int] = None
-    error_message: Optional[str] = None
-
-
-class ActivityEventResponse(BaseModel):
-    """Activity event response"""
-    id: int
-    timestamp: datetime
-    tool_name: str
-    user_source: Optional[str]
-    event_type: str
-    status: str
-    metadata: Optional[str]
-    duration_ms: Optional[int]
-    error_message: Optional[str]
-
-    class Config:
-        from_attributes = True
 
 
 @router.post("/log", response_model=ActivityEventResponse)

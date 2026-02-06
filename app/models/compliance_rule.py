@@ -4,7 +4,7 @@ Compliance Rule Models - Knowledge base for state/local real estate regulations
 from enum import Enum
 from sqlalchemy import Column, Integer, String, Text, Boolean, Float, Date, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from sqlalchemy.sql import func
 
 from app.database import Base
 
@@ -130,9 +130,9 @@ class ComplianceRule(Base):
 
     # Metadata
     created_by = Column(Integer, ForeignKey("agents.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    last_reviewed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    last_reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Statistics
     times_checked = Column(Integer, default=0)
@@ -167,8 +167,8 @@ class ComplianceCheck(Base):
     completion_time_seconds = Column(Float, nullable=True)
     ai_summary = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     property = relationship("Property", backref="compliance_checks")
@@ -195,10 +195,10 @@ class ComplianceViolation(Base):
     actual_value = Column(String(255), nullable=True)
 
     is_resolved = Column(Boolean, default=False)
-    resolved_at = Column(DateTime, nullable=True)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
     resolution_notes = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     check = relationship("ComplianceCheck", back_populates="violations")
@@ -216,4 +216,4 @@ class ComplianceRuleTemplate(Base):
     template_json = Column(JSON, nullable=False)
     category = Column(String(50))
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

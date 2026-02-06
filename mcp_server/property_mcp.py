@@ -2,23 +2,34 @@
 """
 Property Management MCP Server for AI Realtor
 Exposes property database operations as MCP tools
+
+Supports two transports:
+  - stdio (default): For local Claude Desktop usage
+  - sse: For remote HTTP access (deployed on Fly.io)
+
+Usage:
+  python property_mcp.py                  # stdio mode
+  python property_mcp.py --transport sse  # SSE mode on port 8001
+  python property_mcp.py --transport sse --port 9000
 """
+import argparse
 import asyncio
 import json
+import os
 import sys
 import time
 from typing import Any, Optional
 import requests
 
 # Add parent directory to path for imports
-sys.path.insert(0, '/Users/edduran/Documents/GitHub/ai-realtor')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from mcp.server import Server
 from mcp.types import Tool, TextContent
 import mcp.server.stdio
 
-# API Base URL
-API_BASE_URL = "http://localhost:8000"
+# API Base URL - use env var for deployed mode, localhost for local
+API_BASE_URL = os.getenv("MCP_API_BASE_URL", "http://localhost:8000")
 
 # Helper function to log activity events
 def log_activity_event(tool_name: str, metadata: dict = None) -> Optional[int]:
@@ -1751,6 +1762,41 @@ async def list_tools() -> list[Tool]:
                 "required": ["address_query", "contract_name"]
             }
         ),
+        # ========== ELEVENLABS VOICE AGENT TOOLS ==========
+        Tool(
+            name="elevenlabs_setup",
+            description="Set up the ElevenLabs voice agent. Registers the MCP SSE server and creates an AI agent that can use all property management tools during voice calls. One-time setup.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            }
+        ),
+        Tool(
+            name="elevenlabs_call",
+            description="Make an outbound phone call using the ElevenLabs voice agent. The agent can use all property tools during the call. Example: 'Call +14155551234 using ElevenLabs'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "phone_number": {
+                        "type": "string",
+                        "description": "Phone number in E.164 format (e.g., +14155551234)"
+                    },
+                    "custom_first_message": {
+                        "type": "string",
+                        "description": "Optional custom greeting for the call"
+                    }
+                },
+                "required": ["phone_number"]
+            }
+        ),
+        Tool(
+            name="elevenlabs_status",
+            description="Get the ElevenLabs voice agent status and configuration. Shows agent ID, MCP connection, and widget embed code.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            }
+        ),
     ]
 
 
@@ -2686,6 +2732,65 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=webhook_text + f"\n\nFull JSON:\n{json.dumps(result, indent=2)}"
             )]
 
+        # ========== ELEVENLABS VOICE AGENT HANDLERS ==========
+        elif name == "elevenlabs_setup":
+            response = requests.post(f"{API_BASE_URL}/elevenlabs/setup")
+            response.raise_for_status()
+            result = response.json()
+
+            agent_info = result.get("agent", {})
+            mcp_info = result.get("mcp_server", {})
+
+            output = f"🎙️ ELEVENLABS VOICE AGENT SET UP\n\n"
+            output += f"Agent ID: {agent_info.get('agent_id', 'N/A')}\n"
+            output += f"LLM: {agent_info.get('llm', 'N/A')}\n"
+            output += f"MCP Server: {mcp_info.get('url', 'N/A')}\n"
+            output += f"Status: {agent_info.get('status', 'N/A')}\n\n"
+            output += f"Widget HTML:\n{result.get('widget_html', 'N/A')}\n"
+            output += f"\nThe agent now has access to all property management tools via MCP."
+
+            return [TextContent(type="text", text=output)]
+
+        elif name == "elevenlabs_call":
+            payload = {"phone_number": arguments["phone_number"]}
+            if arguments.get("custom_first_message"):
+                payload["custom_first_message"] = arguments["custom_first_message"]
+
+            response = requests.post(f"{API_BASE_URL}/elevenlabs/call", json=payload)
+            response.raise_for_status()
+            result = response.json()
+
+            output = f"📞 ELEVENLABS CALL INITIATED\n\n"
+            output += f"Call ID: {result.get('call_id', 'N/A')}\n"
+            output += f"To: {result.get('to_number', 'N/A')}\n"
+            output += f"Status: {result.get('status', 'N/A')}\n"
+            output += f"Agent: {result.get('agent_id', 'N/A')}\n"
+
+            return [TextContent(type="text", text=output)]
+
+        elif name == "elevenlabs_status":
+            response = requests.get(f"{API_BASE_URL}/elevenlabs/agent")
+            response.raise_for_status()
+            result = response.json()
+
+            if result.get("error"):
+                return [TextContent(type="text", text=f"⚠️ {result['error']}")]
+
+            output = f"🎙️ ELEVENLABS AGENT STATUS\n\n"
+            output += f"Agent ID: {result.get('agent_id', 'N/A')}\n"
+            output += f"Name: {result.get('name', 'N/A')}\n"
+            output += f"Status: {result.get('status', 'N/A')}\n"
+            output += f"MCP Server: {result.get('mcp_server_id', 'N/A')}\n"
+            output += f"MCP URL: {result.get('mcp_sse_url', 'N/A')}\n"
+
+            # Get widget info
+            widget_response = requests.get(f"{API_BASE_URL}/elevenlabs/widget")
+            if widget_response.ok:
+                widget = widget_response.json()
+                output += f"\nWidget HTML:\n{widget.get('embed_html', 'N/A')}\n"
+
+            return [TextContent(type="text", text=output)]
+
         else:
             raise ValueError(f"Unknown tool: {name}")
 
@@ -2709,8 +2814,8 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         update_activity_event(event_id, status="success", duration_ms=duration_ms)
 
 
-async def main():
-    """Run the MCP server"""
+async def main_stdio():
+    """Run the MCP server over stdio (for Claude Desktop)"""
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await app.run(
             read_stream,
@@ -2719,5 +2824,65 @@ async def main():
         )
 
 
+def main_sse(port: int = 8001):
+    """Run the MCP server over SSE (for remote HTTP access)"""
+    from mcp.server.sse import SseServerTransport
+    from starlette.applications import Starlette
+    from starlette.routing import Route, Mount
+    from starlette.responses import JSONResponse
+    import uvicorn
+
+    sse = SseServerTransport("/messages/")
+
+    async def handle_sse(request):
+        async with sse.connect_sse(
+            request.scope, request.receive, request._send
+        ) as (read_stream, write_stream):
+            await app.run(
+                read_stream,
+                write_stream,
+                app.create_initialization_options()
+            )
+
+    async def handle_messages(request):
+        await sse.handle_post_message(
+            request.scope, request.receive, request._send
+        )
+
+    async def health(request):
+        return JSONResponse({"status": "ok", "server": "property-management-mcp", "transport": "sse"})
+
+    starlette_app = Starlette(
+        routes=[
+            Route("/health", health),
+            Route("/sse", handle_sse),
+            Route("/messages/", handle_messages, methods=["POST"]),
+        ],
+    )
+
+    print(f"MCP SSE server running on http://0.0.0.0:{port}")
+    print(f"  SSE endpoint: http://0.0.0.0:{port}/sse")
+    print(f"  Health check: http://0.0.0.0:{port}/health")
+    uvicorn.run(starlette_app, host="0.0.0.0", port=port)
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Property Management MCP Server")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse"],
+        default="stdio",
+        help="Transport to use (default: stdio)"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("MCP_SSE_PORT", "8001")),
+        help="Port for SSE transport (default: 8001)"
+    )
+    args = parser.parse_args()
+
+    if args.transport == "sse":
+        main_sse(args.port)
+    else:
+        asyncio.run(main_stdio())

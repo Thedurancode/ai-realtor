@@ -3,13 +3,12 @@ Notification endpoints for creating and managing real-time alerts
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import Optional, List
-from datetime import datetime
+from typing import List
 
 from app.database import get_db
 from app.models.notification import Notification, NotificationType, NotificationPriority
 from app.services.notification_service import notification_service
+from app.schemas.notification import NotificationCreate, NotificationResponse
 
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -25,40 +24,6 @@ def get_ws_manager():
     except:
         pass
     return None
-
-
-class NotificationCreate(BaseModel):
-    """Create notification request"""
-    type: str
-    priority: str = "medium"
-    title: str
-    message: str
-    property_id: Optional[int] = None
-    contact_id: Optional[int] = None
-    contract_id: Optional[int] = None
-    agent_id: Optional[int] = None
-    icon: Optional[str] = None
-    auto_dismiss_seconds: Optional[int] = None
-
-
-class NotificationResponse(BaseModel):
-    """Notification response"""
-    id: int
-    type: str
-    priority: str
-    title: str
-    message: str
-    property_id: Optional[int]
-    contact_id: Optional[int]
-    contract_id: Optional[int]
-    agent_id: Optional[int]
-    icon: Optional[str]
-    is_read: bool
-    is_dismissed: bool
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 @router.get("/", response_model=List[NotificationResponse])

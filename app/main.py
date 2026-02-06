@@ -4,9 +4,8 @@ from typing import List
 import json
 
 from app.database import engine, Base
-from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router
-
-Base.metadata.create_all(bind=engine)
+from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router
+import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 app = FastAPI(
     title="Real Estate API",
@@ -40,6 +39,10 @@ app.include_router(activities_router)
 app.include_router(property_recap_router)
 app.include_router(webhooks_router)
 app.include_router(deal_types_router)
+app.include_router(research_router)
+app.include_router(research_templates_router)
+app.include_router(ai_agents_router)
+app.include_router(elevenlabs_router)
 
 
 # WebSocket connection manager

@@ -3,7 +3,7 @@ Zillow enrichment model for storing comprehensive property data from Zillow API
 """
 from sqlalchemy import Column, Integer, String, Float, JSON, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from sqlalchemy.sql import func
 
 from app.database import Base
 
@@ -61,8 +61,8 @@ class ZillowEnrichment(Base):
     raw_response = Column(JSON, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     property = relationship("Property", back_populates="zillow_enrichment")
