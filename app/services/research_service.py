@@ -564,7 +564,7 @@ Property Context:
                     method = endpoint_config.get('method', 'GET').upper()
                     headers = endpoint_config.get('headers', {})
                     params_dict = endpoint_config.get('params', {})
-                    json_body = endpoint_config.get('json')
+                    json_body = endpoint_config.get('json_body', endpoint_config.get('json'))
                     timeout = endpoint_config.get('timeout', 30)
 
                     # Make request

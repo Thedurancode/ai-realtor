@@ -358,7 +358,7 @@ async def create_api_research(
         research_type=ResearchType.API_RESEARCH,
         property_id=request.property_id,
         parameters={
-            "endpoints": [endpoint.dict() for endpoint in request.endpoints]
+            "endpoints": [endpoint.model_dump(by_alias=True) for endpoint in request.endpoints]
         },
         status=ResearchStatus.PENDING
     )

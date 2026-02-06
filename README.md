@@ -113,6 +113,11 @@ See `QUICK_DEPLOY.md` for details.
 - `GET /agentic/properties/{property_id}/dossier` - Get Markdown dossier
 - `POST /agentic/research` - Run synchronous research shortcut
 
+### Exa Research
+- `POST /exa/research/property-dossier` - One-click investor-grade property dossier task
+- `POST /exa/research` - Create Exa research task
+- `GET /exa/research/{task_id}` - Fetch Exa research status/results
+
 Example request:
 ```json
 {
@@ -144,6 +149,24 @@ Example response shape:
 }
 ```
 
+Exa request example:
+```json
+{
+  "instructions": "Summarize the impact of CRISPR on gene therapy",
+  "model": "exa-research-fast"
+}
+```
+
+One-click property dossier example:
+```json
+{
+  "address": "141 Throop Ave, New Brunswick, NJ 08901",
+  "county": "Middlesex County",
+  "strategy": "buy&hold",
+  "model": "exa-research-fast"
+}
+```
+
 See full API docs at `/docs` endpoint.
 
 ## Environment Variables
@@ -165,6 +188,12 @@ FROM_NAME=Real Estate Contracts
 RAPIDAPI_KEY=your_key
 SKIP_TRACE_API_HOST=skip-tracing-working-api.p.rapidapi.com
 ZILLOW_API_HOST=private-zillow.p.rapidapi.com
+
+# Exa web search (used by /agentic workers)
+EXA_API_KEY=your_key
+EXA_BASE_URL=https://api.exa.ai
+EXA_SEARCH_TYPE=auto
+EXA_TIMEOUT_SECONDS=20
 
 # Database
 DATABASE_URL=postgresql://localhost:5432/ai_realtor

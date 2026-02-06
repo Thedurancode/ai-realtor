@@ -24,6 +24,10 @@ services:
       RAPIDAPI_KEY: ${RAPIDAPI_KEY:-}
       SKIP_TRACE_API_HOST: ${SKIP_TRACE_API_HOST:-skip-tracing-working-api.p.rapidapi.com}
       ZILLOW_API_HOST: ${ZILLOW_API_HOST:-private-zillow.p.rapidapi.com}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      EXA_BASE_URL: ${EXA_BASE_URL:-https://api.exa.ai}
+      EXA_SEARCH_TYPE: ${EXA_SEARCH_TYPE:-auto}
+      EXA_TIMEOUT_SECONDS: ${EXA_TIMEOUT_SECONDS:-20}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "8000:8000"

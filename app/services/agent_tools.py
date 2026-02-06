@@ -12,6 +12,7 @@ from app.models.contact import Contact
 from app.models.contract import Contract
 from app.services.zillow_enrichment import zillow_enrichment_service
 from app.services.compliance_engine import ComplianceEngine
+from app.services.exa_research_service import exa_research_service
 
 
 class AgentTools:
@@ -181,6 +182,39 @@ class AgentTools:
                     },
                     "required": ["property_id"]
                 }
+            },
+            {
+                "name": "exa_create_research_task",
+                "description": "Create an Exa Research task for deep web research. Use this for open-web investigations beyond internal property records.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "instructions": {
+                            "type": "string",
+                            "description": "Research instructions for Exa"
+                        },
+                        "model": {
+                            "type": "string",
+                            "description": "Exa research model name (default: exa-research-fast)",
+                            "default": "exa-research-fast"
+                        }
+                    },
+                    "required": ["instructions"]
+                }
+            },
+            {
+                "name": "exa_get_research_task",
+                "description": "Fetch Exa Research task status/results by task_id after creating a task.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "task_id": {
+                            "type": "string",
+                            "description": "The task ID returned by exa_create_research_task"
+                        }
+                    },
+                    "required": ["task_id"]
+                }
             }
         ]
 
@@ -211,6 +245,12 @@ class AgentTools:
 
         elif tool_name == "calculate_roi":
             return await self._calculate_roi(tool_input)
+
+        elif tool_name == "exa_create_research_task":
+            return await self._exa_create_research_task(tool_input)
+
+        elif tool_name == "exa_get_research_task":
+            return await self._exa_get_research_task(tool_input)
 
         else:
             return {"error": f"Unknown tool: {tool_name}"}
@@ -456,3 +496,39 @@ class AgentTools:
                 "breakeven_rent": round(total_monthly_expenses, 2)
             }
         }
+
+    async def _exa_create_research_task(self, params: Dict) -> Dict:
+        """Create Exa research task"""
+        instructions = str(params.get("instructions", "")).strip()
+        if not instructions:
+            return {"error": "instructions is required"}
+
+        model = str(params.get("model", "exa-research-fast")).strip() or "exa-research-fast"
+        try:
+            raw = await exa_research_service.create_research_task(
+                instructions=instructions,
+                model=model,
+            )
+            return {
+                "task_id": exa_research_service.extract_task_id(raw),
+                "status": exa_research_service.extract_status(raw),
+                "raw": raw,
+            }
+        except Exception as exc:
+            return {"error": f"Exa create task failed: {exc}"}
+
+    async def _exa_get_research_task(self, params: Dict) -> Dict:
+        """Fetch Exa research task"""
+        task_id = str(params.get("task_id", "")).strip()
+        if not task_id:
+            return {"error": "task_id is required"}
+
+        try:
+            raw = await exa_research_service.get_research_task(task_id=task_id)
+            return {
+                "task_id": exa_research_service.extract_task_id(raw) or task_id,
+                "status": exa_research_service.extract_status(raw),
+                "raw": raw,
+            }
+        except Exception as exc:
+            return {"error": f"Exa get task failed: {exc}"}

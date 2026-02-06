@@ -1,11 +1,14 @@
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from statistics import mean
 from time import perf_counter
 from typing import Any, Awaitable, Callable
 
+from dateutil import parser as date_parser
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -28,7 +31,11 @@ from app.services.agentic.comps import (
     passes_hard_filters,
     similarity_score,
 )
-from app.services.agentic.providers import PortalFetcher, SearchProvider, StubSearchProvider
+from app.services.agentic.providers import (
+    PortalFetcher,
+    SearchProvider,
+    build_search_provider_from_settings,
+)
 from app.services.agentic.utils import (
     build_evidence_hash,
     build_stable_property_key,
@@ -63,7 +70,7 @@ class WorkerExecution:
 
 class AgenticResearchService:
     def __init__(self, search_provider: SearchProvider | None = None):
-        self.search_provider = search_provider or StubSearchProvider()
+        self.search_provider = search_provider or build_search_provider_from_settings()
         self.portal_fetcher = PortalFetcher()
         self.logger = logging.getLogger("agentic_research")
 
@@ -149,6 +156,7 @@ class AgenticResearchService:
 
         except Exception as exc:
             self.logger.exception("Agentic job failed: job_id=%s", job_id)
+            db.rollback()
             if job is not None:
                 job.status = AgenticJobStatus.FAILED
                 job.error_message = str(exc)
@@ -259,6 +267,9 @@ class AgenticResearchService:
         return execution
 
     def _persist_worker_run(self, db: Session, job: AgenticJob, execution: WorkerExecution) -> None:
+        payload = jsonable_encoder(execution.data)
+        unknowns = jsonable_encoder(execution.unknowns)
+        errors = jsonable_encoder(execution.errors)
         db.add(
             WorkerRun(
                 job_id=job.id,
@@ -267,9 +278,9 @@ class AgenticResearchService:
                 runtime_ms=execution.runtime_ms,
                 cost_usd=execution.cost_usd,
                 web_calls=execution.web_calls,
-                data=execution.data,
-                unknowns=execution.unknowns,
-                errors=execution.errors,
+                data=payload,
+                unknowns=unknowns,
+                errors=errors,
             )
         )
         db.commit()
@@ -582,7 +593,12 @@ class AgenticResearchService:
                 "cost_usd": 0.0,
             }
 
-        radius = float((job.assumptions or {}).get("sales_radius_mi", 1.0 if profile.get("geo", {}).get("lat") else 3.0))
+        radius = float(
+            (job.assumptions or {}).get(
+                "sales_radius_mi",
+                1.0 if profile.get("geo", {}).get("lat") else 3.0,
+            )
+        )
         target_sqft = profile.get("parcel_facts", {}).get("sqft")
         target_beds = profile.get("parcel_facts", {}).get("beds")
         target_baths = profile.get("parcel_facts", {}).get("baths")
@@ -591,6 +607,10 @@ class AgenticResearchService:
         if rp is None:
             raise ValueError("Research property not found")
 
+        errors: list[str] = []
+        web_calls = 0
+
+        # 1) Internal deterministic candidates (existing properties table).
         query = db.query(Property)
         if rp.state:
             query = query.filter(Property.state.ilike(rp.state))
@@ -599,7 +619,7 @@ class AgenticResearchService:
 
         candidates = query.limit(250).all()
 
-        selected: list[dict[str, Any]] = []
+        internal_selected: list[dict[str, Any]] = []
         for candidate in candidates:
             if candidate.address.strip().lower() == (rp.raw_address or "").strip().lower():
                 continue
@@ -641,7 +661,7 @@ class AgenticResearchService:
                 sale_or_list_date=candidate_sale_date,
             )
 
-            selected.append(
+            internal_selected.append(
                 {
                     "address": f"{candidate.address}, {candidate.city}, {candidate.state} {candidate.zip_code}",
                     "distance_mi": distance,
@@ -657,11 +677,27 @@ class AgenticResearchService:
                 }
             )
 
-        selected = sorted(
-            selected,
-            key=lambda item: (item["similarity_score"], item.get("sale_date") or date.min),
-            reverse=True,
-        )[:8]
+        # 2) External deterministic candidates from Exa text extraction.
+        external_selected: list[dict[str, Any]] = []
+        if len(internal_selected) < 8:
+            external_selected, external_web_calls, external_errors = await self._build_external_comp_candidates(
+                rp=rp,
+                comp_type="sale",
+                radius=radius,
+                target_sqft=target_sqft,
+                target_beds=target_beds,
+                target_baths=target_baths,
+                max_results=10,
+                query_hint=f"{rp.city or ''} {rp.state or ''} {rp.zip_code or ''} recently sold homes",
+            )
+            web_calls += external_web_calls
+            errors.extend(external_errors)
+
+        selected = self._dedupe_and_rank_comps(
+            comps=internal_selected + external_selected,
+            top_n=8,
+            date_field="sale_date",
+        )
 
         db.query(CompSale).filter(CompSale.job_id == job.id).delete()
         for comp in selected:
@@ -707,9 +743,9 @@ class AgenticResearchService:
         return {
             "data": {"comps_sales": selected},
             "unknowns": unknowns,
-            "errors": [],
+            "errors": errors,
             "evidence": evidence,
-            "web_calls": 0,
+            "web_calls": web_calls,
             "cost_usd": 0.0,
         }
 
@@ -725,7 +761,12 @@ class AgenticResearchService:
                 "cost_usd": 0.0,
             }
 
-        radius = float((job.assumptions or {}).get("rental_radius_mi", 1.0 if profile.get("geo", {}).get("lat") else 3.0))
+        radius = float(
+            (job.assumptions or {}).get(
+                "rental_radius_mi",
+                1.0 if profile.get("geo", {}).get("lat") else 3.0,
+            )
+        )
         target_sqft = profile.get("parcel_facts", {}).get("sqft")
         target_beds = profile.get("parcel_facts", {}).get("beds")
         target_baths = profile.get("parcel_facts", {}).get("baths")
@@ -734,6 +775,10 @@ class AgenticResearchService:
         if rp is None:
             raise ValueError("Research property not found")
 
+        errors: list[str] = []
+        web_calls = 0
+
+        # 1) Internal deterministic candidates.
         query = db.query(Property)
         if rp.state:
             query = query.filter(Property.state.ilike(rp.state))
@@ -742,7 +787,7 @@ class AgenticResearchService:
 
         candidates = query.limit(250).all()
 
-        selected: list[dict[str, Any]] = []
+        internal_selected: list[dict[str, Any]] = []
         for candidate in candidates:
             if candidate.address.strip().lower() == (rp.raw_address or "").strip().lower():
                 continue
@@ -799,7 +844,7 @@ class AgenticResearchService:
                 sale_or_list_date=candidate_listed_date,
             )
 
-            selected.append(
+            internal_selected.append(
                 {
                     "address": f"{candidate.address}, {candidate.city}, {candidate.state} {candidate.zip_code}",
                     "distance_mi": distance,
@@ -814,11 +859,27 @@ class AgenticResearchService:
                 }
             )
 
-        selected = sorted(
-            selected,
-            key=lambda item: (item["similarity_score"], item.get("date_listed") or date.min),
-            reverse=True,
-        )[:8]
+        # 2) External deterministic candidates from Exa text extraction.
+        external_selected: list[dict[str, Any]] = []
+        if len(internal_selected) < 8:
+            external_selected, external_web_calls, external_errors = await self._build_external_comp_candidates(
+                rp=rp,
+                comp_type="rental",
+                radius=radius,
+                target_sqft=target_sqft,
+                target_beds=target_beds,
+                target_baths=target_baths,
+                max_results=10,
+                query_hint=f"{rp.city or ''} {rp.state or ''} {rp.zip_code or ''} homes for rent",
+            )
+            web_calls += external_web_calls
+            errors.extend(external_errors)
+
+        selected = self._dedupe_and_rank_comps(
+            comps=internal_selected + external_selected,
+            top_n=8,
+            date_field="date_listed",
+        )
 
         db.query(CompRental).filter(CompRental.job_id == job.id).delete()
         for comp in selected:
@@ -863,11 +924,284 @@ class AgenticResearchService:
         return {
             "data": {"comps_rentals": selected},
             "unknowns": unknowns,
-            "errors": [],
+            "errors": errors,
             "evidence": evidence,
-            "web_calls": 0,
+            "web_calls": web_calls,
             "cost_usd": 0.0,
         }
+
+    def _dedupe_and_rank_comps(
+        self,
+        comps: list[dict[str, Any]],
+        top_n: int,
+        date_field: str,
+    ) -> list[dict[str, Any]]:
+        seen: set[tuple[str, str]] = set()
+        deduped: list[dict[str, Any]] = []
+        for item in comps:
+            key = (
+                (item.get("address") or "").strip().lower(),
+                (item.get("source_url") or "").strip().lower(),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(item)
+
+        return sorted(
+            deduped,
+            key=lambda item: (
+                item.get("similarity_score", 0.0),
+                item.get(date_field) or date.min,
+            ),
+            reverse=True,
+        )[:top_n]
+
+    async def _build_external_comp_candidates(
+        self,
+        rp: ResearchProperty,
+        comp_type: str,
+        radius: float,
+        target_sqft: int | None,
+        target_beds: int | None,
+        target_baths: float | None,
+        max_results: int,
+        query_hint: str,
+    ) -> tuple[list[dict[str, Any]], int, list[str]]:
+        web_calls = 0
+        errors: list[str] = []
+
+        try:
+            hits = await self.search_provider.search(
+                query=query_hint,
+                max_results=max_results,
+                include_text=True,
+            )
+            web_calls += 1
+        except Exception as exc:
+            return [], web_calls, [f"External comp search failed: {exc}"]
+
+        extracted: list[dict[str, Any]] = []
+        for hit in hits:
+            text_blob = " ".join(
+                part
+                for part in [
+                    hit.get("title") or "",
+                    hit.get("snippet") or "",
+                    hit.get("text") or "",
+                ]
+                if part
+            )
+
+            for row in self._extract_comp_entries_from_text(
+                text=text_blob,
+                comp_type=comp_type,
+                source_url=hit.get("url") or "internal://search/no-url",
+                published_date=hit.get("published_date"),
+            ):
+                distance = distance_proxy_mi(
+                    target_zip=rp.zip_code,
+                    candidate_zip=row.get("zip_code"),
+                    target_city=rp.city,
+                    candidate_city=row.get("city"),
+                    target_state=rp.state,
+                    candidate_state=row.get("state"),
+                )
+
+                candidate_date = row.get("date")
+                if not passes_hard_filters(
+                    distance_mi=distance,
+                    radius_mi=radius,
+                    sale_or_list_date=candidate_date,
+                    max_recency_months=12,
+                    target_sqft=target_sqft,
+                    candidate_sqft=row.get("sqft"),
+                    target_beds=target_beds,
+                    candidate_beds=row.get("beds"),
+                    target_baths=target_baths,
+                    candidate_baths=row.get("baths"),
+                ):
+                    continue
+
+                score = similarity_score(
+                    distance_mi=distance,
+                    radius_mi=radius,
+                    target_sqft=target_sqft,
+                    candidate_sqft=row.get("sqft"),
+                    target_beds=target_beds,
+                    candidate_beds=row.get("beds"),
+                    target_baths=target_baths,
+                    candidate_baths=row.get("baths"),
+                    sale_or_list_date=candidate_date,
+                )
+
+                if comp_type == "sale":
+                    extracted.append(
+                        {
+                            "address": row.get("address"),
+                            "distance_mi": distance,
+                            "sale_date": candidate_date,
+                            "sale_price": row.get("price"),
+                            "sqft": row.get("sqft"),
+                            "beds": row.get("beds"),
+                            "baths": row.get("baths"),
+                            "year_built": None,
+                            "similarity_score": score,
+                            "source_url": row.get("source_url"),
+                            "details": {"origin": "external_exa"},
+                        }
+                    )
+                else:
+                    extracted.append(
+                        {
+                            "address": row.get("address"),
+                            "distance_mi": distance,
+                            "rent": row.get("price"),
+                            "date_listed": candidate_date,
+                            "sqft": row.get("sqft"),
+                            "beds": row.get("beds"),
+                            "baths": row.get("baths"),
+                            "similarity_score": score,
+                            "source_url": row.get("source_url"),
+                            "details": {"origin": "external_exa"},
+                        }
+                    )
+
+        return extracted, web_calls, errors
+
+    def _extract_comp_entries_from_text(
+        self,
+        text: str,
+        comp_type: str,
+        source_url: str,
+        published_date: str | None,
+    ) -> list[dict[str, Any]]:
+        if not text:
+            return []
+
+        published = self._parse_date_safe(published_date)
+        address_pattern = re.compile(
+            r"(?P<address>\d{1,6}\s+[A-Za-z0-9 .#-]+,\s*[A-Za-z .-]+,\s*[A-Z]{2}\s*\d{5})"
+        )
+        matches = list(address_pattern.finditer(text))
+        if not matches:
+            return []
+
+        rows: list[dict[str, Any]] = []
+        for match in matches[:40]:
+            address = match.group("address").strip()
+            address = re.sub(r"^(?:19|20)\d{2}\s+(\d{1,6}\s+.+)$", r"\1", address)
+            parsed = self._parse_address_components(address)
+            if not parsed:
+                continue
+
+            window_after = text[match.end(): min(len(text), match.end() + 260)]
+            window = text[max(0, match.start() - 120): min(len(text), match.end() + 260)]
+            price = self._extract_price(window_after, comp_type=comp_type) or self._extract_price(window, comp_type=comp_type)
+            beds = self._extract_int(window_after, r"(\d{1,2})\s*(?:bds?|beds?)") or self._extract_int(window, r"(\d{1,2})\s*(?:bds?|beds?)")
+            baths = self._extract_float(window_after, r"(\d{1,2}(?:\.\d+)?)\s*(?:ba|baths?)") or self._extract_float(window, r"(\d{1,2}(?:\.\d+)?)\s*(?:ba|baths?)")
+            sqft = self._extract_int(window_after, r"([0-9][0-9,]{2,})\s*(?:sq\s*ft|sqft)") or self._extract_int(window, r"([0-9][0-9,]{2,})\s*(?:sq\s*ft|sqft)")
+
+            candidate_date = self._extract_relative_zillow_days(window_after) or self._extract_date_from_text(window_after) or self._extract_relative_zillow_days(window) or self._extract_date_from_text(window) or published
+            if candidate_date is None:
+                continue
+            if price is None:
+                continue
+
+            rows.append(
+                {
+                    "address": address,
+                    "city": parsed["city"],
+                    "state": parsed["state"],
+                    "zip_code": parsed["zip_code"],
+                    "price": price,
+                    "beds": beds,
+                    "baths": baths,
+                    "sqft": sqft,
+                    "date": candidate_date,
+                    "source_url": source_url,
+                }
+            )
+
+        return rows
+
+    def _parse_address_components(self, full_address: str) -> dict[str, str] | None:
+        m = re.match(r"^(.+?),\s*([^,]+),\s*([A-Z]{2})\s*(\d{5})$", full_address.strip())
+        if not m:
+            return None
+        return {
+            "street": m.group(1).strip(),
+            "city": m.group(2).strip(),
+            "state": m.group(3).strip(),
+            "zip_code": m.group(4).strip(),
+        }
+
+    def _extract_int(self, text: str, pattern: str) -> int | None:
+        m = re.search(pattern, text, flags=re.IGNORECASE)
+        if not m:
+            return None
+        try:
+            return int(m.group(1).replace(",", ""))
+        except Exception:
+            return None
+
+    def _extract_float(self, text: str, pattern: str) -> float | None:
+        m = re.search(pattern, text, flags=re.IGNORECASE)
+        if not m:
+            return None
+        try:
+            return float(m.group(1))
+        except Exception:
+            return None
+
+    def _extract_price(self, text: str, comp_type: str) -> float | None:
+        if comp_type == "rental":
+            rent_match = re.search(r"\$\s*([0-9][0-9,]{2,})\s*(?:/\s*mo|/mo|per\s*month)", text, flags=re.IGNORECASE)
+            if rent_match:
+                return float(rent_match.group(1).replace(",", ""))
+
+        price_values = [
+            float(value.replace(",", ""))
+            for value in re.findall(r"\$\s*([0-9][0-9,]{2,})", text)
+        ]
+        if not price_values:
+            return None
+
+        if comp_type == "rental":
+            # Rental signals are typically in lower ranges.
+            rental_prices = [value for value in price_values if value <= 15000]
+            return rental_prices[0] if rental_prices else None
+
+        sale_prices = [value for value in price_values if value >= 50000]
+        return sale_prices[0] if sale_prices else None
+
+    def _extract_relative_zillow_days(self, text: str) -> date | None:
+        m = re.search(r"(\d{1,3})\s+days\s+on\s+zillow", text, flags=re.IGNORECASE)
+        if not m:
+            return None
+        try:
+            days = int(m.group(1))
+            return date.today() - timedelta(days=days)
+        except Exception:
+            return None
+
+    def _extract_date_from_text(self, text: str) -> date | None:
+        m = re.search(
+            r"((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},?\s+\d{4})",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if not m:
+            return None
+        return self._parse_date_safe(m.group(1))
+
+    def _parse_date_safe(self, value: str | None) -> date | None:
+        if not value:
+            return None
+        try:
+            return date_parser.parse(value).date()
+        except Exception:
+            return None
 
     async def _worker_underwriting(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
         assumptions = job.assumptions or {}
@@ -1238,7 +1572,7 @@ class AgenticResearchService:
                     "category": item.category,
                     "claim": item.claim,
                     "source_url": item.source_url,
-                    "captured_at": item.captured_at,
+                    "captured_at": item.captured_at.isoformat() if item.captured_at else None,
                     "raw_excerpt": item.raw_excerpt,
                     "confidence": item.confidence,
                     "hash": item.hash,
@@ -1249,7 +1583,7 @@ class AgenticResearchService:
                 {
                     "address": item.address,
                     "distance_mi": item.distance_mi,
-                    "sale_date": item.sale_date,
+                    "sale_date": item.sale_date.isoformat() if item.sale_date else None,
                     "sale_price": item.sale_price,
                     "sqft": item.sqft,
                     "beds": item.beds,
@@ -1265,7 +1599,7 @@ class AgenticResearchService:
                     "address": item.address,
                     "distance_mi": item.distance_mi,
                     "rent": item.rent,
-                    "date_listed": item.date_listed,
+                    "date_listed": item.date_listed.isoformat() if item.date_listed else None,
                     "sqft": item.sqft,
                     "beds": item.beds,
                     "baths": item.baths,

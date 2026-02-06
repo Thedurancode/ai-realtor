@@ -15,6 +15,7 @@ from app.schemas.agent_conversation import (
 from app.schemas.research import ResearchCreateRequest, ResearchResponse, AIResearchRequest, APIResearchRequest
 from app.schemas.research_template import ResearchTemplateCreate, ResearchTemplateUpdate, ResearchTemplateResponse
 from app.schemas.agentic_research import ResearchInput, AgenticJobCreateResponse, AgenticJobStatusResponse, PropertyEnvelope, DossierEnvelope
+from app.schemas.exa_research import ExaResearchCreateRequest, ExaPropertyDossierRequest, ExaResearchResponse
 
 __all__ = [
     "AgentCreate",
@@ -52,4 +53,7 @@ __all__ = [
     "AgenticJobStatusResponse",
     "PropertyEnvelope",
     "DossierEnvelope",
+    "ExaResearchCreateRequest",
+    "ExaPropertyDossierRequest",
+    "ExaResearchResponse",
 ]

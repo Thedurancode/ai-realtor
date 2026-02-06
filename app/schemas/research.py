@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime as dt
 
@@ -46,12 +46,14 @@ class AIResearchRequest(BaseModel):
 
 class APIEndpointConfig(BaseModel):
     """Configuration for a single API endpoint call"""
+    model_config = ConfigDict(populate_by_name=True)
+
     name: Optional[str] = None
     url: str
     method: Optional[str] = "GET"
     headers: Optional[dict] = None
     params: Optional[dict] = None
-    json: Optional[dict] = None
+    json_body: Optional[dict] = Field(default=None, alias="json")
     timeout: Optional[int] = 30
 
 
