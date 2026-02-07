@@ -32,6 +32,7 @@ from app.schemas.voice_campaign import (
     VoiceCampaignAnalyticsResponse,
     VoiceCampaignProcessResponse,
 )
+from app.schemas.offer import OfferCreate, CounterOfferCreate, OfferResponse, OfferSummary, MAOResponse
 
 __all__ = [
     "AgentCreate",
@@ -82,4 +83,9 @@ __all__ = [
     "VoiceCampaignEnrollResponse",
     "VoiceCampaignAnalyticsResponse",
     "VoiceCampaignProcessResponse",
+    "OfferCreate",
+    "CounterOfferCreate",
+    "OfferResponse",
+    "OfferSummary",
+    "MAOResponse",
 ]

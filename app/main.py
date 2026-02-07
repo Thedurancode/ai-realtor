@@ -9,7 +9,7 @@ import json
 from app.database import engine, Base
 from app.config import settings
 from app.rate_limit import limiter
-from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router
+from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router
 import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 app = FastAPI(
@@ -55,6 +55,7 @@ app.include_router(elevenlabs_router)
 app.include_router(agentic_research_router)
 app.include_router(exa_research_router)
 app.include_router(voice_campaigns_router)
+app.include_router(offers_router)
 
 
 # WebSocket connection manager
