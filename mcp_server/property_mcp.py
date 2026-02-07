@@ -1972,6 +1972,103 @@ async def list_tools() -> list[Tool]:
             }
         ),
         # ========== ELEVENLABS VOICE AGENT TOOLS ==========
+        # ── Agentic Research Tools ──
+        Tool(
+            name="research_property",
+            description="Run a full agentic research analysis on a property address. Finds comparable sales, comparable rentals, calculates ARV, underwriting, risk score, and generates an investment dossier. Supports strategies: flip, rental, wholesale. This runs synchronously and may take 30-60 seconds. Voice: 'Research 123 Main St New York as a flip'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "address": {
+                        "type": "string",
+                        "description": "Full property address to research (e.g., '123 Main St, New York, NY 10001')"
+                    },
+                    "city": {
+                        "type": "string",
+                        "description": "City name (optional if included in address)"
+                    },
+                    "state": {
+                        "type": "string",
+                        "description": "State abbreviation (optional if included in address)"
+                    },
+                    "zip": {
+                        "type": "string",
+                        "description": "ZIP code (optional)"
+                    },
+                    "strategy": {
+                        "type": "string",
+                        "description": "Investment strategy: flip (buy/renovate/sell), rental (buy for income), wholesale (buy below market/assign). Default: wholesale",
+                        "enum": ["flip", "rental", "wholesale"]
+                    },
+                    "rehab_tier": {
+                        "type": "string",
+                        "description": "Renovation scope: light ($15/sqft), medium ($35/sqft), heavy ($60/sqft). Default: medium",
+                        "enum": ["light", "medium", "heavy"]
+                    }
+                },
+                "required": ["address"]
+            }
+        ),
+        Tool(
+            name="research_property_async",
+            description="Start an async agentic research job on a property. Returns immediately with a job_id you can poll. Use get_research_status to check progress. Good for long-running research while doing other tasks. Voice: 'Start researching 456 Oak St in the background'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "address": {
+                        "type": "string",
+                        "description": "Full property address to research"
+                    },
+                    "city": {
+                        "type": "string",
+                        "description": "City name (optional)"
+                    },
+                    "state": {
+                        "type": "string",
+                        "description": "State abbreviation (optional)"
+                    },
+                    "zip": {
+                        "type": "string",
+                        "description": "ZIP code (optional)"
+                    },
+                    "strategy": {
+                        "type": "string",
+                        "description": "Investment strategy: flip, rental, wholesale. Default: wholesale",
+                        "enum": ["flip", "rental", "wholesale"]
+                    }
+                },
+                "required": ["address"]
+            }
+        ),
+        Tool(
+            name="get_research_status",
+            description="Check the status and progress of an agentic research job. Returns progress percentage, current worker step, and completion status. Voice: 'What's the status of research job 5?'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "number",
+                        "description": "The research job ID returned from research_property_async"
+                    }
+                },
+                "required": ["job_id"]
+            }
+        ),
+        Tool(
+            name="get_research_dossier",
+            description="Get the investment dossier for a researched property. Returns a comprehensive markdown report with property profile, comparable sales, comparable rentals, underwriting analysis, risk score, and recommendations. Voice: 'Get the research dossier for property 15'.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "number",
+                        "description": "The agentic research property ID (from research_property or research_property_async results)"
+                    }
+                },
+                "required": ["property_id"]
+            }
+        ),
+        # ── ElevenLabs Tools ──
         Tool(
             name="elevenlabs_setup",
             description="Set up the ElevenLabs voice agent. Registers the MCP SSE server and creates an AI agent that can use all property management tools during voice calls. One-time setup.",
@@ -3128,6 +3225,204 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=webhook_text            )]
 
         # ========== ELEVENLABS VOICE AGENT HANDLERS ==========
+        # ── Agentic Research Handlers ──
+        elif name == "research_property":
+            payload = {"address": arguments["address"]}
+            if arguments.get("city"):
+                payload["city"] = arguments["city"]
+            if arguments.get("state"):
+                payload["state"] = arguments["state"]
+            if arguments.get("zip"):
+                payload["zip"] = arguments["zip"]
+            payload["strategy"] = arguments.get("strategy", "wholesale")
+            if arguments.get("rehab_tier"):
+                payload["assumptions"] = {"rehab_tier": arguments["rehab_tier"]}
+
+            response = requests.post(
+                f"{API_BASE_URL}/agentic/research",
+                json=payload,
+                timeout=120,
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            prop_id = result.get("property_id")
+            job_id = result.get("latest_job_id")
+            output_data = result.get("output", {})
+
+            text = f"AGENTIC RESEARCH COMPLETE\n\n"
+            text += f"Research Property ID: {prop_id}\n"
+            text += f"Job ID: {job_id}\n"
+            text += f"Strategy: {payload['strategy']}\n\n"
+
+            # Property profile
+            profile = output_data.get("property_profile", {})
+            if profile:
+                text += f"ADDRESS: {profile.get('normalized_address', arguments['address'])}\n"
+                geo = profile.get("geo", {})
+                if geo.get("lat"):
+                    text += f"Location: {geo['lat']}, {geo['lng']}\n"
+                facts = profile.get("parcel_facts", {})
+                parts = []
+                if facts.get("beds"):
+                    parts.append(f"{facts['beds']} bed")
+                if facts.get("baths"):
+                    parts.append(f"{facts['baths']} bath")
+                if facts.get("sqft"):
+                    parts.append(f"{facts['sqft']:,} sqft")
+                if facts.get("year"):
+                    parts.append(f"built {facts['year']}")
+                if parts:
+                    text += f"Details: {' / '.join(parts)}\n"
+                if profile.get("owner_names"):
+                    text += f"Owner: {', '.join(profile['owner_names'])}\n"
+
+            # Comparable sales
+            comps_sales = output_data.get("comps_sales", [])
+            if comps_sales:
+                text += f"\nCOMPARABLE SALES ({len(comps_sales)} found):\n"
+                for c in comps_sales[:5]:
+                    price = f"${c['sale_price']:,.0f}" if c.get("sale_price") else "N/A"
+                    text += f"  - {c.get('address', 'Unknown')}: {price}"
+                    if c.get("distance_mi") is not None:
+                        text += f" ({c['distance_mi']:.1f} mi)"
+                    if c.get("similarity_score"):
+                        text += f" [score: {c['similarity_score']:.2f}]"
+                    text += "\n"
+
+            # Comparable rentals
+            comps_rentals = output_data.get("comps_rentals", [])
+            if comps_rentals:
+                text += f"\nCOMPARABLE RENTALS ({len(comps_rentals)} found):\n"
+                for c in comps_rentals[:5]:
+                    rent = f"${c['rent']:,.0f}/mo" if c.get("rent") else "N/A"
+                    text += f"  - {c.get('address', 'Unknown')}: {rent}"
+                    if c.get("similarity_score"):
+                        text += f" [score: {c['similarity_score']:.2f}]"
+                    text += "\n"
+
+            # Underwriting
+            uw = output_data.get("underwrite", {})
+            if uw:
+                text += f"\nUNDERWRITING ANALYSIS:\n"
+                arv = uw.get("arv_estimate", {})
+                if arv.get("base"):
+                    text += f"  ARV (After Repair Value): ${arv['base']:,.0f}"
+                    if arv.get("low") and arv.get("high"):
+                        text += f" (range: ${arv['low']:,.0f} - ${arv['high']:,.0f})"
+                    text += "\n"
+                rent_est = uw.get("rent_estimate", {})
+                if rent_est.get("base"):
+                    text += f"  Rent Estimate: ${rent_est['base']:,.0f}/mo"
+                    if rent_est.get("low") and rent_est.get("high"):
+                        text += f" (range: ${rent_est['low']:,.0f} - ${rent_est['high']:,.0f})"
+                    text += "\n"
+                text += f"  Rehab Tier: {uw.get('rehab_tier', 'N/A')}\n"
+                rehab = uw.get("rehab_estimated_range", {})
+                if rehab.get("low") and rehab.get("high"):
+                    text += f"  Rehab Cost: ${rehab['low']:,.0f} - ${rehab['high']:,.0f}\n"
+                offer = uw.get("offer_price_recommendation", {})
+                if offer.get("base"):
+                    text += f"  RECOMMENDED OFFER: ${offer['base']:,.0f}"
+                    if offer.get("low") and offer.get("high"):
+                        text += f" (range: ${offer['low']:,.0f} - ${offer['high']:,.0f})"
+                    text += "\n"
+
+            # Risk score
+            risk = output_data.get("risk_score", {})
+            if risk:
+                text += f"\nRISK ASSESSMENT:\n"
+                if risk.get("title_risk") is not None:
+                    text += f"  Title Risk: {risk['title_risk']:.0%}\n"
+                if risk.get("data_confidence") is not None:
+                    text += f"  Data Confidence: {risk['data_confidence']:.0%}\n"
+                flags = risk.get("compliance_flags", [])
+                if flags:
+                    text += f"  Flags: {', '.join(flags)}\n"
+
+            # Worker summary
+            runs = output_data.get("worker_runs", [])
+            if runs:
+                total_time = sum(r.get("runtime_ms", 0) for r in runs)
+                total_calls = sum(r.get("web_calls", 0) for r in runs)
+                text += f"\nRESEARCH STATS: {len(runs)} workers, {total_time/1000:.1f}s total, {total_calls} web searches\n"
+
+            return [TextContent(type="text", text=text)]
+
+        elif name == "research_property_async":
+            payload = {"address": arguments["address"]}
+            if arguments.get("city"):
+                payload["city"] = arguments["city"]
+            if arguments.get("state"):
+                payload["state"] = arguments["state"]
+            if arguments.get("zip"):
+                payload["zip"] = arguments["zip"]
+            payload["strategy"] = arguments.get("strategy", "wholesale")
+
+            response = requests.post(
+                f"{API_BASE_URL}/agentic/jobs",
+                json=payload,
+                timeout=15,
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            text = f"RESEARCH JOB STARTED\n\n"
+            text += f"Job ID: {result.get('job_id')}\n"
+            text += f"Research Property ID: {result.get('property_id')}\n"
+            text += f"Trace ID: {result.get('trace_id')}\n"
+            text += f"Status: {result.get('status')}\n\n"
+            text += f"The research is running in the background. Use get_research_status with job ID {result.get('job_id')} to check progress."
+
+            return [TextContent(type="text", text=text)]
+
+        elif name == "get_research_status":
+            job_id = int(arguments["job_id"])
+            response = requests.get(
+                f"{API_BASE_URL}/agentic/jobs/{job_id}",
+                timeout=10,
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            status = result.get("status", "unknown")
+            progress = result.get("progress", 0)
+            step = result.get("current_step")
+
+            text = f"RESEARCH JOB STATUS\n\n"
+            text += f"Job ID: {result.get('id')}\n"
+            text += f"Property ID: {result.get('property_id')}\n"
+            text += f"Status: {status.upper()}\n"
+            text += f"Progress: {progress}%\n"
+            if step:
+                text += f"Current Step: {step}\n"
+            if result.get("error_message"):
+                text += f"Error: {result['error_message']}\n"
+            if result.get("started_at"):
+                text += f"Started: {result['started_at']}\n"
+            if result.get("completed_at"):
+                text += f"Completed: {result['completed_at']}\n"
+
+            if status == "completed":
+                text += f"\nResearch is complete! Use get_research_dossier with property ID {result.get('property_id')} to see the full report."
+
+            return [TextContent(type="text", text=text)]
+
+        elif name == "get_research_dossier":
+            property_id = int(arguments["property_id"])
+            response = requests.get(
+                f"{API_BASE_URL}/agentic/properties/{property_id}/dossier",
+                timeout=10,
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            text = f"INVESTMENT DOSSIER (Property {property_id}, Job {result.get('latest_job_id')})\n\n"
+            text += result.get("markdown", "No dossier content available.")
+
+            return [TextContent(type="text", text=text)]
+
+        # ── ElevenLabs Handlers ──
         elif name == "elevenlabs_setup":
             response = requests.post(f"{API_BASE_URL}/elevenlabs/setup")
             response.raise_for_status()
