@@ -110,6 +110,7 @@ See `QUICK_DEPLOY.md` for details.
 - `POST /agentic/jobs` - Start async evidence-first research
 - `GET /agentic/jobs/{job_id}` - Get job status and progress
 - `GET /agentic/properties/{property_id}` - Get full structured research JSON
+- `GET /agentic/properties/{property_id}/enrichment-status` - Check CRM/skip-trace/Zillow enrichment + freshness
 - `GET /agentic/properties/{property_id}/dossier` - Get Markdown dossier
 - `POST /agentic/research` - Run synchronous research shortcut
 
@@ -117,6 +118,15 @@ See `QUICK_DEPLOY.md` for details.
 - `POST /exa/research/property-dossier` - One-click investor-grade property dossier task
 - `POST /exa/research` - Create Exa research task
 - `GET /exa/research/{task_id}` - Fetch Exa research status/results
+
+### Voice Campaigns
+- `POST /voice-campaigns/` - Create outbound voice campaign
+- `POST /voice-campaigns/{id}/targets` - Add targets by contact IDs or phone numbers
+- `POST /voice-campaigns/{id}/targets/from-filters` - Enroll targets by property/role filters
+- `POST /voice-campaigns/{id}/start` - Activate campaign
+- `POST /voice-campaigns/{id}/process` - Process campaign queue immediately
+- `GET /voice-campaigns/{id}/analytics` - Campaign metrics snapshot
+- `POST /webhooks/vapi` - Receive Vapi call lifecycle webhooks
 
 Example request:
 ```json
@@ -126,7 +136,11 @@ Example request:
   "state": "NJ",
   "zip": "07102",
   "strategy": "wholesale",
-  "assumptions": {"rehab_tier": "medium"},
+  "assumptions": {
+    "rehab_tier": "medium",
+    "require_enriched_data": true,
+    "enriched_max_age_hours": 168
+  },
   "limits": {"max_steps": 7, "max_web_calls": 20, "timeout_seconds_per_step": 20}
 }
 ```
@@ -194,6 +208,16 @@ EXA_API_KEY=your_key
 EXA_BASE_URL=https://api.exa.ai
 EXA_SEARCH_TYPE=auto
 EXA_TIMEOUT_SECONDS=20
+
+# Vapi voice calling / campaign webhooks
+VAPI_API_KEY=your_key
+VAPI_PHONE_NUMBER_ID=optional_vapi_phone_number_id
+VAPI_WEBHOOK_SECRET=your_webhook_secret
+
+# Outbound campaign worker
+CAMPAIGN_WORKER_ENABLED=true
+CAMPAIGN_WORKER_INTERVAL_SECONDS=15
+CAMPAIGN_WORKER_MAX_CALLS_PER_TICK=5
 
 # Database
 DATABASE_URL=postgresql://localhost:5432/ai_realtor

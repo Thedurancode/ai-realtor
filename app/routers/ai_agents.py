@@ -150,6 +150,9 @@ async def execute_voice_goal(
       "property_id": 42
     }
     """
+    if request.execution_mode not in {"safe", "autonomous"}:
+        raise HTTPException(status_code=400, detail="execution_mode must be 'safe' or 'autonomous'")
+
     if request.property_id:
         property_record = db.query(Property).filter(Property.id == request.property_id).first()
         if not property_record:
@@ -160,6 +163,10 @@ async def execute_voice_goal(
         goal=request.goal,
         session_id=request.session_id,
         property_id=request.property_id,
+        property_query=request.property_query,
+        execution_mode=request.execution_mode,
+        confirm_high_risk=request.confirm_high_risk,
+        dry_run=request.dry_run,
     )
 
     # Keep in-memory context hot for low-latency follow-up commands.

@@ -15,7 +15,23 @@ from app.schemas.agent_conversation import (
 from app.schemas.research import ResearchCreateRequest, ResearchResponse, AIResearchRequest, APIResearchRequest
 from app.schemas.research_template import ResearchTemplateCreate, ResearchTemplateUpdate, ResearchTemplateResponse
 from app.schemas.agentic_research import ResearchInput, AgenticJobCreateResponse, AgenticJobStatusResponse, PropertyEnvelope, DossierEnvelope
-from app.schemas.exa_research import ExaResearchCreateRequest, ExaPropertyDossierRequest, ExaResearchResponse
+from app.schemas.exa_research import (
+    ExaResearchCreateRequest,
+    ExaPropertyDossierRequest,
+    ExaSubdivisionDossierRequest,
+    ExaResearchResponse,
+)
+from app.schemas.voice_campaign import (
+    VoiceCampaignCreateRequest,
+    VoiceCampaignUpdateRequest,
+    VoiceCampaignResponse,
+    VoiceCampaignTargetManualAddRequest,
+    VoiceCampaignTargetFilterAddRequest,
+    VoiceCampaignTargetResponse,
+    VoiceCampaignEnrollResponse,
+    VoiceCampaignAnalyticsResponse,
+    VoiceCampaignProcessResponse,
+)
 
 __all__ = [
     "AgentCreate",
@@ -55,5 +71,15 @@ __all__ = [
     "DossierEnvelope",
     "ExaResearchCreateRequest",
     "ExaPropertyDossierRequest",
+    "ExaSubdivisionDossierRequest",
     "ExaResearchResponse",
+    "VoiceCampaignCreateRequest",
+    "VoiceCampaignUpdateRequest",
+    "VoiceCampaignResponse",
+    "VoiceCampaignTargetManualAddRequest",
+    "VoiceCampaignTargetFilterAddRequest",
+    "VoiceCampaignTargetResponse",
+    "VoiceCampaignEnrollResponse",
+    "VoiceCampaignAnalyticsResponse",
+    "VoiceCampaignProcessResponse",
 ]

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -7,6 +7,7 @@ from app.schemas.agentic_research import (
     AgenticJobCreateResponse,
     AgenticJobStatusResponse,
     DossierEnvelope,
+    EnrichmentStatusEnvelope,
     PropertyEnvelope,
     ResearchInput,
 )
@@ -73,6 +74,22 @@ def get_agentic_property(property_id: int, db: Session = Depends(get_db)):
         job_id=latest_job.id,
     )
     return PropertyEnvelope(property_id=property_id, latest_job_id=latest_job.id, output=output)
+
+
+@router.get("/properties/{property_id}/enrichment-status", response_model=EnrichmentStatusEnvelope)
+def get_agentic_property_enrichment_status(
+    property_id: int,
+    max_age_hours: int | None = Query(default=None, ge=1),
+    db: Session = Depends(get_db),
+):
+    status = agentic_research_service.get_property_enrichment_status(
+        db=db,
+        property_id=property_id,
+        max_age_hours=max_age_hours,
+    )
+    if status is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return EnrichmentStatusEnvelope(property_id=property_id, enrichment_status=status)
 
 
 @router.get("/properties/{property_id}/dossier", response_model=DossierEnvelope)

@@ -215,6 +215,38 @@ class AgentTools:
                     },
                     "required": ["task_id"]
                 }
+            },
+            {
+                "name": "exa_create_subdivision_research_task",
+                "description": "Create a subdivision-feasibility Exa Research task for a property address.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "address": {
+                            "type": "string",
+                            "description": "Full property address"
+                        },
+                        "county": {
+                            "type": "string",
+                            "description": "Optional county name"
+                        },
+                        "target_strategy": {
+                            "type": "string",
+                            "description": "Subdivision strategy (default: subdivide and build)",
+                            "default": "subdivide and build"
+                        },
+                        "target_lot_count": {
+                            "type": "integer",
+                            "description": "Optional target number of lots"
+                        },
+                        "model": {
+                            "type": "string",
+                            "description": "Exa research model name (default: exa-research-fast)",
+                            "default": "exa-research-fast"
+                        }
+                    },
+                    "required": ["address"]
+                }
             }
         ]
 
@@ -251,6 +283,9 @@ class AgentTools:
 
         elif tool_name == "exa_get_research_task":
             return await self._exa_get_research_task(tool_input)
+
+        elif tool_name == "exa_create_subdivision_research_task":
+            return await self._exa_create_subdivision_research_task(tool_input)
 
         else:
             return {"error": f"Unknown tool: {tool_name}"}
@@ -532,3 +567,42 @@ class AgentTools:
             }
         except Exception as exc:
             return {"error": f"Exa get task failed: {exc}"}
+
+    async def _exa_create_subdivision_research_task(self, params: Dict) -> Dict:
+        """Create Exa subdivision-feasibility research task"""
+        address = str(params.get("address", "")).strip()
+        if not address:
+            return {"error": "address is required"}
+
+        county = params.get("county")
+        county_value = str(county).strip() if county is not None else None
+        target_strategy = str(params.get("target_strategy", "subdivide and build")).strip() or "subdivide and build"
+
+        target_lot_count = params.get("target_lot_count")
+        if target_lot_count is not None:
+            try:
+                target_lot_count = int(target_lot_count)
+            except Exception:
+                return {"error": "target_lot_count must be an integer"}
+
+        model = str(params.get("model", "exa-research-fast")).strip() or "exa-research-fast"
+        instructions = exa_research_service.build_subdivision_dossier_instructions(
+            address=address,
+            county=county_value,
+            target_strategy=target_strategy,
+            target_lot_count=target_lot_count,
+        )
+
+        try:
+            raw = await exa_research_service.create_research_task(
+                instructions=instructions,
+                model=model,
+            )
+            return {
+                "task_id": exa_research_service.extract_task_id(raw),
+                "status": exa_research_service.extract_status(raw),
+                "instructions": instructions,
+                "raw": raw,
+            }
+        except Exception as exc:
+            return {"error": f"Exa subdivision task failed: {exc}"}

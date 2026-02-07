@@ -3,11 +3,11 @@ VAPI Integration Service
 
 Handles phone calls using VAPI API with property recap context.
 """
-import os
 import requests
 from typing import Optional, Dict
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.property import Property
 from app.models.property_recap import PropertyRecap
 from app.services.property_recap_service import property_recap_service
@@ -17,12 +17,17 @@ class VAPIService:
     """Service for making phone calls via VAPI API"""
 
     def __init__(self):
-        self.api_key = os.getenv("VAPI_API_KEY")
+        self.api_key = settings.vapi_api_key
+        self.phone_number_id = settings.vapi_phone_number_id or None
         self.base_url = "https://api.vapi.ai"
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
+
+    def _ensure_api_key(self) -> None:
+        if not self.api_key:
+            raise ValueError("VAPI_API_KEY is not configured")
 
     async def make_property_call(
         self,
@@ -46,6 +51,8 @@ class VAPIService:
         Returns:
             VAPI call response with call ID and status
         """
+        self._ensure_api_key()
+
         # Ensure recap exists and is up to date
         recap = await property_recap_service.ensure_recap_exists(
             db, property, trigger=f"phone_call_{call_purpose}"
@@ -57,10 +64,29 @@ class VAPIService:
                 property, recap, call_purpose, custom_context
             )
 
+        assistant_config = dict(assistant_config)
+        metadata = assistant_config.get("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        # Persist request context in Vapi metadata so webhook events can map back.
+        if custom_context:
+            for key in [
+                "campaign_id",
+                "campaign_target_id",
+                "campaign_name",
+                "contact_name",
+                "contact_id",
+                "property_id",
+            ]:
+                if key in custom_context and custom_context[key] is not None:
+                    metadata[key] = custom_context[key]
+        assistant_config["metadata"] = metadata
+
         # Prepare call payload
         payload = {
             "assistant": assistant_config,
-            "phoneNumberId": None,  # Use VAPI's default number
+            "phoneNumberId": self.phone_number_id,
             "customer": {
                 "number": phone_number,
             },
@@ -273,6 +299,7 @@ Market context:
 
     async def get_call_status(self, call_id: str) -> Dict:
         """Get status of a VAPI call"""
+        self._ensure_api_key()
         response = requests.get(
             f"{self.base_url}/call/{call_id}",
             headers=self.headers
@@ -283,6 +310,7 @@ Market context:
 
     async def end_call(self, call_id: str) -> Dict:
         """End an ongoing VAPI call"""
+        self._ensure_api_key()
         response = requests.patch(
             f"{self.base_url}/call/{call_id}",
             headers=self.headers,

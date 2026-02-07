@@ -15,6 +15,14 @@ class ExaPropertyDossierRequest(BaseModel):
     model: str = "exa-research-fast"
 
 
+class ExaSubdivisionDossierRequest(BaseModel):
+    address: str = Field(..., min_length=5)
+    county: str | None = None
+    target_strategy: str = "subdivide and build"
+    target_lot_count: int | None = None
+    model: str = "exa-research-fast"
+
+
 class ExaResearchResponse(BaseModel):
     task_id: str | None = None
     status: str | None = None

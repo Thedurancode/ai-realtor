@@ -63,6 +63,41 @@ class ExaResearchService:
             "and clearly label unknowns/assumptions."
         )
 
+    @staticmethod
+    def build_subdivision_dossier_instructions(
+        address: str,
+        county: str | None = None,
+        target_strategy: str = "subdivide and build",
+        target_lot_count: int | None = None,
+    ) -> str:
+        location = address.strip()
+        if county and county.strip():
+            location = f"{location}, {county.strip()}"
+
+        strategy = target_strategy.strip() or "subdivide and build"
+        lot_goal = (
+            f"Target lot count goal: {target_lot_count}. "
+            if target_lot_count is not None and target_lot_count > 0
+            else ""
+        )
+        return (
+            f"Create a subdivision feasibility dossier for {location}. "
+            f"{lot_goal}"
+            f"Primary strategy: {strategy}. "
+            "Focus on whether the parcel can be legally and practically split. "
+            "Include: APN/parcel + GIS, lot dimensions/area, current zoning district and plain-English "
+            "subdivision rules, minimum lot size/frontage/width/depth requirements, density/FAR/lot coverage, "
+            "setbacks, access/ingress-egress rules, corner-lot constraints, utility availability and extension "
+            "requirements (water/sewer/storm/power), easements/encroachments, floodplain/wetlands/slope/tree "
+            "constraints, historic/environmental overlays, permit and planning-board process, expected timeline, "
+            "fees and exactions, required studies/surveys (boundary, topo, wetlands, traffic, utility), "
+            "likely approval risks, and any moratoriums or pending code changes. "
+            "Include nearby subdivision precedents and land/teardown comps if available. "
+            "Provide best/base/worst scenario with expected lot yield and high-level economics. "
+            "End with a go/no-go recommendation and a prioritized due-diligence checklist. "
+            "Cite links for every major claim and clearly label unknowns/assumptions."
+        )
+
     async def create_research_task(
         self,
         instructions: str,

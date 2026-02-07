@@ -27,5 +27,6 @@ from app.models.dossier import Dossier
 from app.models.portal_cache import PortalCache
 from app.models.worker_run import WorkerRun
 from app.models.voice_memory import VoiceMemoryNode, VoiceMemoryEdge
+from app.models.voice_campaign import VoiceCampaign, VoiceCampaignTarget
 
-__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge"]
+__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge", "VoiceCampaign", "VoiceCampaignTarget"]

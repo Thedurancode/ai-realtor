@@ -51,6 +51,10 @@ class VoiceGoalExecuteRequest(BaseModel):
     goal: str
     session_id: str = "default"
     property_id: Optional[int] = None
+    property_query: Optional[str] = None
+    execution_mode: str = "safe"  # safe | autonomous
+    confirm_high_risk: bool = False
+    dry_run: bool = False
 
 
 class VoiceGoalPlanStepResponse(BaseModel):
@@ -76,6 +80,10 @@ class VoiceGoalExecuteResponse(BaseModel):
     checkpoints: List[VoiceGoalCheckpointResponse]
     final_summary: str
     memory_summary: dict
+    intelligence_score: float
+    why_10x: List[str]
+    needs_confirmation: bool = False
+    clarification_options: Optional[List[str]] = None
 
 
 class VoiceMemoryEventRequest(BaseModel):

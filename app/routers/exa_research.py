@@ -3,6 +3,7 @@ import httpx
 
 from app.schemas.exa_research import (
     ExaPropertyDossierRequest,
+    ExaSubdivisionDossierRequest,
     ExaResearchCreateRequest,
     ExaResearchResponse,
 )
@@ -10,6 +11,40 @@ from app.services.exa_research_service import exa_research_service
 
 
 router = APIRouter(prefix="/exa", tags=["exa-research"])
+
+
+@router.post("/research/subdivision-dossier", response_model=ExaResearchResponse)
+async def create_subdivision_dossier_research_task(request: ExaSubdivisionDossierRequest):
+    """
+    One-click subdivision feasibility dossier task.
+
+    Builds a subdivision-focused prompt server-side from address/goal,
+    then submits it to Exa Research.
+    """
+    try:
+        instructions = exa_research_service.build_subdivision_dossier_instructions(
+            address=request.address,
+            county=request.county,
+            target_strategy=request.target_strategy,
+            target_lot_count=request.target_lot_count,
+        )
+        raw = await exa_research_service.create_research_task(
+            instructions=instructions,
+            model=request.model,
+        )
+        return ExaResearchResponse(
+            task_id=exa_research_service.extract_task_id(raw),
+            status=exa_research_service.extract_status(raw),
+            raw=raw,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code if exc.response is not None else 502
+        detail = exc.response.text if exc.response is not None else str(exc)
+        raise HTTPException(status_code=status, detail=detail)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Exa request failed: {exc}")
 
 
 @router.post("/research/property-dossier", response_model=ExaResearchResponse)

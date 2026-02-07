@@ -11,11 +11,13 @@ import hashlib
 import logging
 import os
 
+from app.config import settings
 from app.database import get_db
 from app.models import Contract, Property
 from app.models.contract import ContractStatus
 from app.services.property_recap_service import property_recap_service
 from app.services.deal_type_service import get_deal_type_summary
+from app.services.voice_campaign_service import voice_campaign_service
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,24 @@ def verify_docuseal_signature(payload: bytes, signature: Optional[str], secret: 
 
     # Compare signatures using constant-time comparison
     return hmac.compare_digest(expected_signature, signature)
+
+
+def verify_vapi_signature(payload: bytes, signature: Optional[str], secret: str) -> bool:
+    """
+    Verify Vapi webhook signature using HMAC-SHA256.
+
+    Supports either raw hex digest or `sha256=<hex_digest>` format.
+    """
+    if not signature or not secret:
+        return False
+
+    normalized = signature[7:] if signature.startswith("sha256=") else signature
+    expected_signature = hmac.new(
+        secret.encode("utf-8"),
+        payload,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected_signature, normalized)
 
 
 async def process_contract_signed(db: Session, event_data: dict):
@@ -218,6 +238,38 @@ async def docuseal_webhook(
         "status": "received",
         "event_type": event_type,
         "message": "Webhook processed successfully"
+    }
+
+
+@router.post("/vapi")
+async def vapi_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_vapi_signature: Optional[str] = Header(None),
+):
+    """
+    Receive Vapi webhook events and map outcomes to campaign targets.
+    """
+    body = await request.body()
+
+    if settings.vapi_webhook_secret:
+        is_valid = verify_vapi_signature(
+            payload=body,
+            signature=x_vapi_signature,
+            secret=settings.vapi_webhook_secret,
+        )
+        if not is_valid:
+            raise HTTPException(status_code=401, detail="Invalid Vapi webhook signature")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    result = voice_campaign_service.handle_vapi_webhook(db, payload)
+    return {
+        "status": "received",
+        "result": result,
     }
 
 

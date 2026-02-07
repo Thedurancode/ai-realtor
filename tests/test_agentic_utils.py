@@ -1,6 +1,7 @@
 from app.services.agentic.utils import (
     build_evidence_hash,
     build_stable_property_key,
+    normalize_us_state_code,
     normalize_address,
 )
 
@@ -11,10 +12,22 @@ def test_normalize_address_deterministic():
     assert a == b
 
 
+def test_normalize_address_state_name_matches_code():
+    a = normalize_address("1535 Coles Ave", city="Mountainside", state="New Jersey", zip_code="07092")
+    b = normalize_address("1535 Coles Ave", city="Mountainside", state="NJ", zip_code="07092")
+    assert a == b
+
+
 def test_stable_property_key_idempotent():
     k1 = build_stable_property_key("123 Main St", city="Newark", state="NJ", zip_code="07102", apn="001-ABC")
     k2 = build_stable_property_key("123 Main St", city="Newark", state="NJ", zip_code="07102", apn="001-ABC")
     assert k1 == k2
+
+
+def test_normalize_us_state_code_supports_full_name():
+    assert normalize_us_state_code("New Jersey") == "NJ"
+    assert normalize_us_state_code(" nj ") == "NJ"
+    assert normalize_us_state_code("not-a-state") is None
 
 
 def test_evidence_hash_deterministic():

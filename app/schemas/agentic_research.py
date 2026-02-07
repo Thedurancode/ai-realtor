@@ -5,12 +5,14 @@ from pydantic import BaseModel, Field
 
 
 Strategy = Literal["flip", "rental", "wholesale"]
+ExecutionMode = Literal["pipeline", "orchestrated"]
 
 
 class JobLimits(BaseModel):
     max_steps: int = 7
     max_web_calls: int = 20
     timeout_seconds_per_step: int = 20
+    max_parallel_agents: int = 1
 
 
 class ResearchInput(BaseModel):
@@ -20,6 +22,7 @@ class ResearchInput(BaseModel):
     zip: str | None = None
     apn: str | None = None
     strategy: Strategy = "wholesale"
+    mode: ExecutionMode = "pipeline"
     assumptions: dict[str, Any] = Field(default_factory=dict)
     limits: JobLimits = Field(default_factory=JobLimits)
 
@@ -44,6 +47,21 @@ class TransactionEvent(BaseModel):
     source_url: str | None = None
 
 
+class EnrichmentStatus(BaseModel):
+    has_crm_property_match: bool = False
+    has_skip_trace_owner: bool = False
+    has_zillow_enrichment: bool = False
+    is_enriched: bool = False
+    is_fresh: bool | None = None
+    age_hours: float | None = None
+    max_age_hours: int | None = None
+    matched_property_id: int | None = None
+    skip_trace_id: int | None = None
+    zillow_enrichment_id: int | None = None
+    missing: list[str] = Field(default_factory=list)
+    last_enriched_at: datetime | None = None
+
+
 class PropertyProfile(BaseModel):
     normalized_address: str
     geo: Geo
@@ -55,6 +73,7 @@ class PropertyProfile(BaseModel):
     assessed_values: dict[str, float | None] = Field(default_factory=dict)
     tax_status: str | None = None
     transaction_history: list[TransactionEvent] = Field(default_factory=list)
+    enrichment_status: EnrichmentStatus | None = None
 
 
 class EvidenceItemOut(BaseModel):
@@ -172,3 +191,8 @@ class DossierEnvelope(BaseModel):
     property_id: int
     latest_job_id: int
     markdown: str
+
+
+class EnrichmentStatusEnvelope(BaseModel):
+    property_id: int
+    enrichment_status: EnrichmentStatus

@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     exa_base_url: str = "https://api.exa.ai"
     exa_search_type: str = "auto"
     exa_timeout_seconds: int = 20
+    vapi_api_key: str = ""
+    vapi_phone_number_id: str = ""
+    vapi_webhook_secret: str = ""
+    campaign_worker_enabled: bool = True
+    campaign_worker_interval_seconds: int = 15
+    campaign_worker_max_calls_per_tick: int = 5
 
     class Config:
         env_file = ".env"

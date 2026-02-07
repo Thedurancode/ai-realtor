@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from statistics import mean
 from time import perf_counter
 from typing import Any, Awaitable, Callable
+from urllib.parse import urlparse
 
 from dateutil import parser as date_parser
 from fastapi.encoders import jsonable_encoder
@@ -31,6 +32,7 @@ from app.services.agentic.comps import (
     passes_hard_filters,
     similarity_score,
 )
+from app.services.agentic.orchestrator import AgentSpec, MultiAgentOrchestrator
 from app.services.agentic.providers import (
     PortalFetcher,
     SearchProvider,
@@ -41,6 +43,7 @@ from app.services.agentic.utils import (
     build_stable_property_key,
     new_trace_id,
     normalize_address,
+    normalize_us_state_code,
     utcnow,
 )
 from app.services.google_places import google_places_service
@@ -69,23 +72,236 @@ class WorkerExecution:
 
 
 class AgenticResearchService:
+    URBAN_RADIUS_CITIES = {
+        "new york",
+        "newark",
+        "jersey city",
+        "hoboken",
+        "philadelphia",
+        "boston",
+        "chicago",
+        "los angeles",
+        "san francisco",
+        "washington",
+        "miami",
+        "atlanta",
+        "houston",
+        "dallas",
+        "seattle",
+    }
+    HIGH_TRUST_DOMAINS = {
+        ".gov",
+        "tax.nj.gov",
+        "countyoffice.org",
+        "arcgis.com",
+        "esri.com",
+    }
+    MEDIUM_TRUST_DOMAINS = {
+        "realtor.com",
+        "redfin.com",
+        "zillow.com",
+        "trulia.com",
+        "loopnet.com",
+        "crexi.com",
+    }
+
     def __init__(self, search_provider: SearchProvider | None = None):
         self.search_provider = search_provider or build_search_provider_from_settings()
         self.portal_fetcher = PortalFetcher()
         self.logger = logging.getLogger("agentic_research")
 
+    def _default_comp_radius_mi(self, city: str | None) -> float:
+        """
+        Deterministic default:
+        - urban markets: 1.0mi
+        - suburban/other markets: 3.0mi
+        """
+        normalized_city = (city or "").strip().lower()
+        if normalized_city in self.URBAN_RADIUS_CITIES:
+            return 1.0
+        return 3.0
+
+    def _source_quality_score(self, source_url: str | None, category: str | None = None) -> float:
+        if not source_url:
+            return 0.25
+        if source_url.startswith("internal://"):
+            return 0.95
+
+        parsed = urlparse(source_url)
+        host = (parsed.netloc or "").lower()
+        host = host[4:] if host.startswith("www.") else host
+        if not host:
+            return 0.25
+
+        if host.endswith(".gov") or any(host.endswith(domain) for domain in self.HIGH_TRUST_DOMAINS):
+            return 0.95
+        if any(host.endswith(domain) for domain in self.MEDIUM_TRUST_DOMAINS):
+            return 0.70
+        if category in {"public_records", "permits", "subdivision"}:
+            return 0.45
+        return 0.50
+
+    def _effective_comp_score(self, comp: dict[str, Any]) -> float:
+        similarity = float(comp.get("similarity_score") or 0.0)
+        details = comp.get("details") or {}
+        source_quality = details.get("source_quality")
+        if source_quality is None:
+            source_quality = self._source_quality_score(comp.get("source_url"), category="comps")
+            details["source_quality"] = source_quality
+            comp["details"] = details
+        # Prioritize similarity while still rewarding trusted sources.
+        return round((0.85 * similarity) + (0.15 * float(source_quality)), 6)
+
+    def _compute_enrichment_status(
+        self,
+        crm_property: Property | None,
+        skip_trace: SkipTrace | None,
+        zillow: ZillowEnrichment | None,
+        max_age_hours: int | None = None,
+    ) -> dict[str, Any]:
+        has_crm_match = crm_property is not None
+        has_skip_owner = bool(skip_trace and skip_trace.owner_name)
+        has_zillow = zillow is not None
+
+        missing: list[str] = []
+        if not has_crm_match:
+            missing.append("crm_property_match")
+        if not has_skip_owner:
+            missing.append("skip_trace_owner")
+        if not has_zillow:
+            missing.append("zillow_enrichment")
+
+        timestamps = []
+        if skip_trace and skip_trace.created_at:
+            timestamps.append(skip_trace.created_at)
+        if zillow and zillow.updated_at:
+            timestamps.append(zillow.updated_at)
+
+        latest = max(timestamps) if timestamps else None
+        age_hours = None
+        is_fresh = None
+        if max_age_hours is not None:
+            if latest is None:
+                is_fresh = False
+            else:
+                age_hours = round((utcnow() - latest).total_seconds() / 3600.0, 3)
+                is_fresh = age_hours <= float(max_age_hours)
+
+        return {
+            "has_crm_property_match": has_crm_match,
+            "has_skip_trace_owner": has_skip_owner,
+            "has_zillow_enrichment": has_zillow,
+            "is_enriched": has_crm_match and has_skip_owner and has_zillow,
+            "is_fresh": is_fresh,
+            "age_hours": age_hours,
+            "max_age_hours": max_age_hours,
+            "matched_property_id": crm_property.id if crm_property else None,
+            "skip_trace_id": skip_trace.id if skip_trace else None,
+            "zillow_enrichment_id": zillow.id if zillow else None,
+            "missing": missing,
+            "last_enriched_at": latest.isoformat() if latest else None,
+        }
+
+    def _resolve_enrichment_max_age_hours(
+        self, assumptions: dict[str, Any] | None, *, strict_required: bool
+    ) -> int | None:
+        assumptions = assumptions or {}
+        raw = assumptions.get("enriched_max_age_hours")
+        if raw is None:
+            return 168 if strict_required else None
+
+        try:
+            value = int(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("assumptions.enriched_max_age_hours must be a positive integer") from exc
+
+        if value <= 0:
+            raise ValueError("assumptions.enriched_max_age_hours must be a positive integer")
+        return value
+
+    def _get_enrichment_status_for_research_property(
+        self, db: Session, research_property: ResearchProperty, max_age_hours: int | None = None
+    ) -> dict[str, Any]:
+        crm_property = self._find_matching_crm_property(db=db, research_property=research_property)
+        skip_trace = None
+        zillow = None
+        if crm_property:
+            skip_trace = (
+                db.query(SkipTrace)
+                .filter(SkipTrace.property_id == crm_property.id)
+                .order_by(SkipTrace.created_at.desc())
+                .first()
+            )
+            zillow = (
+                db.query(ZillowEnrichment)
+                .filter(ZillowEnrichment.property_id == crm_property.id)
+                .first()
+            )
+        return self._compute_enrichment_status(
+            crm_property=crm_property,
+            skip_trace=skip_trace,
+            zillow=zillow,
+            max_age_hours=max_age_hours,
+        )
+
+    def get_property_enrichment_status(
+        self, db: Session, property_id: int, max_age_hours: int | None = None
+    ) -> dict[str, Any] | None:
+        rp = db.query(ResearchProperty).filter(ResearchProperty.id == property_id).first()
+        if rp is None:
+            return None
+        return self._get_enrichment_status_for_research_property(
+            db=db,
+            research_property=rp,
+            max_age_hours=max_age_hours,
+        )
+
+    def _assert_required_enrichment(self, db: Session, job: AgenticJob) -> None:
+        require_enriched_data = bool((job.assumptions or {}).get("require_enriched_data"))
+        if not require_enriched_data:
+            return
+
+        rp = db.query(ResearchProperty).filter(ResearchProperty.id == job.research_property_id).first()
+        if rp is None:
+            raise ValueError("Research property not found")
+
+        max_age_hours = self._resolve_enrichment_max_age_hours(
+            assumptions=job.assumptions or {},
+            strict_required=True,
+        )
+
+        enrichment_status = self._get_enrichment_status_for_research_property(
+            db=db,
+            research_property=rp,
+            max_age_hours=max_age_hours,
+        )
+        if enrichment_status.get("is_enriched"):
+            if enrichment_status.get("is_fresh"):
+                return
+            raise RuntimeError(
+                "assumptions.require_enriched_data=true but enrichment is stale: "
+                f"age_hours={enrichment_status.get('age_hours')} max_age_hours={max_age_hours}"
+            )
+
+        missing = enrichment_status.get("missing") or []
+        missing_text = ", ".join(missing) if missing else "unknown"
+        raise RuntimeError(
+            f"assumptions.require_enriched_data=true but enrichment is incomplete: {missing_text}"
+        )
+
     async def create_job(self, db: Session, payload: ResearchInput) -> AgenticJob:
+        normalized_state = normalize_us_state_code(payload.state)
         stable_key = build_stable_property_key(
             address=payload.address,
             city=payload.city,
-            state=payload.state,
+            state=normalized_state or payload.state,
             zip_code=payload.zip,
             apn=payload.apn,
         )
         normalized = normalize_address(
             address=payload.address,
             city=payload.city,
-            state=payload.state,
+            state=normalized_state or payload.state,
             zip_code=payload.zip,
         )
 
@@ -101,7 +317,7 @@ class AgenticResearchService:
                 raw_address=payload.address,
                 normalized_address=normalized,
                 city=payload.city,
-                state=payload.state,
+                state=normalized_state,
                 zip_code=payload.zip,
                 apn=payload.apn,
             )
@@ -111,7 +327,7 @@ class AgenticResearchService:
             research_property.raw_address = payload.address
             research_property.normalized_address = normalized
             research_property.city = payload.city or research_property.city
-            research_property.state = payload.state or research_property.state
+            research_property.state = normalized_state or research_property.state
             research_property.zip_code = payload.zip or research_property.zip_code
             research_property.apn = payload.apn or research_property.apn
 
@@ -121,7 +337,7 @@ class AgenticResearchService:
             status=AgenticJobStatus.PENDING,
             strategy=payload.strategy,
             assumptions=payload.assumptions,
-            limits=payload.limits.model_dump(),
+            limits={**payload.limits.model_dump(), "execution_mode": payload.mode},
             progress=0,
             current_step="queued",
         )
@@ -190,10 +406,21 @@ class AgenticResearchService:
         max_steps = int(limits.get("max_steps", 7))
         max_web_calls = int(limits.get("max_web_calls", 20))
         timeout_seconds = int(limits.get("timeout_seconds_per_step", 20))
+        execution_mode = str(limits.get("execution_mode", "pipeline")).strip().lower()
+        self._assert_required_enrichment(db=db, job=job)
+
+        if execution_mode == "orchestrated":
+            return await self._execute_orchestrated_pipeline(
+                db=db,
+                job=job,
+                max_steps=max_steps,
+                max_web_calls=max_web_calls,
+                timeout_seconds=timeout_seconds,
+                max_parallel_agents=int(limits.get("max_parallel_agents", 3)),
+            )
 
         context: dict[str, Any] = {}
         total_web_calls = 0
-
         workers: list[tuple[str, Callable[[], Awaitable[dict[str, Any]]]]] = [
             ("normalize_geocode", lambda: self._worker_normalize_geocode(db, job, context)),
             ("public_records", lambda: self._worker_public_records(db, job, context)),
@@ -205,7 +432,6 @@ class AgenticResearchService:
         ]
 
         workers = workers[:max_steps]
-
         for idx, (worker_name, worker_fn) in enumerate(workers, start=1):
             job.current_step = worker_name
             job.progress = int((idx - 1) * 100 / len(workers))
@@ -216,17 +442,10 @@ class AgenticResearchService:
                 worker_fn=worker_fn,
                 timeout_seconds=timeout_seconds,
             )
-
             total_web_calls += execution.web_calls
-
             self._persist_worker_run(db=db, job=job, execution=execution)
             if execution.evidence:
-                self._persist_evidence(
-                    db=db,
-                    job=job,
-                    evidence_drafts=execution.evidence,
-                )
-
+                self._persist_evidence(db=db, job=job, evidence_drafts=execution.evidence)
             context[worker_name] = execution.data
 
             if total_web_calls > max_web_calls:
@@ -235,6 +454,124 @@ class AgenticResearchService:
                 )
 
         return self.get_full_output(db=db, property_id=job.research_property_id, job_id=job.id)
+
+    async def _execute_orchestrated_pipeline(
+        self,
+        db: Session,
+        job: AgenticJob,
+        max_steps: int,
+        max_web_calls: int,
+        timeout_seconds: int,
+        max_parallel_agents: int,
+    ) -> dict[str, Any]:
+        context: dict[str, Any] = {}
+        total_web_calls = 0
+
+        worker_fns: dict[str, Callable[[], Awaitable[dict[str, Any]]]] = {
+            "normalize_geocode": lambda: self._worker_normalize_geocode(db, job, context),
+            "public_records": lambda: self._worker_public_records(db, job, context),
+            "permits_violations": lambda: self._worker_permits_violations(db, job, context),
+            "comps_sales": lambda: self._worker_comps_sales(db, job, context),
+            "comps_rentals": lambda: self._worker_comps_rentals(db, job, context),
+            "underwriting": lambda: self._worker_underwriting(db, job, context),
+            "dossier_writer": lambda: self._worker_dossier_writer(db, job, context),
+            "subdivision_research": lambda: self._worker_subdivision_research(db, job, context),
+        }
+
+        specs = self._build_agent_specs(job=job, max_steps=max_steps)
+        spec_names = {spec.name for spec in specs}
+
+        # Drop dependencies that are not scheduled due to max_steps slice.
+        for spec in specs:
+            spec.dependencies = {dep for dep in spec.dependencies if dep in spec_names}
+
+        orchestrator = MultiAgentOrchestrator(max_parallel_agents=max_parallel_agents)
+
+        async def _run_agent(name: str) -> WorkerExecution:
+            worker_fn = worker_fns.get(name)
+            if worker_fn is None:
+                raise ValueError(f"No worker function registered for agent '{name}'")
+            execution = await self._run_worker(
+                worker_name=name,
+                worker_fn=worker_fn,
+                timeout_seconds=timeout_seconds,
+            )
+            # Make each completed worker's data immediately available to dependents.
+            context[name] = execution.data
+            return execution
+
+        executions = await orchestrator.run(
+            specs=specs,
+            run_agent=_run_agent,
+            max_steps=max_steps,
+        )
+
+        total_planned = max(1, len(specs))
+        for idx, (worker_name, execution) in enumerate(executions, start=1):
+            job.current_step = worker_name
+            job.progress = int(idx * 100 / total_planned)
+            db.commit()
+
+            total_web_calls += execution.web_calls
+            self._persist_worker_run(db=db, job=job, execution=execution)
+            if execution.evidence:
+                self._persist_evidence(db=db, job=job, evidence_drafts=execution.evidence)
+            context[worker_name] = execution.data
+
+            if total_web_calls > max_web_calls:
+                raise RuntimeError(
+                    f"Job exceeded web call limit ({total_web_calls} > {max_web_calls})"
+                )
+
+        return self.get_full_output(db=db, property_id=job.research_property_id, job_id=job.id)
+
+    def _build_agent_specs(self, job: AgenticJob, max_steps: int | None = None) -> list[AgentSpec]:
+        core_specs = [
+            AgentSpec(name="normalize_geocode", dependencies=set()),
+            AgentSpec(name="public_records", dependencies={"normalize_geocode"}),
+            AgentSpec(name="permits_violations", dependencies={"normalize_geocode"}),
+            AgentSpec(name="comps_sales", dependencies={"normalize_geocode"}),
+            AgentSpec(name="comps_rentals", dependencies={"normalize_geocode"}),
+            AgentSpec(
+                name="underwriting",
+                dependencies={"normalize_geocode", "comps_sales", "comps_rentals"},
+            ),
+            AgentSpec(
+                name="dossier_writer",
+                dependencies={
+                    "normalize_geocode",
+                    "public_records",
+                    "permits_violations",
+                    "comps_sales",
+                    "comps_rentals",
+                    "underwriting",
+                },
+            ),
+        ]
+
+        if max_steps is not None and max_steps <= len(core_specs):
+            return core_specs[:max_steps]
+
+        specs = list(core_specs)
+        extra_agents = (job.assumptions or {}).get("extra_agents", [])
+        allowed_extra_count = None
+        if max_steps is not None:
+            allowed_extra_count = max(0, max_steps - len(core_specs))
+
+        if isinstance(extra_agents, list) and "subdivision_research" in extra_agents:
+            if allowed_extra_count is not None and allowed_extra_count <= 0:
+                return specs
+            # Run this late so it can use enriched context from records/comps.
+            specs.insert(
+                -1,
+                AgentSpec(
+                    name="subdivision_research",
+                    dependencies={"normalize_geocode", "public_records", "permits_violations"},
+                ),
+            )
+            specs[-1].dependencies.add("subdivision_research")
+
+        return specs
 
     async def _run_worker(
         self,
@@ -357,6 +694,20 @@ class AgenticResearchService:
             "assessed_values": {},
             "tax_status": None,
             "transaction_history": [],
+            "enrichment_status": {
+                "has_crm_property_match": False,
+                "has_skip_trace_owner": False,
+                "has_zillow_enrichment": False,
+                "is_enriched": False,
+                "is_fresh": None,
+                "age_hours": None,
+                "max_age_hours": None,
+                "matched_property_id": None,
+                "skip_trace_id": None,
+                "zillow_enrichment_id": None,
+                "missing": ["crm_property_match", "skip_trace_owner", "zillow_enrichment"],
+                "last_enriched_at": None,
+            },
         }
 
         evidence.append(
@@ -377,8 +728,9 @@ class AgenticResearchService:
                     details = await google_places_service.get_place_details(place_id=suggestions[0]["place_id"])
                     web_calls += 1
                     if details:
+                        details_state = normalize_us_state_code(details.get("state"))
                         rp.city = rp.city or details.get("city")
-                        rp.state = rp.state or details.get("state")
+                        rp.state = rp.state or details_state
                         rp.zip_code = rp.zip_code or details.get("zip_code")
                         rp.geo_lat = details.get("lat")
                         rp.geo_lng = details.get("lng")
@@ -402,6 +754,8 @@ class AgenticResearchService:
             unknowns.append({"field": "geo", "reason": "GOOGLE_PLACES_API_KEY is not configured."})
 
         crm_property = self._find_matching_crm_property(db=db, research_property=rp)
+        latest_skip_trace = None
+        latest_zillow = None
         if crm_property:
             profile["parcel_facts"] = {
                 "sqft": crm_property.square_feet,
@@ -427,6 +781,7 @@ class AgenticResearchService:
                 .order_by(SkipTrace.created_at.desc())
                 .first()
             )
+            latest_skip_trace = skip_trace
             if skip_trace and skip_trace.owner_name:
                 profile["owner_names"] = [skip_trace.owner_name]
                 mailing_parts = [
@@ -454,10 +809,12 @@ class AgenticResearchService:
                 .filter(ZillowEnrichment.property_id == crm_property.id)
                 .first()
             )
+            latest_zillow = zillow
             if zillow:
                 profile["assessed_values"] = {
                     "annual_tax_amount": zillow.annual_tax_amount,
                     "zestimate": zillow.zestimate,
+                    "rent_zestimate": zillow.rent_zestimate,
                 }
                 profile["tax_status"] = "unknown"
 
@@ -491,6 +848,18 @@ class AgenticResearchService:
                 }
             )
 
+        enrichment_max_age_hours = self._resolve_enrichment_max_age_hours(
+            assumptions=job.assumptions or {},
+            strict_required=bool((job.assumptions or {}).get("require_enriched_data")),
+        )
+
+        profile["enrichment_status"] = self._compute_enrichment_status(
+            crm_property=crm_property,
+            skip_trace=latest_skip_trace,
+            zillow=latest_zillow,
+            max_age_hours=enrichment_max_age_hours,
+        )
+
         rp.latest_profile = profile
         db.commit()
 
@@ -510,6 +879,11 @@ class AgenticResearchService:
 
         query = f"{rp.normalized_address} assessor recorder parcel"
         results = await self.search_provider.search(query=query, max_results=5)
+        results = sorted(
+            results,
+            key=lambda item: self._source_quality_score(item.get("url"), category="public_records"),
+            reverse=True,
+        )
 
         evidence: list[EvidenceDraft] = []
         unknowns: list[dict[str, Any]] = []
@@ -523,15 +897,18 @@ class AgenticResearchService:
             )
 
         for result in results:
+            source_url = result.get("url", "internal://search/no-url")
+            source_quality = self._source_quality_score(source_url, category="public_records")
             evidence.append(
                 EvidenceDraft(
                     category="public_records",
                     claim=f"Public records candidate found: {result.get('title', 'unknown')}.",
-                    source_url=result.get("url", "internal://search/no-url"),
+                    source_url=source_url,
                     raw_excerpt=result.get("snippet"),
-                    confidence=0.5,
+                    confidence=source_quality,
                 )
             )
+            result["source_quality"] = source_quality
 
         return {
             "data": {"public_records_hits": results},
@@ -549,6 +926,11 @@ class AgenticResearchService:
 
         query = f"{rp.normalized_address} permits violations open data"
         results = await self.search_provider.search(query=query, max_results=5)
+        results = sorted(
+            results,
+            key=lambda item: self._source_quality_score(item.get("url"), category="permits"),
+            reverse=True,
+        )
 
         evidence: list[EvidenceDraft] = []
         unknowns: list[dict[str, Any]] = []
@@ -562,18 +944,87 @@ class AgenticResearchService:
             )
 
         for result in results:
+            source_url = result.get("url", "internal://search/no-url")
+            source_quality = self._source_quality_score(source_url, category="permits")
             evidence.append(
                 EvidenceDraft(
                     category="permits",
                     claim=f"Permit/violation source candidate found: {result.get('title', 'unknown')}.",
-                    source_url=result.get("url", "internal://search/no-url"),
+                    source_url=source_url,
                     raw_excerpt=result.get("snippet"),
-                    confidence=0.5,
+                    confidence=source_quality,
                 )
             )
+            result["source_quality"] = source_quality
 
         return {
             "data": {"permit_violation_hits": results},
+            "unknowns": unknowns,
+            "errors": [],
+            "evidence": evidence,
+            "web_calls": 1,
+            "cost_usd": 0.0,
+        }
+
+    async def _worker_subdivision_research(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
+        rp = db.query(ResearchProperty).filter(ResearchProperty.id == job.research_property_id).first()
+        if rp is None:
+            raise ValueError("Research property not found")
+
+        subdivision_goal = (job.assumptions or {}).get("subdivision_goal", "subdivide and build")
+        query = (
+            f"{rp.raw_address}, {rp.city or ''} {rp.state or ''} {rp.zip_code or ''} "
+            f"zoning minimum lot size frontage subdivision requirements {subdivision_goal}"
+        ).strip()
+
+        results = await self.search_provider.search(query=query, max_results=8, include_text=True)
+        results = sorted(
+            results,
+            key=lambda item: self._source_quality_score(item.get("url"), category="subdivision"),
+            reverse=True,
+        )
+        evidence: list[EvidenceDraft] = []
+        unknowns: list[dict[str, Any]] = []
+
+        if not results:
+            unknowns.append(
+                {
+                    "field": "subdivision_research",
+                    "reason": "No subdivision sources returned by configured search provider.",
+                }
+            )
+
+        for result in results[:8]:
+            source_url = result.get("url", "internal://search/no-url")
+            source_quality = self._source_quality_score(source_url, category="subdivision")
+            evidence.append(
+                EvidenceDraft(
+                    category="subdivision",
+                    claim=f"Subdivision source candidate found: {result.get('title', 'unknown')}.",
+                    source_url=source_url,
+                    raw_excerpt=(result.get("snippet") or "")[:500],
+                    confidence=source_quality,
+                )
+            )
+
+        summary_hits = [
+            {
+                "title": result.get("title"),
+                "url": result.get("url"),
+                "snippet": (result.get("snippet") or "")[:500],
+                "source_quality": self._source_quality_score(result.get("url"), category="subdivision"),
+            }
+            for result in results[:8]
+        ]
+
+        return {
+            "data": {
+                "subdivision_research": {
+                    "goal": subdivision_goal,
+                    "query": query,
+                    "hits": summary_hits,
+                }
+            },
             "unknowns": unknowns,
             "errors": [],
             "evidence": evidence,
@@ -593,19 +1044,19 @@ class AgenticResearchService:
                 "cost_usd": 0.0,
             }
 
+        rp = db.query(ResearchProperty).filter(ResearchProperty.id == job.research_property_id).first()
+        if rp is None:
+            raise ValueError("Research property not found")
+
         radius = float(
             (job.assumptions or {}).get(
                 "sales_radius_mi",
-                1.0 if profile.get("geo", {}).get("lat") else 3.0,
+                self._default_comp_radius_mi(rp.city),
             )
         )
         target_sqft = profile.get("parcel_facts", {}).get("sqft")
         target_beds = profile.get("parcel_facts", {}).get("beds")
         target_baths = profile.get("parcel_facts", {}).get("baths")
-
-        rp = db.query(ResearchProperty).filter(ResearchProperty.id == job.research_property_id).first()
-        if rp is None:
-            raise ValueError("Research property not found")
 
         errors: list[str] = []
         web_calls = 0
@@ -673,7 +1124,11 @@ class AgenticResearchService:
                     "year_built": candidate.year_built,
                     "similarity_score": score,
                     "source_url": f"internal://properties/{candidate.id}",
-                    "details": {"property_id": candidate.id},
+                    "details": {
+                        "property_id": candidate.id,
+                        "origin": "internal_crm",
+                        "source_quality": 0.95,
+                    },
                 }
             )
 
@@ -698,6 +1153,30 @@ class AgenticResearchService:
             top_n=8,
             date_field="sale_date",
         )
+
+        min_sales_comps = int((job.assumptions or {}).get("min_sales_comps", 5))
+        if len(selected) < min_sales_comps:
+            fallback_radius = float(
+                (job.assumptions or {}).get("sales_fallback_radius_mi", max(radius, 5.0))
+            )
+            if fallback_radius > radius:
+                relaxed_external, relaxed_web_calls, relaxed_errors = await self._build_external_comp_candidates(
+                    rp=rp,
+                    comp_type="sale",
+                    radius=fallback_radius,
+                    target_sqft=target_sqft,
+                    target_beds=target_beds,
+                    target_baths=target_baths,
+                    max_results=15,
+                    query_hint=f"{rp.city or ''} {rp.state or ''} {rp.zip_code or ''} sold comps nearby",
+                )
+                web_calls += relaxed_web_calls
+                errors.extend(relaxed_errors)
+                selected = self._dedupe_and_rank_comps(
+                    comps=internal_selected + external_selected + relaxed_external,
+                    top_n=8,
+                    date_field="sale_date",
+                )
 
         db.query(CompSale).filter(CompSale.job_id == job.id).delete()
         for comp in selected:
@@ -726,7 +1205,7 @@ class AgenticResearchService:
                 claim=f"Selected sales comp: {comp['address']} with score {comp['similarity_score']:.3f}.",
                 source_url=comp["source_url"],
                 raw_excerpt=f"sale_price={comp.get('sale_price')}",
-                confidence=0.9,
+                confidence=max(0.5, min(0.98, float((comp.get("details") or {}).get("effective_score", comp.get("similarity_score", 0.5))))),
             )
             for comp in selected
         ]
@@ -737,6 +1216,13 @@ class AgenticResearchService:
                 {
                     "field": "comps_sales",
                     "reason": "No sales comps matched hard filters (distance/recency/sqft/beds/baths).",
+                }
+            )
+        elif len(selected) < min_sales_comps:
+            unknowns.append(
+                {
+                    "field": "comps_sales",
+                    "reason": f"Only {len(selected)} sales comps matched deterministic filters (target minimum {min_sales_comps}).",
                 }
             )
 
@@ -761,19 +1247,19 @@ class AgenticResearchService:
                 "cost_usd": 0.0,
             }
 
+        rp = db.query(ResearchProperty).filter(ResearchProperty.id == job.research_property_id).first()
+        if rp is None:
+            raise ValueError("Research property not found")
+
         radius = float(
             (job.assumptions or {}).get(
                 "rental_radius_mi",
-                1.0 if profile.get("geo", {}).get("lat") else 3.0,
+                self._default_comp_radius_mi(rp.city),
             )
         )
         target_sqft = profile.get("parcel_facts", {}).get("sqft")
         target_beds = profile.get("parcel_facts", {}).get("beds")
         target_baths = profile.get("parcel_facts", {}).get("baths")
-
-        rp = db.query(ResearchProperty).filter(ResearchProperty.id == job.research_property_id).first()
-        if rp is None:
-            raise ValueError("Research property not found")
 
         errors: list[str] = []
         web_calls = 0
@@ -855,7 +1341,11 @@ class AgenticResearchService:
                     "baths": candidate.bathrooms,
                     "similarity_score": score,
                     "source_url": f"internal://properties/{candidate.id}",
-                    "details": {"property_id": candidate.id},
+                    "details": {
+                        "property_id": candidate.id,
+                        "origin": "internal_crm",
+                        "source_quality": 0.95,
+                    },
                 }
             )
 
@@ -880,6 +1370,30 @@ class AgenticResearchService:
             top_n=8,
             date_field="date_listed",
         )
+
+        min_rental_comps = int((job.assumptions or {}).get("min_rental_comps", 5))
+        if len(selected) < min_rental_comps:
+            fallback_radius = float(
+                (job.assumptions or {}).get("rental_fallback_radius_mi", max(radius, 5.0))
+            )
+            if fallback_radius > radius:
+                relaxed_external, relaxed_web_calls, relaxed_errors = await self._build_external_comp_candidates(
+                    rp=rp,
+                    comp_type="rental",
+                    radius=fallback_radius,
+                    target_sqft=target_sqft,
+                    target_beds=target_beds,
+                    target_baths=target_baths,
+                    max_results=15,
+                    query_hint=f"{rp.city or ''} {rp.state or ''} {rp.zip_code or ''} homes for rent nearby",
+                )
+                web_calls += relaxed_web_calls
+                errors.extend(relaxed_errors)
+                selected = self._dedupe_and_rank_comps(
+                    comps=internal_selected + external_selected + relaxed_external,
+                    top_n=8,
+                    date_field="date_listed",
+                )
 
         db.query(CompRental).filter(CompRental.job_id == job.id).delete()
         for comp in selected:
@@ -907,7 +1421,7 @@ class AgenticResearchService:
                 claim=f"Selected rental comp: {comp['address']} with score {comp['similarity_score']:.3f}.",
                 source_url=comp["source_url"],
                 raw_excerpt=f"rent={comp.get('rent')}",
-                confidence=0.9,
+                confidence=max(0.5, min(0.98, float((comp.get("details") or {}).get("effective_score", comp.get("similarity_score", 0.5))))),
             )
             for comp in selected
         ]
@@ -918,6 +1432,13 @@ class AgenticResearchService:
                 {
                     "field": "comps_rentals",
                     "reason": "No rental comps matched hard filters or had rental signal.",
+                }
+            )
+        elif len(selected) < min_rental_comps:
+            unknowns.append(
+                {
+                    "field": "comps_rentals",
+                    "reason": f"Only {len(selected)} rental comps matched deterministic filters (target minimum {min_rental_comps}).",
                 }
             )
 
@@ -946,11 +1467,15 @@ class AgenticResearchService:
             if key in seen:
                 continue
             seen.add(key)
+            details = item.get("details") or {}
+            details["effective_score"] = self._effective_comp_score(item)
+            item["details"] = details
             deduped.append(item)
 
         return sorted(
             deduped,
             key=lambda item: (
+                (item.get("details") or {}).get("effective_score", item.get("similarity_score", 0.0)),
                 item.get("similarity_score", 0.0),
                 item.get(date_field) or date.min,
             ),
@@ -999,6 +1524,7 @@ class AgenticResearchService:
                 source_url=hit.get("url") or "internal://search/no-url",
                 published_date=hit.get("published_date"),
             ):
+                source_quality = self._source_quality_score(row.get("source_url"), category="comps")
                 distance = distance_proxy_mi(
                     target_zip=rp.zip_code,
                     candidate_zip=row.get("zip_code"),
@@ -1048,7 +1574,10 @@ class AgenticResearchService:
                             "year_built": None,
                             "similarity_score": score,
                             "source_url": row.get("source_url"),
-                            "details": {"origin": "external_exa"},
+                            "details": {
+                                "origin": "external_exa",
+                                "source_quality": source_quality,
+                            },
                         }
                     )
                 else:
@@ -1063,7 +1592,10 @@ class AgenticResearchService:
                             "baths": row.get("baths"),
                             "similarity_score": score,
                             "source_url": row.get("source_url"),
-                            "details": {"origin": "external_exa"},
+                            "details": {
+                                "origin": "external_exa",
+                                "source_quality": source_quality,
+                            },
                         }
                     )
 
@@ -1322,11 +1854,16 @@ class AgenticResearchService:
             )
         )
 
-        # Risk score derived from evidence coverage and unknowns.
-        evidence_count = db.query(EvidenceItem).filter(EvidenceItem.job_id == job.id).count()
+        # Expert-style risk score derived from coverage, source quality and contradiction checks.
+        evidence_rows = db.query(EvidenceItem).filter(EvidenceItem.job_id == job.id).all()
+        evidence_count = len(evidence_rows)
         coverage = min(1.0, evidence_count / 12.0)
+        evidence_confidences = [float(item.confidence) for item in evidence_rows if item.confidence is not None]
+        mean_evidence_confidence = mean(evidence_confidences) if evidence_confidences else 0.5
+        quality_adjustment = (mean_evidence_confidence - 0.5) * 0.4
+
         unknown_penalty = min(0.6, len(unknowns) * 0.1)
-        data_confidence = max(0.0, min(1.0, coverage - unknown_penalty + 0.25))
+        contradiction_penalty = 0.0
         title_risk = 0.75 if not profile.get("owner_names") else 0.35
 
         compliance_flags = []
@@ -1337,11 +1874,36 @@ class AgenticResearchService:
         if not rentals:
             compliance_flags.append("insufficient_rental_comps")
 
+        valuation_conflict_threshold = float(assumptions.get("valuation_conflict_threshold", 0.30))
+        zestimate = (profile.get("assessed_values") or {}).get("zestimate")
+        if arv_base is not None and zestimate is not None:
+            denom = max(abs(float(zestimate)), 1.0)
+            diff_ratio = abs(float(arv_base) - float(zestimate)) / denom
+            if diff_ratio > valuation_conflict_threshold:
+                compliance_flags.append("valuation_conflict_zestimate_vs_comps")
+                contradiction_penalty += 0.12
+
+        rent_zestimate = (profile.get("assessed_values") or {}).get("rent_zestimate")
+        if rent_base is not None and rent_zestimate is not None:
+            denom = max(abs(float(rent_zestimate)), 1.0)
+            diff_ratio = abs(float(rent_base) - float(rent_zestimate)) / denom
+            if diff_ratio > valuation_conflict_threshold:
+                compliance_flags.append("rent_conflict_zestimate_vs_comps")
+                contradiction_penalty += 0.10
+
+        data_confidence = max(
+            0.0,
+            min(1.0, coverage - unknown_penalty + 0.25 + quality_adjustment - contradiction_penalty),
+        )
+
         risk_score = {
             "title_risk": round(title_risk, 3),
             "data_confidence": round(data_confidence, 3),
             "compliance_flags": compliance_flags,
-            "notes": "Risk score is computed from deterministic evidence coverage and missing-field penalties.",
+            "notes": (
+                "Risk score combines deterministic coverage, evidence quality, and cross-source "
+                "contradiction checks."
+            ),
         }
 
         db.query(RiskScore).filter(RiskScore.job_id == job.id).delete()
@@ -1528,6 +2090,20 @@ class AgenticResearchService:
             "assessed_values": {},
             "tax_status": None,
             "transaction_history": [],
+            "enrichment_status": {
+                "has_crm_property_match": False,
+                "has_skip_trace_owner": False,
+                "has_zillow_enrichment": False,
+                "is_enriched": False,
+                "is_fresh": None,
+                "age_hours": None,
+                "max_age_hours": None,
+                "matched_property_id": None,
+                "skip_trace_id": None,
+                "zillow_enrichment_id": None,
+                "missing": ["crm_property_match", "skip_trace_owner", "zillow_enrichment"],
+                "last_enriched_at": None,
+            },
         }
 
         underwrite = {
