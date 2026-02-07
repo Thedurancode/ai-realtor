@@ -163,6 +163,17 @@ def find_property_by_address(address_query: str) -> int:
         db.close()
 
 
+def resolve_property_id(arguments: dict) -> int:
+    """Resolve property_id from arguments - supports both ID and address lookup."""
+    property_id = arguments.get("property_id")
+    address = arguments.get("address")
+    if not property_id and address:
+        property_id = find_property_by_address(address)
+    if not property_id:
+        raise ValueError("Please provide either a property ID or a property address.")
+    return int(property_id)
+
+
 async def update_property(property_id: Optional[int] = None, address_query: Optional[str] = None, **fields) -> dict:
     """Update a property's fields (price, status, bedrooms, etc.) by ID or address."""
     if address_query and not property_id:
@@ -1089,16 +1100,19 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="get_property",
-            description="Get detailed information for a specific property by ID. Returns complete property data including Zillow enrichment, skip trace data, photos, schools, tax history, and owner information.",
+            description="Get detailed information for a specific property by ID or address. Returns complete property data including Zillow enrichment, skip trace data, photos, schools, tax history, and owner information. Voice-friendly: say the address instead of the ID.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "The ID of the property to retrieve"
+                        "description": "The ID of the property to retrieve (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Hillsborough property')"
                     }
-                },
-                "required": ["property_id"]
+                }
             }
         ),
         Tool(
@@ -1134,16 +1148,19 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="delete_property",
-            description="Delete a property and all its related data (enrichments, skip traces, contacts, contracts) from the database. This action cannot be undone. The property will be removed from the TV display.",
+            description="Delete a property and all its related data (enrichments, skip traces, contacts, contracts) from the database. This action cannot be undone. Voice-friendly: say the address instead of the ID.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "The ID of the property to delete"
+                        "description": "The ID of the property to delete (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')"
                     }
-                },
-                "required": ["property_id"]
+                }
             }
         ),
         Tool(
@@ -1192,46 +1209,55 @@ async def list_tools() -> list[Tool]:
                         "enum": ["traditional", "wholesale", "creative_finance", "subject_to", "novation", "lease_option"]
                     }
                 },
-                "required": ["property_id"]
             }
         ),
         Tool(
             name="enrich_property",
-            description="Enrich a property with comprehensive Zillow data including photos, Zestimate, rent estimate, tax history, price history, schools with ratings, property details, and market statistics. Triggers enrichment animation on TV display.",
+            description="Enrich a property with comprehensive Zillow data including photos, Zestimate, rent estimate, tax history, price history, schools with ratings, property details, and market statistics. Voice-friendly: say the address instead of the ID.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "The ID of the property to enrich"
+                        "description": "The ID of the property to enrich (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Hillsborough property')"
                     }
-                },
-                "required": ["property_id"]
+                }
             }
         ),
         Tool(
             name="skip_trace_property",
-            description="Skip trace a property to find owner contact information including name, phone numbers, email addresses, and mailing address. Useful for lead generation and outreach.",
+            description="Skip trace a property to find owner contact information including name, phone numbers, email addresses, and mailing address. Voice-friendly: say the address instead of the ID.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "The ID of the property to skip trace"
+                        "description": "The ID of the property to skip trace (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')"
                     }
-                },
-                "required": ["property_id"]
+                }
             }
         ),
         Tool(
             name="add_contact",
-            description="Add a contact to a property. Set send_contracts=true to automatically find and send any draft contracts that need this contact's role signature. Example: 'Add Daffy Duck as the lawyer and send him the contracts'.",
+            description="Add a contact to a property. Set send_contracts=true to automatically find and send any draft contracts that need this contact's role signature. Voice-friendly: say the address instead of the ID. Example: 'Add Daffy Duck as the lawyer for 123 Main Street'.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "The property ID to associate with this contact"
+                        "description": "The property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     },
                     "name": {
                         "type": "string",
@@ -1257,7 +1283,7 @@ async def list_tools() -> list[Tool]:
                         "default": False
                     }
                 },
-                "required": ["property_id", "name"]
+                "required": ["name"]
             }
         ),
         Tool(
@@ -1325,13 +1351,17 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="send_contract",
-            description="Send a contract to a contact for signing via DocuSeal. The contact will receive an email with a signing link. This automatically creates the contract if it doesn't exist and sends it for e-signature.",
+            description="Send a contract to a contact for signing via DocuSeal. Voice-friendly: say the address instead of the property ID. Example: 'Send a purchase agreement for 123 Main Street to contact 5'.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "The property ID this contract is for"
+                        "description": "The property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     },
                     "contact_id": {
                         "type": "number",
@@ -1347,7 +1377,7 @@ async def list_tools() -> list[Tool]:
                         "description": "DocuSeal template ID (optional, defaults to '1')"
                     }
                 },
-                "required": ["property_id", "contact_id"]
+                "required": ["contact_id"]
             }
         ),
         Tool(
@@ -1414,16 +1444,19 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="get_signing_status",
-            description="✍️ WHO SIGNED? Voice-optimized signing status for a property. Shows who has signed, who hasn't, across ALL contracts. Perfect for 'Who still needs to sign for property 5?', 'Has John signed yet?', 'What's the signing status for 123 Main St?'. Returns natural language summary.",
+            description="✍️ WHO SIGNED? Voice-optimized signing status for a property. Shows who has signed, who hasn't, across ALL contracts. Voice-friendly: say the address instead of the ID. Perfect for 'Who still needs to sign for 123 Main Street?'",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "Property ID to check signing status for"
+                        "description": "Property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     }
-                },
-                "required": ["property_id"]
+                }
             }
         ),
         Tool(
@@ -1542,46 +1575,56 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="generate_property_recap",
-            description="🤖 AI PROPERTY RECAP: Generate comprehensive AI summary of property including status, contracts, and readiness. Creates both detailed and voice-optimized summaries perfect for phone calls. Auto-updates whenever property changes. Use this before making calls or when you need a quick property overview.",
+            description="🤖 AI PROPERTY RECAP: Generate comprehensive AI summary of property including status, contracts, and readiness. Voice-friendly: say the address instead of the ID. Example: 'Generate a recap for 123 Main Street'.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "Property ID to generate recap for"
+                        "description": "Property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     },
                     "trigger": {
                         "type": "string",
                         "description": "What triggered this recap (manual, property_updated, contract_signed, etc.). Default: manual",
                         "default": "manual"
                     }
-                },
-                "required": ["property_id"]
+                }
             }
         ),
         Tool(
             name="get_property_recap",
-            description="📖 GET PROPERTY RECAP: Retrieve existing AI-generated property summary. Returns detailed overview, voice summary, and structured context. Faster than generate if recap already exists.",
+            description="📖 GET PROPERTY RECAP: Retrieve existing AI-generated property summary. Voice-friendly: say the address instead of the ID. Example: 'Get the recap for 123 Main Street'.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "Property ID to get recap for"
+                        "description": "Property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     }
-                },
-                "required": ["property_id"]
+                }
             }
         ),
         Tool(
             name="make_property_phone_call",
-            description="📞 MAKE PHONE CALL: Make an AI-powered phone call about a property using VAPI. The AI assistant will have full property context and can answer questions. Perfect for property updates, contract reminders, or celebrating closing readiness. Automatically generates property recap if needed.",
+            description="📞 MAKE PHONE CALL: Make an AI-powered phone call about a property. Voice-friendly: say the address instead of the ID. Example: 'Call +14155551234 about 123 Main Street'.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "Property ID to discuss in the call"
+                        "description": "Property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     },
                     "phone_number": {
                         "type": "string",
@@ -1594,18 +1637,22 @@ async def list_tools() -> list[Tool]:
                         "default": "property_update"
                     }
                 },
-                "required": ["property_id", "phone_number"]
+                "required": ["phone_number"]
             }
         ),
         Tool(
             name="call_contact_about_contract",
-            description="📞💼 CALL ABOUT SPECIFIC CONTRACT: Call a contact about a specific contract that needs attention. Perfect for 'Call John about the Purchase Agreement that needs his signature'. AI will reference the exact contract, explain what's needed, and offer to resend links. More targeted than general property update.",
+            description="📞💼 CALL ABOUT SPECIFIC CONTRACT: Call a contact about a specific contract. Voice-friendly: say the address instead of the property ID. Example: 'Call contact 3 about contract 10 for 123 Main Street'.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "Property ID"
+                        "description": "Property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     },
                     "contact_id": {
                         "type": "number",
@@ -1620,25 +1667,28 @@ async def list_tools() -> list[Tool]:
                         "description": "Optional custom message to include in the call (e.g., 'This is urgent, closing is Friday')"
                     }
                 },
-                "required": ["property_id", "contact_id", "contract_id"]
+                "required": ["contact_id", "contract_id"]
             }
         ),
         Tool(
             name="call_property_owner_skip_trace",
-            description="📞🏠 SKIP TRACE OUTREACH CALL: Call property owner (from skip trace data) and ask if they're interested in selling. Perfect for cold calling and lead generation. AI will: introduce as real estate professional, ask about interest in selling, discuss market conditions, be respectful and not pushy. Uses phone number from skip trace data.",
+            description="📞🏠 SKIP TRACE OUTREACH CALL: Call property owner from skip trace data. Voice-friendly: say the address instead of the ID. Example: 'Call the owner of 123 Main Street and ask if they want to sell'.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "Property ID (must have skip trace data)"
+                        "description": "Property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     },
                     "custom_message": {
                         "type": "string",
                         "description": "Optional custom message (e.g., 'We have a buyer interested in your area', 'Market values are up 15% this year')"
                     }
                 },
-                "required": ["property_id"]
             }
         ),
         Tool(
@@ -1651,13 +1701,17 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="set_deal_type",
-            description="🏷️ SET DEAL TYPE: Set a deal type on a property to trigger a full workflow. Auto-attaches the right contracts, creates a step-by-step checklist, and flags required contact roles. Available deal types: traditional, short_sale, reo, fsbo, new_construction, wholesale, rental, commercial. When SWITCHING deal types, use clear_previous=true to remove old draft contracts and pending todos first. Example: 'Set property 5 as a short sale' or 'Change property 5 from short sale to traditional'.",
+            description="🏷️ SET DEAL TYPE: Set a deal type on a property to trigger a full workflow. Voice-friendly: say the address instead of the ID. Example: 'Set 123 Main Street as a short sale' or 'Change the Brooklyn property to wholesale'.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "Property ID to set the deal type on"
+                        "description": "Property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     },
                     "deal_type": {
                         "type": "string",
@@ -1669,21 +1723,24 @@ async def list_tools() -> list[Tool]:
                         "default": False
                     }
                 },
-                "required": ["property_id", "deal_type"]
+                "required": ["deal_type"]
             }
         ),
         Tool(
             name="get_deal_status",
-            description="📊 DEAL STATUS: Check the deal progress for a property — contracts completed vs pending, checklist items done, and missing contacts. Great for 'Is this deal on track?' or 'What's left to do for property 5?'",
+            description="📊 DEAL STATUS: Check the deal progress for a property. Voice-friendly: say the address instead of the ID. Example: 'What's the deal status for 123 Main Street?'",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "property_id": {
                         "type": "number",
-                        "description": "Property ID to check deal status for"
+                        "description": "Property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     }
-                },
-                "required": ["property_id"]
+                }
             }
         ),
         Tool(
@@ -1820,7 +1877,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="preview_deal_type",
-            description="👀 PREVIEW DEAL TYPE: Dry run — see what contracts, todos, and contacts would be created if you applied a deal type to a property, WITHOUT actually doing it. Example: 'Preview what a short sale would do for property 5'.",
+            description="👀 PREVIEW DEAL TYPE: Dry run — see what would happen if you applied a deal type to a property. Voice-friendly: say the address. Example: 'Preview a short sale for 123 Main Street'.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1830,10 +1887,14 @@ async def list_tools() -> list[Tool]:
                     },
                     "property_id": {
                         "type": "number",
-                        "description": "Property ID to preview against"
+                        "description": "Property ID (optional if address provided)"
+                    },
+                    "address": {
+                        "type": "string",
+                        "description": "Property address to search for (voice-friendly, e.g., '123 Main Street')"
                     }
                 },
-                "required": ["name", "property_id"]
+                "required": ["name"]
             }
         ),
         Tool(
@@ -1939,7 +2000,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=text)]
 
         elif name == "get_property":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             result = await get_property(property_id)
 
             price_str = f"${result['price']:,.0f}" if result.get('price') else "price not set"
@@ -1997,7 +2058,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=text)]
 
         elif name == "delete_property":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             result = await delete_property(property_id)
 
             text = f"Property {property_id} deleted successfully."
@@ -2035,7 +2096,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=text)]
 
         elif name == "enrich_property":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             result = await enrich_property(property_id)
 
             text = f"Property {property_id} enriched with Zillow data.\n\n"
@@ -2069,7 +2130,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=text)]
 
         elif name == "skip_trace_property":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             result = await skip_trace_property(property_id)
 
             text = f"Skip trace completed for property {property_id}.\n\n"
@@ -2091,8 +2152,9 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=text)]
 
         elif name == "add_contact":
+            property_id = resolve_property_id(arguments)
             result = await add_contact_to_property(
-                property_id=arguments["property_id"],
+                property_id=property_id,
                 name=arguments["name"],
                 email=arguments.get("email"),
                 phone=arguments.get("phone"),
@@ -2101,7 +2163,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             contact_name = result.get("name", arguments["name"])
             contact_role = result.get("role", arguments.get("role", "buyer")).replace("_", " ")
-            output = f"Added {contact_name} as {contact_role} for property {arguments['property_id']}.\n"
+            output = f"Added {contact_name} as {contact_role} for property {property_id}.\n"
 
             # If send_contracts requested, find matching draft contracts
             if arguments.get("send_contracts"):
@@ -2176,8 +2238,9 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 )]
 
         elif name == "send_contract":
+            property_id = resolve_property_id(arguments)
             result = await send_contract(
-                property_id=arguments["property_id"],
+                property_id=property_id,
                 contact_id=arguments["contact_id"],
                 contract_name=arguments.get("contract_name", "Purchase Agreement"),
                 docuseal_template_id=arguments.get("docuseal_template_id")
@@ -2185,7 +2248,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
             return [TextContent(
                 type="text",
-                text=f"Contract '{arguments.get('contract_name', 'Purchase Agreement')}' sent for signing to contact {arguments['contact_id']} for property {arguments['property_id']}."
+                text=f"Contract '{arguments.get('contract_name', 'Purchase Agreement')}' sent for signing to contact {arguments['contact_id']} for property {property_id}."
             )]
 
         elif name == "check_contract_status":
@@ -2270,7 +2333,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=voice_text            )]
 
         elif name == "get_signing_status":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             result = await get_signing_status(property_id=property_id)
 
             # Voice summary is already included
@@ -2468,7 +2531,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=override_text            )]
 
         elif name == "generate_property_recap":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             trigger = arguments.get("trigger", "manual")
             result = await generate_property_recap(property_id=property_id, trigger=trigger)
 
@@ -2492,7 +2555,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=recap_text            )]
 
         elif name == "get_property_recap":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             result = await get_property_recap(property_id=property_id)
 
             # Format recap
@@ -2517,7 +2580,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=recap_text            )]
 
         elif name == "make_property_phone_call":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             phone_number = arguments["phone_number"]
             call_purpose = arguments.get("call_purpose", "property_update")
             result = await make_property_phone_call(
@@ -2557,7 +2620,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=call_text            )]
 
         elif name == "call_contact_about_contract":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             contact_id = arguments["contact_id"]
             contract_id = arguments["contract_id"]
             custom_message = arguments.get("custom_message")
@@ -2594,7 +2657,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=call_text            )]
 
         elif name == "call_property_owner_skip_trace":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             custom_message = arguments.get("custom_message")
 
             result = await call_property_owner_skip_trace(
@@ -2668,7 +2731,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=smart_text            )]
 
         elif name == "set_deal_type":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             deal_type_name = arguments["deal_type"]
             clear_previous = arguments.get("clear_previous", False)
             result = await set_deal_type(
@@ -2709,7 +2772,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=deal_text            )]
 
         elif name == "get_deal_status":
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             result = await get_deal_status(property_id=property_id)
 
             status_text = f"📊 DEAL STATUS\n\n"
@@ -2864,7 +2927,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
         elif name == "preview_deal_type":
             dt_name = arguments["name"]
-            property_id = arguments["property_id"]
+            property_id = resolve_property_id(arguments)
             result = await preview_deal_type_api(dt_name, property_id)
 
             preview_text = f"👀 PREVIEW: {result.get('deal_type', dt_name)} on Property {property_id}\n\n"
