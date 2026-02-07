@@ -1975,7 +1975,7 @@ async def list_tools() -> list[Tool]:
         # ── Agentic Research Tools ──
         Tool(
             name="research_property",
-            description="Run a full agentic research analysis on a property address. Finds comparable sales, comparable rentals, calculates ARV, underwriting, risk score, and generates an investment dossier. Supports strategies: flip, rental, wholesale. Set extensive=true for deep research with EPA environmental, wildfire, seismic, wetlands, historic places, HUD indices, and school districts. Voice: 'Do extensive research on 123 Main St New York'.",
+            description="Run a full agentic research analysis on a property address. Finds comparable sales, comparable rentals, calculates ARV, underwriting, risk score, and generates an investment dossier. Supports strategies: flip, rental, wholesale. Set extensive=true for deep research with EPA environmental, wildfire, seismic, wetlands, historic places, HUD indices, school districts, plus Redfin estimates, Walk/Transit/Bike scores, noise scores, recently sold homes, mortgage rates, and RentCast rent estimates. Voice: 'Do extensive research on 123 Main St New York'.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -2007,7 +2007,7 @@ async def list_tools() -> list[Tool]:
                     },
                     "extensive": {
                         "type": "boolean",
-                        "description": "Set true for extensive/deep research: adds EPA environmental hazards, wildfire risk, seismic hazard, wetlands, historic places, HUD opportunity indices, and school districts. Takes longer but provides comprehensive risk assessment. Default: false"
+                        "description": "Set true for extensive/deep research: adds EPA environmental, wildfire, seismic, wetlands, historic places, HUD indices, school districts, Redfin estimates, Walk/Transit/Bike scores, noise scores, sold homes, mortgage rates, and RentCast rent estimates. Default: false"
                     }
                 },
                 "required": ["address"]
@@ -3429,6 +3429,52 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 school = extensive.get("school_district")
                 if school and school.get("school_district"):
                     text += f"\nSCHOOL DISTRICT: {school['school_district']}\n"
+
+                # RapidAPI Tier 1 data
+                us_re = extensive.get("us_real_estate")
+                if us_re:
+                    if us_re.get("noise_score") is not None:
+                        text += f"\nNOISE SCORE: {us_re['noise_score']}/100\n"
+                        cats = us_re.get("noise_categories", {})
+                        for k, v in cats.items():
+                            if v is not None:
+                                text += f"  {k}: {v}\n"
+                    if us_re.get("sold_homes"):
+                        text += f"\nRECENTLY SOLD ({len(us_re['sold_homes'])} homes):\n"
+                        for h in us_re["sold_homes"][:5]:
+                            price = f"${h['price']:,.0f}" if isinstance(h.get("price"), (int, float)) else str(h.get("price", "?"))
+                            text += f"  - {h.get('address', 'Unknown')}: {price}\n"
+                    if us_re.get("mortgage_rates"):
+                        text += f"\nMORTGAGE RATES:\n"
+                        for k, v in us_re["mortgage_rates"].items():
+                            if k != "raw" and v is not None:
+                                text += f"  {k.replace('_', ' ').title()}: {v}%\n"
+
+                ws = extensive.get("walk_score")
+                if ws and ws.get("walk_score") is not None:
+                    text += f"\nWALKABILITY:\n"
+                    text += f"  Walk: {ws['walk_score']}/100 ({ws.get('walk_description', '')})\n"
+                    if ws.get("transit_score") is not None:
+                        text += f"  Transit: {ws['transit_score']}/100 ({ws.get('transit_description', '')})\n"
+                    if ws.get("bike_score") is not None:
+                        text += f"  Bike: {ws['bike_score']}/100 ({ws.get('bike_description', '')})\n"
+
+                redfin = extensive.get("redfin")
+                if redfin and redfin.get("redfin_estimate"):
+                    est = redfin["redfin_estimate"]
+                    est_str = f"${est:,.0f}" if isinstance(est, (int, float)) else str(est)
+                    text += f"\nREDFIN ESTIMATE: {est_str}\n"
+                    if redfin.get("last_sold_price"):
+                        price_str = f"${redfin['last_sold_price']:,.0f}" if isinstance(redfin["last_sold_price"], (int, float)) else str(redfin["last_sold_price"])
+                        text += f"  Last sold: {price_str}\n"
+                    if redfin.get("hoa_fee"):
+                        text += f"  HOA: ${redfin['hoa_fee']}/mo\n"
+
+                rc = extensive.get("rentcast")
+                if rc and rc.get("rent_estimate"):
+                    text += f"\nRENTCAST RENT: ${rc['rent_estimate']:,.0f}/mo (range: ${rc.get('rent_range_low', '?')}-${rc.get('rent_range_high', '?')})\n"
+                    if rc.get("comparables"):
+                        text += f"  Based on {len(rc['comparables'])} rental comps\n"
 
             # Worker summary
             runs = output_data.get("worker_runs", [])
