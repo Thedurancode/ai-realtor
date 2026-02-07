@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     rapidapi_key: str = ""
     skip_trace_api_host: str = "skip-tracing-working-api.p.rapidapi.com"
     zillow_api_host: str = "private-zillow.p.rapidapi.com"
+    anthropic_api_key: str = ""
     exa_api_key: str = ""
     exa_base_url: str = "https://api.exa.ai"
     exa_search_type: str = "auto"

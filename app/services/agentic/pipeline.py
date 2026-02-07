@@ -8,6 +8,8 @@ from time import perf_counter
 from typing import Any, Awaitable, Callable
 from urllib.parse import urlparse
 
+import httpx
+
 from dateutil import parser as date_parser
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
@@ -403,8 +405,8 @@ class AgenticResearchService:
 
     async def _execute_pipeline(self, db: Session, job: AgenticJob) -> dict[str, Any]:
         limits = job.limits or {}
-        max_steps = int(limits.get("max_steps", 7))
-        max_web_calls = int(limits.get("max_web_calls", 20))
+        max_steps = int(limits.get("max_steps", 9))
+        max_web_calls = int(limits.get("max_web_calls", 30))
         timeout_seconds = int(limits.get("timeout_seconds_per_step", 20))
         execution_mode = str(limits.get("execution_mode", "pipeline")).strip().lower()
         self._assert_required_enrichment(db=db, job=job)
@@ -427,6 +429,8 @@ class AgenticResearchService:
             ("permits_violations", lambda: self._worker_permits_violations(db, job, context)),
             ("comps_sales", lambda: self._worker_comps_sales(db, job, context)),
             ("comps_rentals", lambda: self._worker_comps_rentals(db, job, context)),
+            ("neighborhood_intel", lambda: self._worker_neighborhood_intel(db, job, context)),
+            ("flood_zone", lambda: self._worker_flood_zone(db, job, context)),
             ("underwriting", lambda: self._worker_underwriting(db, job, context)),
             ("dossier_writer", lambda: self._worker_dossier_writer(db, job, context)),
         ]
@@ -473,9 +477,19 @@ class AgenticResearchService:
             "permits_violations": lambda: self._worker_permits_violations(db, job, context),
             "comps_sales": lambda: self._worker_comps_sales(db, job, context),
             "comps_rentals": lambda: self._worker_comps_rentals(db, job, context),
+            "neighborhood_intel": lambda: self._worker_neighborhood_intel(db, job, context),
+            "flood_zone": lambda: self._worker_flood_zone(db, job, context),
             "underwriting": lambda: self._worker_underwriting(db, job, context),
             "dossier_writer": lambda: self._worker_dossier_writer(db, job, context),
             "subdivision_research": lambda: self._worker_subdivision_research(db, job, context),
+            # Extensive research workers (opt-in)
+            "epa_environmental": lambda: self._worker_epa_environmental(db, job, context),
+            "wildfire_hazard": lambda: self._worker_wildfire_hazard(db, job, context),
+            "hud_opportunity": lambda: self._worker_hud_opportunity(db, job, context),
+            "wetlands": lambda: self._worker_wetlands(db, job, context),
+            "historic_places": lambda: self._worker_historic_places(db, job, context),
+            "seismic_hazard": lambda: self._worker_seismic_hazard(db, job, context),
+            "school_district": lambda: self._worker_school_district(db, job, context),
         }
 
         specs = self._build_agent_specs(job=job, max_steps=max_steps)
@@ -532,6 +546,8 @@ class AgenticResearchService:
             AgentSpec(name="permits_violations", dependencies={"normalize_geocode"}),
             AgentSpec(name="comps_sales", dependencies={"normalize_geocode"}),
             AgentSpec(name="comps_rentals", dependencies={"normalize_geocode"}),
+            AgentSpec(name="neighborhood_intel", dependencies={"normalize_geocode"}),
+            AgentSpec(name="flood_zone", dependencies={"normalize_geocode"}),
             AgentSpec(
                 name="underwriting",
                 dependencies={"normalize_geocode", "comps_sales", "comps_rentals"},
@@ -544,6 +560,8 @@ class AgenticResearchService:
                     "permits_violations",
                     "comps_sales",
                     "comps_rentals",
+                    "neighborhood_intel",
+                    "flood_zone",
                     "underwriting",
                 },
             ),
@@ -570,6 +588,27 @@ class AgenticResearchService:
                 ),
             )
             specs[-1].dependencies.add("subdivision_research")
+
+        # Extensive research: 7 additional government data workers
+        if isinstance(extra_agents, list) and "extensive" in extra_agents:
+            extensive_specs = [
+                AgentSpec(name="epa_environmental", dependencies={"normalize_geocode"}),
+                AgentSpec(name="wildfire_hazard", dependencies={"normalize_geocode"}),
+                AgentSpec(name="hud_opportunity", dependencies={"normalize_geocode"}),
+                AgentSpec(name="wetlands", dependencies={"normalize_geocode"}),
+                AgentSpec(name="historic_places", dependencies={"normalize_geocode"}),
+                AgentSpec(name="seismic_hazard", dependencies={"normalize_geocode"}),
+                AgentSpec(name="school_district", dependencies={"normalize_geocode"}),
+            ]
+            added = 0
+            for espec in extensive_specs:
+                if allowed_extra_count is not None and added >= allowed_extra_count:
+                    break
+                # Insert before dossier_writer so it can use the data
+                specs.insert(-1, espec)
+                # Make dossier_writer depend on these too
+                specs[-1].dependencies.add(espec.name)
+                added += 1
 
         return specs
 
@@ -1928,12 +1967,780 @@ class AgenticResearchService:
             "cost_usd": 0.0,
         }
 
+    # ── NEW: Neighborhood Intelligence Worker ──
+    async def _worker_neighborhood_intel(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
+        """Search for neighborhood data: crime, schools, demographics, walkability, trends."""
+        profile = context.get("normalize_geocode", {}).get("property_profile", {})
+        address = profile.get("normalized_address", "")
+        geo = profile.get("geo", {})
+        evidence: list[EvidenceDraft] = []
+        web_calls = 0
+
+        # Extract city/state for neighborhood queries
+        parts = [p.strip() for p in address.split(",")]
+        city = parts[1] if len(parts) > 1 else ""
+        state = parts[2].split()[0] if len(parts) > 2 else ""
+        location = f"{city}, {state}".strip(", ")
+
+        neighborhood_data: dict[str, Any] = {
+            "crime": [],
+            "schools": [],
+            "demographics": [],
+            "market_trends": [],
+            "walkability": [],
+        }
+
+        search = build_search_provider_from_settings()
+
+        # Search 1: Crime & safety
+        if location:
+            crime_results = await search.search(
+                query=f"{location} crime rate safety statistics neighborhood",
+                max_results=5,
+                include_text=True,
+            )
+            web_calls += 1
+            for r in crime_results:
+                neighborhood_data["crime"].append({
+                    "title": r.get("title", ""),
+                    "url": r.get("url", ""),
+                    "snippet": r.get("snippet", "")[:300],
+                })
+                evidence.append(EvidenceDraft(
+                    category="neighborhood",
+                    claim=f"Crime/safety data: {r.get('title', 'unknown')}",
+                    source_url=r.get("url", ""),
+                    raw_excerpt=r.get("snippet", "")[:300],
+                    confidence=self._source_quality(r.get("url", "")),
+                ))
+
+        # Search 2: Schools & demographics
+        if location:
+            school_results = await search.search(
+                query=f"{location} school ratings demographics population income median home value",
+                max_results=5,
+                include_text=True,
+            )
+            web_calls += 1
+            for r in school_results:
+                neighborhood_data["schools"].append({
+                    "title": r.get("title", ""),
+                    "url": r.get("url", ""),
+                    "snippet": r.get("snippet", "")[:300],
+                })
+                evidence.append(EvidenceDraft(
+                    category="neighborhood",
+                    claim=f"School/demographic data: {r.get('title', 'unknown')}",
+                    source_url=r.get("url", ""),
+                    raw_excerpt=r.get("snippet", "")[:300],
+                    confidence=self._source_quality(r.get("url", "")),
+                ))
+
+        # Search 3: Market trends & gentrification
+        if location:
+            trend_results = await search.search(
+                query=f"{location} real estate market trends 2025 2026 home prices appreciation inventory",
+                max_results=5,
+                include_text=True,
+            )
+            web_calls += 1
+            for r in trend_results:
+                neighborhood_data["market_trends"].append({
+                    "title": r.get("title", ""),
+                    "url": r.get("url", ""),
+                    "snippet": r.get("snippet", "")[:300],
+                })
+                evidence.append(EvidenceDraft(
+                    category="neighborhood",
+                    claim=f"Market trend data: {r.get('title', 'unknown')}",
+                    source_url=r.get("url", ""),
+                    raw_excerpt=r.get("snippet", "")[:300],
+                    confidence=self._source_quality(r.get("url", "")),
+                ))
+
+        # Use Claude to synthesize if available
+        ai_summary = None
+        cost_usd = 0.0
+        if settings.anthropic_api_key and any(
+            neighborhood_data[k] for k in neighborhood_data
+        ):
+            try:
+                import anthropic
+                client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+                snippets_text = ""
+                for category, items in neighborhood_data.items():
+                    if items:
+                        snippets_text += f"\n### {category.upper()}\n"
+                        for item in items[:3]:
+                            snippets_text += f"- {item['title']}: {item['snippet']}\n"
+
+                msg = client.messages.create(
+                    model="claude-sonnet-4-5-20250929",
+                    max_tokens=600,
+                    messages=[{
+                        "role": "user",
+                        "content": f"""You are a real estate investment analyst. Based on these neighborhood data snippets for {location}, write a concise neighborhood analysis (150-250 words). Cover: safety, schools, demographics, market trends, and overall investment outlook. Be specific with any numbers or ratings found. If data is sparse, note what's missing.
+
+{snippets_text}
+
+Write the analysis as prose paragraphs, not bullet points. Focus on what matters for a real estate investor.""",
+                    }],
+                )
+                ai_summary = msg.content[0].text
+                cost_usd = 0.01  # Approximate Sonnet cost
+            except Exception as e:
+                ai_summary = None
+                logging.warning(f"Claude neighborhood synthesis failed: {e}")
+
+        neighborhood_data["ai_summary"] = ai_summary
+
+        return {
+            "data": {"neighborhood_intel": neighborhood_data},
+            "unknowns": [{"field": "neighborhood", "reason": "No location data"}] if not location else [],
+            "errors": [],
+            "evidence": evidence,
+            "web_calls": web_calls,
+            "cost_usd": cost_usd,
+        }
+
+    # ── NEW: FEMA Flood Zone Worker ──
+    async def _worker_flood_zone(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
+        """Check FEMA flood zone data using free FEMA API."""
+        profile = context.get("normalize_geocode", {}).get("property_profile", {})
+        geo = profile.get("geo", {})
+        lat = geo.get("lat")
+        lng = geo.get("lng")
+        evidence: list[EvidenceDraft] = []
+
+        flood_data: dict[str, Any] = {
+            "flood_zone": None,
+            "description": None,
+            "panel_number": None,
+            "in_floodplain": None,
+            "insurance_required": None,
+            "source": "FEMA National Flood Hazard Layer",
+        }
+
+        if not lat or not lng:
+            return {
+                "data": {"flood_zone": flood_data},
+                "unknowns": [{"field": "flood_zone", "reason": "No geocode available for FEMA lookup"}],
+                "errors": [],
+                "evidence": [],
+                "web_calls": 0,
+                "cost_usd": 0.0,
+            }
+
+        web_calls = 0
+        try:
+            # FEMA National Flood Hazard Layer (NFHL) ArcGIS REST API
+            # This is the official free FEMA endpoint
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query",
+                    params={
+                        "geometry": f"{lng},{lat}",
+                        "geometryType": "esriGeometryPoint",
+                        "inSR": "4326",
+                        "spatialRel": "esriSpatialRelIntersects",
+                        "outFields": "FLD_ZONE,ZONE_SUBTY,SFHA_TF,STATIC_BFE,DFIRM_ID",
+                        "returnGeometry": "false",
+                        "f": "json",
+                    },
+                    timeout=15.0,
+                )
+                web_calls += 1
+                response.raise_for_status()
+                data = response.json()
+
+                features = data.get("features", [])
+                if features:
+                    attrs = features[0].get("attributes", {})
+                    zone = attrs.get("FLD_ZONE", "")
+                    zone_subtype = attrs.get("ZONE_SUBTY", "")
+                    sfha = attrs.get("SFHA_TF", "")
+
+                    # Decode flood zone
+                    zone_descriptions = {
+                        "A": "High risk - 1% annual chance flood (100-year floodplain)",
+                        "AE": "High risk - 1% annual chance flood with base flood elevations",
+                        "AH": "High risk - 1% annual chance of shallow flooding (1-3 ft)",
+                        "AO": "High risk - 1% annual chance of sheet flow flooding",
+                        "V": "High risk - coastal flood with wave action",
+                        "VE": "High risk - coastal flood with base flood elevations",
+                        "X": "Moderate to low risk - 0.2% annual chance flood (500-year) or minimal",
+                        "B": "Moderate risk - between 100-year and 500-year floodplain",
+                        "C": "Minimal risk - outside 500-year floodplain",
+                        "D": "Undetermined risk - possible but not analyzed",
+                    }
+
+                    is_high_risk = zone in ("A", "AE", "AH", "AO", "AR", "V", "VE")
+                    description = zone_descriptions.get(zone, f"Zone {zone}")
+                    if zone_subtype:
+                        description += f" ({zone_subtype})"
+
+                    flood_data["flood_zone"] = zone
+                    flood_data["description"] = description
+                    flood_data["panel_number"] = attrs.get("DFIRM_ID")
+                    flood_data["in_floodplain"] = is_high_risk
+                    flood_data["insurance_required"] = is_high_risk
+
+                    evidence.append(EvidenceDraft(
+                        category="flood_zone",
+                        claim=f"FEMA flood zone: {zone} - {description}. Insurance {'required' if is_high_risk else 'not required'}.",
+                        source_url=f"https://msc.fema.gov/portal/search?AddressQuery={lat},{lng}",
+                        raw_excerpt=f"FLD_ZONE={zone}, SFHA_TF={sfha}, ZONE_SUBTY={zone_subtype}",
+                        confidence=0.95,
+                    ))
+                else:
+                    flood_data["flood_zone"] = "X"
+                    flood_data["description"] = "No FEMA data — likely minimal flood risk"
+                    flood_data["in_floodplain"] = False
+                    flood_data["insurance_required"] = False
+
+                    evidence.append(EvidenceDraft(
+                        category="flood_zone",
+                        claim="No FEMA flood zone data found for this location — likely minimal risk.",
+                        source_url=f"https://msc.fema.gov/portal/search?AddressQuery={lat},{lng}",
+                        raw_excerpt="No features returned from NFHL query",
+                        confidence=0.80,
+                    ))
+
+        except Exception as e:
+            logging.warning(f"FEMA flood zone lookup failed: {e}")
+            return {
+                "data": {"flood_zone": flood_data},
+                "unknowns": [{"field": "flood_zone", "reason": f"FEMA API error: {str(e)[:100]}"}],
+                "errors": [str(e)],
+                "evidence": [],
+                "web_calls": web_calls,
+                "cost_usd": 0.0,
+            }
+
+        return {
+            "data": {"flood_zone": flood_data},
+            "unknowns": [],
+            "errors": [],
+            "evidence": evidence,
+            "web_calls": web_calls,
+            "cost_usd": 0.0,
+        }
+
+    # ── EXTENSIVE RESEARCH WORKERS (opt-in via extra_agents: ["extensive"]) ──
+
+    async def _worker_epa_environmental(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
+        """Check EPA environmental hazards: Superfund, brownfields, toxic releases, hazardous waste within 5 miles (8047m)."""
+        profile = context.get("normalize_geocode", {}).get("property_profile", {})
+        geo = profile.get("geo", {})
+        lat, lng = geo.get("lat"), geo.get("lng")
+        evidence: list[EvidenceDraft] = []
+        web_calls = 0
+
+        epa_data: dict[str, Any] = {
+            "superfund_sites": [],
+            "brownfields": [],
+            "toxic_releases": [],
+            "hazardous_waste": [],
+            "nearest_hazard_miles": None,
+            "risk_summary": None,
+        }
+
+        if not lat or not lng:
+            return {"data": {"epa_environmental": epa_data}, "unknowns": [{"field": "epa", "reason": "No geocode"}], "errors": [], "evidence": [], "web_calls": 0, "cost_usd": 0.0}
+
+        base_url = "https://geopub.epa.gov/arcgis/rest/services/EMEF/efpoints/MapServer"
+        base_params = {
+            "geometry": f"{lng},{lat}",
+            "geometryType": "esriGeometryPoint",
+            "inSR": "4326",
+            "spatialRel": "esriSpatialRelIntersects",
+            "distance": "8047",
+            "units": "esriSRUnit_Meter",
+            "outFields": "primary_name,location_address,city_name,state_code,registry_id",
+            "returnGeometry": "false",
+            "f": "json",
+        }
+
+        layers = [
+            (0, "superfund_sites", "Superfund (NPL) site"),
+            (5, "brownfields", "Brownfield site"),
+            (1, "toxic_releases", "Toxic Release Inventory facility"),
+            (4, "hazardous_waste", "Hazardous waste handler"),
+        ]
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                for layer_id, key, label in layers:
+                    resp = await client.get(f"{base_url}/{layer_id}/query", params=base_params)
+                    web_calls += 1
+                    resp.raise_for_status()
+                    features = resp.json().get("features", [])
+                    for feat in features[:10]:
+                        attrs = feat.get("attributes", {})
+                        site = {
+                            "name": attrs.get("primary_name", "Unknown"),
+                            "address": attrs.get("location_address", ""),
+                            "city": attrs.get("city_name", ""),
+                            "state": attrs.get("state_code", ""),
+                        }
+                        epa_data[key].append(site)
+                        evidence.append(EvidenceDraft(
+                            category="environmental",
+                            claim=f"{label} within 5 miles: {site['name']}",
+                            source_url=f"https://enviro.epa.gov/enviro/epa_home.aspx",
+                            raw_excerpt=f"{site['name']} at {site['address']}, {site['city']}, {site['state']}",
+                            confidence=0.95,
+                        ))
+        except Exception as e:
+            logging.warning(f"EPA environmental lookup failed: {e}")
+            return {"data": {"epa_environmental": epa_data}, "unknowns": [], "errors": [str(e)], "evidence": evidence, "web_calls": web_calls, "cost_usd": 0.0}
+
+        total_hazards = sum(len(epa_data[k]) for k in ["superfund_sites", "brownfields", "toxic_releases", "hazardous_waste"])
+        if total_hazards == 0:
+            epa_data["risk_summary"] = "No EPA environmental hazards found within 5 miles"
+        else:
+            parts = []
+            if epa_data["superfund_sites"]:
+                parts.append(f"{len(epa_data['superfund_sites'])} Superfund sites")
+            if epa_data["brownfields"]:
+                parts.append(f"{len(epa_data['brownfields'])} brownfields")
+            if epa_data["toxic_releases"]:
+                parts.append(f"{len(epa_data['toxic_releases'])} toxic release facilities")
+            if epa_data["hazardous_waste"]:
+                parts.append(f"{len(epa_data['hazardous_waste'])} hazardous waste handlers")
+            epa_data["risk_summary"] = f"WARNING: {', '.join(parts)} within 5 miles"
+
+        return {"data": {"epa_environmental": epa_data}, "unknowns": [], "errors": [], "evidence": evidence, "web_calls": web_calls, "cost_usd": 0.0}
+
+    async def _worker_wildfire_hazard(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
+        """Check USFS wildfire hazard potential (2023 dataset)."""
+        profile = context.get("normalize_geocode", {}).get("property_profile", {})
+        geo = profile.get("geo", {})
+        lat, lng = geo.get("lat"), geo.get("lng")
+        evidence: list[EvidenceDraft] = []
+
+        wildfire_data: dict[str, Any] = {"hazard_level": None, "hazard_value": None, "description": None}
+
+        if not lat or not lng:
+            return {"data": {"wildfire_hazard": wildfire_data}, "unknowns": [{"field": "wildfire", "reason": "No geocode"}], "errors": [], "evidence": [], "web_calls": 0, "cost_usd": 0.0}
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                # USFS raster layer — use identify operation
+                resp = await client.get(
+                    "https://apps.fs.usda.gov/arcx/rest/services/RDW_Wildfire/RMRS_WildfireHazardPotential_2023/MapServer/identify",
+                    params={
+                        "geometry": f"{lng},{lat}",
+                        "geometryType": "esriGeometryPoint",
+                        "sr": "4326",
+                        "tolerance": "1",
+                        "mapExtent": f"{lng-1},{lat-1},{lng+1},{lat+1}",
+                        "imageDisplay": "600,550,96",
+                        "returnGeometry": "false",
+                        "f": "json",
+                    },
+                )
+                resp.raise_for_status()
+                results = resp.json().get("results", [])
+                if results:
+                    attrs = results[0].get("attributes", {})
+                    class_desc = attrs.get("class_desc", attrs.get("Classname", ""))
+                    value = attrs.get("VALUE", attrs.get("Pixel Value", ""))
+
+                    level_map = {"1": "Very Low", "2": "Low", "3": "Moderate", "4": "High", "5": "Very High", "6": "Non-burnable"}
+                    level = level_map.get(str(value), class_desc.split(":")[-1].strip() if ":" in str(class_desc) else str(class_desc))
+
+                    wildfire_data["hazard_level"] = level
+                    wildfire_data["hazard_value"] = int(value) if str(value).isdigit() else None
+
+                    is_high = level in ("High", "Very High")
+                    wildfire_data["description"] = f"Wildfire hazard: {level}" + (" — may affect insurance availability" if is_high else "")
+
+                    evidence.append(EvidenceDraft(
+                        category="wildfire",
+                        claim=f"USFS wildfire hazard potential: {level}",
+                        source_url="https://www.firelab.org/project/wildfire-hazard-potential",
+                        raw_excerpt=f"class_desc={class_desc}, VALUE={value}",
+                        confidence=0.90,
+                    ))
+                else:
+                    wildfire_data["hazard_level"] = "Unknown"
+                    wildfire_data["description"] = "No USFS wildfire data available for this location"
+
+        except Exception as e:
+            logging.warning(f"Wildfire hazard lookup failed: {e}")
+            return {"data": {"wildfire_hazard": wildfire_data}, "unknowns": [], "errors": [str(e)], "evidence": [], "web_calls": 1, "cost_usd": 0.0}
+
+        return {"data": {"wildfire_hazard": wildfire_data}, "unknowns": [], "errors": [], "evidence": evidence, "web_calls": 1, "cost_usd": 0.0}
+
+    async def _worker_hud_opportunity(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
+        """Get HUD Opportunity Indices: school proficiency, jobs, poverty, transit, labor, env health."""
+        profile = context.get("normalize_geocode", {}).get("property_profile", {})
+        geo = profile.get("geo", {})
+        lat, lng = geo.get("lat"), geo.get("lng")
+        evidence: list[EvidenceDraft] = []
+        web_calls = 0
+
+        hud_data: dict[str, Any] = {
+            "school_proficiency_index": None,
+            "jobs_proximity_index": None,
+            "poverty_index": None,
+            "transit_index": None,
+            "labor_market_index": None,
+            "environmental_health_index": None,
+            "transportation_cost_index": None,
+        }
+
+        if not lat or not lng:
+            return {"data": {"hud_opportunity": hud_data}, "unknowns": [{"field": "hud", "reason": "No geocode"}], "errors": [], "evidence": [], "web_calls": 0, "cost_usd": 0.0}
+
+        base_params = {
+            "geometry": f"{lng},{lat}",
+            "geometryType": "esriGeometryPoint",
+            "inSR": "4326",
+            "spatialRel": "esriSpatialRelIntersects",
+            "returnGeometry": "false",
+            "f": "json",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                # Layer 13: Block group level (school + jobs)
+                resp1 = await client.get(
+                    "https://egis.hud.gov/arcgis/rest/services/affht/AffhtMapService/MapServer/13/query",
+                    params={**base_params, "outFields": "SCHL_IDX,JOBS_IDX"},
+                )
+                web_calls += 1
+                resp1.raise_for_status()
+                feats1 = resp1.json().get("features", [])
+                if feats1:
+                    attrs = feats1[0].get("attributes", {})
+                    hud_data["school_proficiency_index"] = attrs.get("SCHL_IDX")
+                    hud_data["jobs_proximity_index"] = attrs.get("JOBS_IDX")
+
+                # Layer 23: Tract level (poverty, transit, labor, env, transport cost)
+                resp2 = await client.get(
+                    "https://egis.hud.gov/arcgis/rest/services/affht/AffhtMapService/MapServer/23/query",
+                    params={**base_params, "outFields": "POV_IDX,LBR_IDX,HAZ_IDX,TCOST_IDX,TRANS_IDX"},
+                )
+                web_calls += 1
+                resp2.raise_for_status()
+                feats2 = resp2.json().get("features", [])
+                if feats2:
+                    attrs = feats2[0].get("attributes", {})
+                    hud_data["poverty_index"] = attrs.get("POV_IDX")
+                    hud_data["labor_market_index"] = attrs.get("LBR_IDX")
+                    hud_data["environmental_health_index"] = attrs.get("HAZ_IDX")
+                    hud_data["transportation_cost_index"] = attrs.get("TCOST_IDX")
+                    hud_data["transit_index"] = attrs.get("TRANS_IDX")
+
+                # Build evidence
+                scored = {k: v for k, v in hud_data.items() if v is not None}
+                if scored:
+                    summary = ", ".join(f"{k.replace('_', ' ').title()}: {v}/100" for k, v in scored.items())
+                    evidence.append(EvidenceDraft(
+                        category="opportunity_index",
+                        claim=f"HUD Opportunity Indices: {summary}",
+                        source_url="https://egis.hud.gov/affht/",
+                        raw_excerpt=str(scored),
+                        confidence=0.95,
+                    ))
+
+        except Exception as e:
+            logging.warning(f"HUD opportunity index lookup failed: {e}")
+            return {"data": {"hud_opportunity": hud_data}, "unknowns": [], "errors": [str(e)], "evidence": evidence, "web_calls": web_calls, "cost_usd": 0.0}
+
+        return {"data": {"hud_opportunity": hud_data}, "unknowns": [], "errors": [], "evidence": evidence, "web_calls": web_calls, "cost_usd": 0.0}
+
+    async def _worker_wetlands(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
+        """Check USFWS National Wetlands Inventory."""
+        profile = context.get("normalize_geocode", {}).get("property_profile", {})
+        geo = profile.get("geo", {})
+        lat, lng = geo.get("lat"), geo.get("lng")
+        evidence: list[EvidenceDraft] = []
+
+        wetlands_data: dict[str, Any] = {"wetlands_found": False, "wetlands": [], "development_restricted": False}
+
+        if not lat or not lng:
+            return {"data": {"wetlands": wetlands_data}, "unknowns": [{"field": "wetlands", "reason": "No geocode"}], "errors": [], "evidence": [], "web_calls": 0, "cost_usd": 0.0}
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/identify",
+                    params={
+                        "geometry": f"{lng},{lat}",
+                        "geometryType": "esriGeometryPoint",
+                        "sr": "4326",
+                        "tolerance": "10",
+                        "mapExtent": f"{lng-0.01},{lat-0.01},{lng+0.01},{lat+0.01}",
+                        "imageDisplay": "600,550,96",
+                        "returnGeometry": "false",
+                        "f": "json",
+                    },
+                )
+                resp.raise_for_status()
+                results = resp.json().get("results", [])
+                for r in results[:5]:
+                    attrs = r.get("attributes", {})
+                    wetland = {
+                        "type": attrs.get("WETLAND_TYPE", "Unknown"),
+                        "acres": attrs.get("ACRES"),
+                        "classification": attrs.get("ATTRIBUTE", ""),
+                        "system": attrs.get("SYSTEM_NAME", ""),
+                        "water_regime": attrs.get("WATER_REGIME_NAME", ""),
+                    }
+                    wetlands_data["wetlands"].append(wetland)
+                    evidence.append(EvidenceDraft(
+                        category="wetlands",
+                        claim=f"Wetland present: {wetland['type']} ({wetland['acres']} acres, {wetland['system']})",
+                        source_url="https://www.fws.gov/program/national-wetlands-inventory",
+                        raw_excerpt=f"ATTRIBUTE={wetland['classification']}, WATER_REGIME={wetland['water_regime']}",
+                        confidence=0.90,
+                    ))
+
+                if wetlands_data["wetlands"]:
+                    wetlands_data["wetlands_found"] = True
+                    wetlands_data["development_restricted"] = True
+
+        except Exception as e:
+            logging.warning(f"Wetlands lookup failed: {e}")
+            return {"data": {"wetlands": wetlands_data}, "unknowns": [], "errors": [str(e)], "evidence": [], "web_calls": 1, "cost_usd": 0.0}
+
+        return {"data": {"wetlands": wetlands_data}, "unknowns": [], "errors": [], "evidence": evidence, "web_calls": 1, "cost_usd": 0.0}
+
+    async def _worker_historic_places(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
+        """Check National Register of Historic Places within 1 mile."""
+        profile = context.get("normalize_geocode", {}).get("property_profile", {})
+        geo = profile.get("geo", {})
+        lat, lng = geo.get("lat"), geo.get("lng")
+        evidence: list[EvidenceDraft] = []
+
+        historic_data: dict[str, Any] = {"in_historic_district": False, "nearby_places": [], "renovation_restricted": False, "tax_credit_eligible": False}
+
+        if not lat or not lng:
+            return {"data": {"historic_places": historic_data}, "unknowns": [{"field": "historic", "reason": "No geocode"}], "errors": [], "evidence": [], "web_calls": 0, "cost_usd": 0.0}
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    "https://mapservices.nps.gov/arcgis/rest/services/cultural_resources/nrhp_locations/MapServer/0/query",
+                    params={
+                        "geometry": f"{lng},{lat}",
+                        "geometryType": "esriGeometryPoint",
+                        "inSR": "4326",
+                        "spatialRel": "esriSpatialRelIntersects",
+                        "distance": "1609",
+                        "units": "esriSRUnit_Meter",
+                        "outFields": "RESNAME,ResType,Address,City,State,County,Is_NHL",
+                        "returnGeometry": "false",
+                        "f": "json",
+                    },
+                )
+                resp.raise_for_status()
+                features = resp.json().get("features", [])
+                for feat in features[:10]:
+                    attrs = feat.get("attributes", {})
+                    place = {
+                        "name": attrs.get("RESNAME", "Unknown"),
+                        "type": attrs.get("ResType", ""),
+                        "address": attrs.get("Address", ""),
+                        "city": attrs.get("City", ""),
+                        "state": attrs.get("State", ""),
+                        "is_landmark": attrs.get("Is_NHL") == "Y",
+                    }
+                    historic_data["nearby_places"].append(place)
+
+                    if place["type"] == "district":
+                        historic_data["in_historic_district"] = True
+                        historic_data["renovation_restricted"] = True
+                        historic_data["tax_credit_eligible"] = True
+
+                    evidence.append(EvidenceDraft(
+                        category="historic",
+                        claim=f"National Register: {place['name']} ({place['type']}) within 1 mile" + (" — National Historic Landmark" if place["is_landmark"] else ""),
+                        source_url="https://www.nps.gov/subjects/nationalregister/database-research.htm",
+                        raw_excerpt=f"{place['name']} at {place['address']}, {place['city']}, {place['state']}",
+                        confidence=0.95,
+                    ))
+
+        except Exception as e:
+            logging.warning(f"Historic places lookup failed: {e}")
+            return {"data": {"historic_places": historic_data}, "unknowns": [], "errors": [str(e)], "evidence": [], "web_calls": 1, "cost_usd": 0.0}
+
+        return {"data": {"historic_places": historic_data}, "unknowns": [], "errors": [], "evidence": evidence, "web_calls": 1, "cost_usd": 0.0}
+
+    async def _worker_seismic_hazard(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
+        """Check USGS seismic hazard (peak ground acceleration) and nearby quaternary faults."""
+        profile = context.get("normalize_geocode", {}).get("property_profile", {})
+        geo = profile.get("geo", {})
+        lat, lng = geo.get("lat"), geo.get("lng")
+        evidence: list[EvidenceDraft] = []
+        web_calls = 0
+
+        seismic_data: dict[str, Any] = {"peak_ground_acceleration": None, "seismic_risk_level": None, "nearby_faults": [], "description": None}
+
+        if not lat or not lng:
+            return {"data": {"seismic_hazard": seismic_data}, "unknowns": [{"field": "seismic", "reason": "No geocode"}], "errors": [], "evidence": [], "web_calls": 0, "cost_usd": 0.0}
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                # 1. Peak ground acceleration (raster identify)
+                resp1 = await client.get(
+                    "https://earthquake.usgs.gov/arcgis/rest/services/haz/USpga250_2014/MapServer/identify",
+                    params={
+                        "geometry": f"{lng},{lat}",
+                        "geometryType": "esriGeometryPoint",
+                        "sr": "4326",
+                        "tolerance": "1",
+                        "mapExtent": f"{lng-5},{lat-5},{lng+5},{lat+5}",
+                        "imageDisplay": "600,550,96",
+                        "returnGeometry": "false",
+                        "f": "json",
+                    },
+                )
+                web_calls += 1
+                resp1.raise_for_status()
+                pga_results = resp1.json().get("results", [])
+                if pga_results:
+                    attrs = pga_results[0].get("attributes", {})
+                    pga_val = attrs.get("ACC_VAL", attrs.get("Pixel Value"))
+                    if pga_val is not None:
+                        pga = float(pga_val) if str(pga_val).replace(".", "").isdigit() else None
+                        seismic_data["peak_ground_acceleration"] = pga
+                        if pga is not None:
+                            if pga >= 60:
+                                seismic_data["seismic_risk_level"] = "High"
+                            elif pga >= 20:
+                                seismic_data["seismic_risk_level"] = "Moderate"
+                            else:
+                                seismic_data["seismic_risk_level"] = "Low"
+                            seismic_data["description"] = f"Peak ground acceleration: {pga}%g ({seismic_data['seismic_risk_level']} risk)"
+
+                            evidence.append(EvidenceDraft(
+                                category="seismic",
+                                claim=f"USGS seismic hazard: PGA={pga}%g — {seismic_data['seismic_risk_level']} risk",
+                                source_url="https://earthquake.usgs.gov/hazards/hazmaps/",
+                                raw_excerpt=f"ACC_VAL={pga_val}",
+                                confidence=0.90,
+                            ))
+
+                # 2. Nearby quaternary faults (10km buffer)
+                resp2 = await client.get(
+                    "https://earthquake.usgs.gov/arcgis/rest/services/haz/Qfaults/MapServer/21/query",
+                    params={
+                        "geometry": f"{lng},{lat}",
+                        "geometryType": "esriGeometryPoint",
+                        "inSR": "4326",
+                        "spatialRel": "esriSpatialRelIntersects",
+                        "distance": "16093",
+                        "units": "esriSRUnit_Meter",
+                        "outFields": "fault_name,section_name,age,slip_rate,slip_sense",
+                        "returnGeometry": "false",
+                        "f": "json",
+                    },
+                )
+                web_calls += 1
+                resp2.raise_for_status()
+                faults = resp2.json().get("features", [])
+                for feat in faults[:5]:
+                    attrs = feat.get("attributes", {})
+                    fault = {
+                        "name": attrs.get("fault_name", "Unknown"),
+                        "section": attrs.get("section_name", ""),
+                        "age": attrs.get("age", ""),
+                        "slip_rate": attrs.get("slip_rate", ""),
+                    }
+                    seismic_data["nearby_faults"].append(fault)
+                    evidence.append(EvidenceDraft(
+                        category="seismic",
+                        claim=f"Quaternary fault within 10 miles: {fault['name']}",
+                        source_url="https://earthquake.usgs.gov/hazards/qfaults/",
+                        raw_excerpt=f"fault={fault['name']}, age={fault['age']}, slip_rate={fault['slip_rate']}",
+                        confidence=0.90,
+                    ))
+
+        except Exception as e:
+            logging.warning(f"Seismic hazard lookup failed: {e}")
+            return {"data": {"seismic_hazard": seismic_data}, "unknowns": [], "errors": [str(e)], "evidence": evidence, "web_calls": web_calls, "cost_usd": 0.0}
+
+        return {"data": {"seismic_hazard": seismic_data}, "unknowns": [], "errors": [], "evidence": evidence, "web_calls": web_calls, "cost_usd": 0.0}
+
+    async def _worker_school_district(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
+        """Look up Census school district and tract GEOID."""
+        profile = context.get("normalize_geocode", {}).get("property_profile", {})
+        geo = profile.get("geo", {})
+        lat, lng = geo.get("lat"), geo.get("lng")
+        evidence: list[EvidenceDraft] = []
+        web_calls = 0
+
+        district_data: dict[str, Any] = {"school_district": None, "district_geoid": None, "census_tract_geoid": None}
+
+        if not lat or not lng:
+            return {"data": {"school_district": district_data}, "unknowns": [{"field": "school_district", "reason": "No geocode"}], "errors": [], "evidence": [], "web_calls": 0, "cost_usd": 0.0}
+
+        base_params = {
+            "geometry": f"{lng},{lat}",
+            "geometryType": "esriGeometryPoint",
+            "inSR": "4326",
+            "spatialRel": "esriSpatialRelIntersects",
+            "returnGeometry": "false",
+            "f": "json",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                # Unified school district
+                resp1 = await client.get(
+                    "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/School/MapServer/0/query",
+                    params={**base_params, "outFields": "NAME,BASENAME,GEOID,LOGRADE,HIGRADE"},
+                )
+                web_calls += 1
+                resp1.raise_for_status()
+                feats1 = resp1.json().get("features", [])
+                if feats1:
+                    attrs = feats1[0].get("attributes", {})
+                    district_data["school_district"] = attrs.get("NAME") or attrs.get("BASENAME")
+                    district_data["district_geoid"] = attrs.get("GEOID")
+
+                    evidence.append(EvidenceDraft(
+                        category="school_district",
+                        claim=f"School district: {district_data['school_district']} (GEOID: {district_data['district_geoid']})",
+                        source_url="https://www.census.gov/programs-surveys/school-districts.html",
+                        raw_excerpt=f"NAME={attrs.get('NAME')}, GEOID={attrs.get('GEOID')}, grades={attrs.get('LOGRADE')}-{attrs.get('HIGRADE')}",
+                        confidence=0.95,
+                    ))
+
+                # Census tract GEOID
+                resp2 = await client.get(
+                    "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2021/MapServer/14/query",
+                    params={**base_params, "outFields": "GEOID,NAME,STATE,COUNTY,TRACT"},
+                )
+                web_calls += 1
+                resp2.raise_for_status()
+                feats2 = resp2.json().get("features", [])
+                if feats2:
+                    attrs = feats2[0].get("attributes", {})
+                    district_data["census_tract_geoid"] = attrs.get("GEOID")
+
+        except Exception as e:
+            logging.warning(f"School district lookup failed: {e}")
+            return {"data": {"school_district": district_data}, "unknowns": [], "errors": [str(e)], "evidence": evidence, "web_calls": web_calls, "cost_usd": 0.0}
+
+        return {"data": {"school_district": district_data}, "unknowns": [], "errors": [], "evidence": evidence, "web_calls": web_calls, "cost_usd": 0.0}
+
+    # ── UPGRADED: AI-Powered Dossier Writer ──
     async def _worker_dossier_writer(self, db: Session, job: AgenticJob, context: dict[str, Any]) -> dict[str, Any]:
         profile = context.get("normalize_geocode", {}).get("property_profile", {})
         underwrite = context.get("underwriting", {}).get("underwrite", {})
         risk_score = context.get("underwriting", {}).get("risk_score", {})
         sales = context.get("comps_sales", {}).get("comps_sales", [])
         rentals = context.get("comps_rentals", {}).get("comps_rentals", [])
+        neighborhood = context.get("neighborhood_intel", {}).get("neighborhood_intel", {})
+        flood = context.get("flood_zone", {}).get("flood_zone", {})
+        public_records = context.get("public_records", {}).get("public_records_hits", [])
+        permits = context.get("permits_violations", {}).get("permit_violation_hits", [])
 
         evidences = (
             db.query(EvidenceItem)
@@ -1942,63 +2749,217 @@ class AgenticResearchService:
             .all()
         )
 
-        citation_refs = " ".join([f"[^e{ev.id}]" for ev in evidences[:6]])
+        strategy = (job.assumptions or {}).get("strategy", job.strategy or "wholesale")
+        cost_usd = 0.0
 
-        markdown = []
-        markdown.append(f"# Property Dossier: {profile.get('normalized_address', 'unknown')}")
-        markdown.append("")
-        markdown.append("## Property Profile")
-        markdown.append(f"- Normalized Address: {profile.get('normalized_address', 'unknown')} {citation_refs}".strip())
-        markdown.append(f"- APN: {profile.get('apn') or 'unknown'}")
-        geo = profile.get("geo") or {}
-        markdown.append(f"- Geo: {geo.get('lat') if geo.get('lat') is not None else 'unknown'}, {geo.get('lng') if geo.get('lng') is not None else 'unknown'}")
-        facts = profile.get("parcel_facts") or {}
-        markdown.append(f"- Beds/Baths/Sqft: {facts.get('beds') or 'unknown'} / {facts.get('baths') or 'unknown'} / {facts.get('sqft') or 'unknown'}")
-        markdown.append("")
+        # ── Build structured data summary for Claude ──
+        data_summary = []
 
-        markdown.append("## Comparable Sales (Top 8)")
+        # Property profile
+        facts = profile.get("parcel_facts", {})
+        geo = profile.get("geo", {})
+        data_summary.append(f"PROPERTY: {profile.get('normalized_address', 'unknown')}")
+        parts = []
+        if facts.get("beds"):
+            parts.append(f"{facts['beds']} bed")
+        if facts.get("baths"):
+            parts.append(f"{facts['baths']} bath")
+        if facts.get("sqft"):
+            parts.append(f"{facts['sqft']:,} sqft")
+        if facts.get("year"):
+            parts.append(f"built {facts['year']}")
+        if parts:
+            data_summary.append(f"Details: {' / '.join(parts)}")
+        if profile.get("owner_names"):
+            data_summary.append(f"Owner: {', '.join(profile['owner_names'])}")
+        assessed = profile.get("assessed_values", {})
+        if assessed.get("zestimate"):
+            data_summary.append(f"Zestimate: ${assessed['zestimate']:,.0f}")
+        if assessed.get("rent_zestimate"):
+            data_summary.append(f"Rent Zestimate: ${assessed['rent_zestimate']:,.0f}/mo")
+
+        # Comps
         if sales:
-            for comp in sales[:8]:
-                markdown.append(
-                    f"- {comp['address']} | ${comp.get('sale_price') or 'unknown'} | score={comp['similarity_score']:.3f}"
-                )
+            data_summary.append(f"\nCOMPARABLE SALES ({len(sales)} found):")
+            for c in sales[:8]:
+                price = f"${c['sale_price']:,.0f}" if c.get("sale_price") else "N/A"
+                data_summary.append(f"  - {c['address']}: {price} (score: {c['similarity_score']:.2f}, dist: {c.get('distance_mi', '?')} mi)")
         else:
-            markdown.append("- unknown (no qualified comps)")
-        markdown.append("")
+            data_summary.append("\nCOMPARABLE SALES: None found")
 
-        markdown.append("## Comparable Rentals (Top 8)")
         if rentals:
-            for comp in rentals[:8]:
-                markdown.append(
-                    f"- {comp['address']} | rent=${comp.get('rent') or 'unknown'} | score={comp['similarity_score']:.3f}"
+            data_summary.append(f"\nCOMPARABLE RENTALS ({len(rentals)} found):")
+            for c in rentals[:8]:
+                rent = f"${c['rent']:,.0f}/mo" if c.get("rent") else "N/A"
+                data_summary.append(f"  - {c['address']}: {rent} (score: {c['similarity_score']:.2f})")
+        else:
+            data_summary.append("\nCOMPARABLE RENTALS: None found")
+
+        # Underwriting
+        if underwrite:
+            data_summary.append(f"\nUNDERWRITING (strategy: {strategy}):")
+            arv = underwrite.get("arv_estimate", {})
+            if arv.get("base"):
+                data_summary.append(f"  ARV: ${arv['base']:,.0f} (low: ${arv.get('low', 0):,.0f}, high: ${arv.get('high', 0):,.0f})")
+            rent_est = underwrite.get("rent_estimate", {})
+            if rent_est.get("base"):
+                data_summary.append(f"  Rent estimate: ${rent_est['base']:,.0f}/mo")
+            data_summary.append(f"  Rehab tier: {underwrite.get('rehab_tier', 'unknown')}")
+            rehab = underwrite.get("rehab_estimated_range", {})
+            if rehab.get("low"):
+                data_summary.append(f"  Rehab cost: ${rehab['low']:,.0f} - ${rehab.get('high', 0):,.0f}")
+            offer = underwrite.get("offer_price_recommendation", {})
+            if offer.get("base"):
+                data_summary.append(f"  OFFER RECOMMENDATION: ${offer['base']:,.0f} (low: ${offer.get('low', 0):,.0f}, high: ${offer.get('high', 0):,.0f})")
+
+        # Risk
+        if risk_score:
+            data_summary.append(f"\nRISK ASSESSMENT:")
+            if risk_score.get("title_risk") is not None:
+                data_summary.append(f"  Title risk: {risk_score['title_risk']:.0%}")
+            if risk_score.get("data_confidence") is not None:
+                data_summary.append(f"  Data confidence: {risk_score['data_confidence']:.0%}")
+            flags = risk_score.get("compliance_flags", [])
+            if flags:
+                data_summary.append(f"  Compliance flags: {', '.join(flags)}")
+
+        # Flood zone
+        if flood:
+            data_summary.append(f"\nFLOOD ZONE:")
+            data_summary.append(f"  Zone: {flood.get('flood_zone', 'unknown')}")
+            data_summary.append(f"  Description: {flood.get('flood_zone_description', 'unknown')}")
+            data_summary.append(f"  In floodplain: {flood.get('in_floodplain', 'unknown')}")
+            data_summary.append(f"  Insurance required: {flood.get('insurance_required', 'unknown')}")
+
+        # Neighborhood
+        if neighborhood:
+            ai_neighborhood = neighborhood.get("ai_summary")
+            if ai_neighborhood:
+                data_summary.append(f"\nNEIGHBORHOOD ANALYSIS:\n{ai_neighborhood}")
+            else:
+                for cat in ["crime", "schools", "market_trends"]:
+                    items = neighborhood.get(cat, [])
+                    if items:
+                        data_summary.append(f"\n{cat.upper()} DATA:")
+                        for item in items[:3]:
+                            data_summary.append(f"  - {item.get('title', '')}: {item.get('snippet', '')[:150]}")
+
+        # Public records & permits
+        if public_records:
+            data_summary.append(f"\nPUBLIC RECORDS ({len(public_records)} sources found):")
+            for r in public_records[:5]:
+                data_summary.append(f"  - {r.get('title', '')}: {r.get('snippet', '')[:100]}")
+        if permits:
+            data_summary.append(f"\nPERMITS/VIOLATIONS ({len(permits)} sources found):")
+            for r in permits[:5]:
+                data_summary.append(f"  - {r.get('title', '')}: {r.get('snippet', '')[:100]}")
+
+        # Extensive research data (opt-in)
+        epa = context.get("epa_environmental", {}).get("epa_environmental", {})
+        if epa and epa.get("risk_summary"):
+            data_summary.append(f"\nEPA ENVIRONMENTAL:")
+            data_summary.append(f"  {epa['risk_summary']}")
+            for cat in ["superfund_sites", "brownfields", "toxic_releases", "hazardous_waste"]:
+                sites = epa.get(cat, [])
+                if sites:
+                    data_summary.append(f"  {cat.replace('_', ' ').title()} ({len(sites)}):")
+                    for s in sites[:3]:
+                        data_summary.append(f"    - {s.get('name', 'Unknown')} at {s.get('address', '')}")
+
+        wildfire = context.get("wildfire_hazard", {}).get("wildfire_hazard", {})
+        if wildfire and wildfire.get("hazard_level"):
+            data_summary.append(f"\nWILDFIRE HAZARD: {wildfire['hazard_level']}")
+            if wildfire.get("description"):
+                data_summary.append(f"  {wildfire['description']}")
+
+        hud = context.get("hud_opportunity", {}).get("hud_opportunity", {})
+        if hud and any(v is not None for v in hud.values()):
+            data_summary.append(f"\nHUD OPPORTUNITY INDICES (0-100 scale, higher=better):")
+            for k, v in hud.items():
+                if v is not None:
+                    data_summary.append(f"  {k.replace('_', ' ').title()}: {v}/100")
+
+        wetland = context.get("wetlands", {}).get("wetlands", {})
+        if wetland and wetland.get("wetlands_found"):
+            data_summary.append(f"\nWETLANDS: {len(wetland.get('wetlands', []))} wetland(s) found — development may be restricted")
+            for w in wetland.get("wetlands", [])[:3]:
+                data_summary.append(f"  - {w.get('type', 'Unknown')}, {w.get('acres', '?')} acres, {w.get('system', '')}")
+
+        historic = context.get("historic_places", {}).get("historic_places", {})
+        if historic and historic.get("nearby_places"):
+            data_summary.append(f"\nHISTORIC PLACES ({len(historic['nearby_places'])} within 1 mile):")
+            if historic.get("in_historic_district"):
+                data_summary.append("  WARNING: Property in historic district — renovation restrictions apply, 20% federal tax credit available")
+            for p in historic["nearby_places"][:5]:
+                data_summary.append(f"  - {p.get('name', 'Unknown')} ({p.get('type', '')})" + (" — National Historic Landmark" if p.get("is_landmark") else ""))
+
+        seismic = context.get("seismic_hazard", {}).get("seismic_hazard", {})
+        if seismic and seismic.get("peak_ground_acceleration") is not None:
+            data_summary.append(f"\nSEISMIC HAZARD: {seismic.get('description', '')}")
+            faults = seismic.get("nearby_faults", [])
+            if faults:
+                data_summary.append(f"  Nearby faults ({len(faults)}):")
+                for f in faults[:3]:
+                    data_summary.append(f"    - {f.get('name', 'Unknown')} (age: {f.get('age', '?')})")
+
+        school = context.get("school_district", {}).get("school_district", {})
+        if school and school.get("school_district"):
+            data_summary.append(f"\nSCHOOL DISTRICT: {school['school_district']}")
+            if school.get("census_tract_geoid"):
+                data_summary.append(f"  Census tract GEOID: {school['census_tract_geoid']}")
+
+        structured_data = "\n".join(data_summary)
+
+        # ── Try Claude AI narrative ──
+        ai_narrative = None
+        if settings.anthropic_api_key:
+            try:
+                import anthropic
+                client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+                msg = client.messages.create(
+                    model="claude-sonnet-4-5-20250929",
+                    max_tokens=1500,
+                    messages=[{
+                        "role": "user",
+                        "content": f"""You are a senior real estate investment analyst writing an investment memo. Based on the data below, write a comprehensive property dossier in markdown format.
+
+STRATEGY: {strategy}
+
+{structured_data}
+
+Write the dossier with these sections:
+1. **Executive Summary** (2-3 sentences: is this a good deal? key numbers, go/no-go recommendation)
+2. **Property Overview** (address, details, owner, condition indicators)
+3. **Market Analysis** (comps analysis — are they strong? price trends, rental demand)
+4. **Environmental & Natural Hazards** (flood zone, EPA sites, wildfire risk, seismic risk, wetlands — whatever data is available)
+5. **Neighborhood Profile** (safety, schools, HUD opportunity indices, demographics, historic district impacts, market outlook)
+6. **Financial Analysis** (ARV, rent estimate, rehab costs, offer recommendation with reasoning)
+7. **Risk Factors** (title risk, data confidence, compliance flags, insurance implications, what's missing)
+8. **Recommendation** (clear buy/pass/investigate-further with specific next steps)
+
+Be specific with numbers. If data is missing, say so clearly and explain the impact. Write for an experienced investor who needs actionable intelligence, not fluff.""",
+                    }],
                 )
+                ai_narrative = msg.content[0].text
+                cost_usd = 0.02  # Approximate Sonnet cost for 1500 tokens
+            except Exception as e:
+                logging.warning(f"Claude dossier generation failed: {e}")
+                ai_narrative = None
+
+        # ── Build final markdown ──
+        if ai_narrative:
+            # AI-generated dossier with data appendix
+            markdown_text = ai_narrative
+            markdown_text += "\n\n---\n\n## Raw Data Appendix\n\n"
+            markdown_text += self._build_data_appendix(profile, sales, rentals, underwrite, risk_score, flood, evidences)
         else:
-            markdown.append("- unknown (no qualified rental comps)")
-        markdown.append("")
+            # Fallback: structured markdown (original approach, enhanced)
+            markdown_text = self._build_structured_dossier(
+                profile, sales, rentals, underwrite, risk_score, flood, neighborhood, evidences, context
+            )
 
-        markdown.append("## Underwriting")
-        offer = underwrite.get("offer_price_recommendation") or {}
-        markdown.append(
-            f"- Offer Recommendation (low/base/high): {offer.get('low') or 'unknown'} / {offer.get('base') or 'unknown'} / {offer.get('high') or 'unknown'}"
-        )
-        markdown.append(f"- Rehab Tier: {underwrite.get('rehab_tier') or 'unknown'}")
-        markdown.append("")
-
-        markdown.append("## Risk")
-        markdown.append(f"- Title Risk: {risk_score.get('title_risk', 'unknown')}")
-        markdown.append(f"- Data Confidence: {risk_score.get('data_confidence', 'unknown')}")
-        markdown.append(f"- Compliance Flags: {', '.join(risk_score.get('compliance_flags', [])) or 'none'}")
-        markdown.append("")
-
-        markdown.append("## Evidence")
-        if evidences:
-            for ev in evidences:
-                markdown.append(f"[^e{ev.id}]: {ev.source_url} (captured_at={ev.captured_at.isoformat()})")
-        else:
-            markdown.append("- No evidence records found.")
-
-        markdown_text = "\n".join(markdown)
-
+        # Persist
         db.query(Dossier).filter(Dossier.job_id == job.id).delete()
         db.add(
             Dossier(
@@ -2017,15 +2978,176 @@ class AgenticResearchService:
             "evidence": [
                 EvidenceDraft(
                     category="dossier",
-                    claim="Dossier generated from structured data and evidence records only.",
+                    claim=f"Dossier generated {'with AI narrative' if ai_narrative else 'from structured data'}.",
                     source_url=f"internal://agentic_jobs/{job.id}/dossier",
                     raw_excerpt=None,
                     confidence=1.0,
                 )
             ],
             "web_calls": 0,
-            "cost_usd": 0.0,
+            "cost_usd": cost_usd,
         }
+
+    def _build_data_appendix(self, profile, sales, rentals, underwrite, risk_score, flood, evidences) -> str:
+        """Build a raw data appendix for the AI dossier."""
+        lines = []
+        # Comps table
+        if sales:
+            lines.append("### Comparable Sales")
+            lines.append("| Address | Price | Distance | Score |")
+            lines.append("|---------|-------|----------|-------|")
+            for c in sales[:8]:
+                price = f"${c['sale_price']:,.0f}" if c.get("sale_price") else "N/A"
+                lines.append(f"| {c['address']} | {price} | {c.get('distance_mi', '?')} mi | {c['similarity_score']:.2f} |")
+            lines.append("")
+
+        if rentals:
+            lines.append("### Comparable Rentals")
+            lines.append("| Address | Rent | Score |")
+            lines.append("|---------|------|-------|")
+            for c in rentals[:8]:
+                rent = f"${c['rent']:,.0f}/mo" if c.get("rent") else "N/A"
+                lines.append(f"| {c['address']} | {rent} | {c['similarity_score']:.2f} |")
+            lines.append("")
+
+        # Evidence trail
+        if evidences:
+            lines.append("### Evidence Trail")
+            for ev in evidences:
+                lines.append(f"- [{ev.category}] {ev.claim} — {ev.source_url}")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def _build_structured_dossier(self, profile, sales, rentals, underwrite, risk_score, flood, neighborhood, evidences, context=None) -> str:
+        """Fallback structured dossier when Claude is unavailable."""
+        context = context or {}
+        citation_refs = " ".join([f"[^e{ev.id}]" for ev in evidences[:6]])
+        markdown = []
+        markdown.append(f"# Property Dossier: {profile.get('normalized_address', 'unknown')}")
+        markdown.append("")
+
+        # Property profile
+        markdown.append("## Property Profile")
+        markdown.append(f"- Address: {profile.get('normalized_address', 'unknown')} {citation_refs}".strip())
+        markdown.append(f"- APN: {profile.get('apn') or 'unknown'}")
+        geo = profile.get("geo") or {}
+        markdown.append(f"- Geo: {geo.get('lat', 'unknown')}, {geo.get('lng', 'unknown')}")
+        facts = profile.get("parcel_facts") or {}
+        markdown.append(f"- Beds/Baths/Sqft: {facts.get('beds') or '?'} / {facts.get('baths') or '?'} / {facts.get('sqft') or '?'}")
+        if profile.get("owner_names"):
+            markdown.append(f"- Owner: {', '.join(profile['owner_names'])}")
+        markdown.append("")
+
+        # Flood zone
+        if flood and flood.get("flood_zone"):
+            markdown.append("## Flood Zone")
+            markdown.append(f"- Zone: {flood['flood_zone']} — {flood.get('description', '')}")
+            markdown.append(f"- In floodplain: {'Yes' if flood.get('in_floodplain') else 'No'}")
+            markdown.append(f"- Insurance required: {'Yes' if flood.get('insurance_required') else 'No'}")
+            markdown.append("")
+
+        # Neighborhood
+        if neighborhood:
+            ai_summary = neighborhood.get("ai_summary")
+            if ai_summary:
+                markdown.append("## Neighborhood Analysis")
+                markdown.append(ai_summary)
+                markdown.append("")
+
+        # Extensive research data
+        epa = context.get("epa_environmental", {}).get("epa_environmental", {})
+        if epa and epa.get("risk_summary"):
+            markdown.append("## EPA Environmental")
+            markdown.append(f"- {epa['risk_summary']}")
+            markdown.append("")
+
+        wildfire = context.get("wildfire_hazard", {}).get("wildfire_hazard", {})
+        if wildfire and wildfire.get("hazard_level"):
+            markdown.append("## Wildfire Hazard")
+            markdown.append(f"- Level: {wildfire['hazard_level']}")
+            if wildfire.get("description"):
+                markdown.append(f"- {wildfire['description']}")
+            markdown.append("")
+
+        hud = context.get("hud_opportunity", {}).get("hud_opportunity", {})
+        if hud and any(v is not None for v in hud.values()):
+            markdown.append("## HUD Opportunity Indices")
+            for k, v in hud.items():
+                if v is not None:
+                    markdown.append(f"- {k.replace('_', ' ').title()}: {v}/100")
+            markdown.append("")
+
+        wetland = context.get("wetlands", {}).get("wetlands", {})
+        if wetland and wetland.get("wetlands_found"):
+            markdown.append("## Wetlands")
+            markdown.append(f"- {len(wetland.get('wetlands', []))} wetland(s) found — development restricted")
+            markdown.append("")
+
+        historic = context.get("historic_places", {}).get("historic_places", {})
+        if historic and historic.get("nearby_places"):
+            markdown.append("## Historic Places")
+            if historic.get("in_historic_district"):
+                markdown.append("- WARNING: In historic district — renovation restrictions, 20% federal tax credit eligible")
+            for p in historic["nearby_places"][:5]:
+                markdown.append(f"- {p.get('name', 'Unknown')} ({p.get('type', '')})")
+            markdown.append("")
+
+        seismic = context.get("seismic_hazard", {}).get("seismic_hazard", {})
+        if seismic and seismic.get("seismic_risk_level"):
+            markdown.append("## Seismic Hazard")
+            markdown.append(f"- {seismic.get('description', '')}")
+            faults = seismic.get("nearby_faults", [])
+            if faults:
+                markdown.append(f"- {len(faults)} fault(s) within 10 miles")
+            markdown.append("")
+
+        school = context.get("school_district", {}).get("school_district", {})
+        if school and school.get("school_district"):
+            markdown.append("## School District")
+            markdown.append(f"- District: {school['school_district']}")
+            markdown.append("")
+
+        # Comps
+        markdown.append("## Comparable Sales (Top 8)")
+        if sales:
+            for comp in sales[:8]:
+                markdown.append(f"- {comp['address']} | ${comp.get('sale_price') or '?'} | score={comp['similarity_score']:.3f}")
+        else:
+            markdown.append("- No qualified comps found")
+        markdown.append("")
+
+        markdown.append("## Comparable Rentals (Top 8)")
+        if rentals:
+            for comp in rentals[:8]:
+                markdown.append(f"- {comp['address']} | rent=${comp.get('rent') or '?'} | score={comp['similarity_score']:.3f}")
+        else:
+            markdown.append("- No qualified rental comps found")
+        markdown.append("")
+
+        # Underwriting
+        markdown.append("## Underwriting")
+        offer = underwrite.get("offer_price_recommendation") or {}
+        markdown.append(f"- Offer (low/base/high): {offer.get('low') or '?'} / {offer.get('base') or '?'} / {offer.get('high') or '?'}")
+        markdown.append(f"- Rehab tier: {underwrite.get('rehab_tier') or '?'}")
+        markdown.append("")
+
+        # Risk
+        markdown.append("## Risk")
+        markdown.append(f"- Title risk: {risk_score.get('title_risk', '?')}")
+        markdown.append(f"- Data confidence: {risk_score.get('data_confidence', '?')}")
+        markdown.append(f"- Flags: {', '.join(risk_score.get('compliance_flags', [])) or 'none'}")
+        markdown.append("")
+
+        # Evidence
+        markdown.append("## Evidence")
+        if evidences:
+            for ev in evidences:
+                markdown.append(f"[^e{ev.id}]: {ev.source_url} (captured_at={ev.captured_at.isoformat()})")
+        else:
+            markdown.append("- No evidence records found.")
+
+        return "\n".join(markdown)
 
     def _find_matching_crm_property(self, db: Session, research_property: ResearchProperty) -> Property | None:
         query = db.query(Property)
@@ -2078,6 +3200,28 @@ class AgenticResearchService:
         risk_row = db.query(RiskScore).filter(RiskScore.job_id == job_id).order_by(RiskScore.id.desc()).first()
         dossier_row = db.query(Dossier).filter(Dossier.job_id == job_id).order_by(Dossier.id.desc()).first()
         worker_rows = db.query(WorkerRun).filter(WorkerRun.job_id == job_id).order_by(WorkerRun.id.asc()).all()
+
+        # Extract worker data stored in worker_run JSON (no dedicated DB models)
+        neighborhood_intel = None
+        flood_zone = None
+        extensive_data: dict[str, Any] = {}
+        _extensive_keys = {
+            "epa_environmental": "epa_environmental",
+            "wildfire_hazard": "wildfire_hazard",
+            "hud_opportunity": "hud_opportunity",
+            "wetlands": "wetlands",
+            "historic_places": "historic_places",
+            "seismic_hazard": "seismic_hazard",
+            "school_district": "school_district",
+        }
+        for wr in worker_rows:
+            if wr.worker_name == "neighborhood_intel" and wr.data:
+                neighborhood_intel = wr.data.get("neighborhood_intel")
+            elif wr.worker_name == "flood_zone" and wr.data:
+                flood_zone = wr.data.get("flood_zone")
+            elif wr.worker_name in _extensive_keys and wr.data:
+                data_key = _extensive_keys[wr.worker_name]
+                extensive_data[data_key] = wr.data.get(data_key)
 
         profile = rp.latest_profile or {
             "normalized_address": rp.normalized_address,
@@ -2186,6 +3330,9 @@ class AgenticResearchService:
             ],
             "underwrite": underwrite,
             "risk_score": risk,
+            "neighborhood_intel": neighborhood_intel,
+            "flood_zone": flood_zone,
+            "extensive": extensive_data if extensive_data else None,
             "dossier": {"markdown": dossier_row.markdown if dossier_row else ""},
             "worker_runs": [
                 {

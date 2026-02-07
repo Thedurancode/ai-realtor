@@ -9,8 +9,8 @@ ExecutionMode = Literal["pipeline", "orchestrated"]
 
 
 class JobLimits(BaseModel):
-    max_steps: int = 7
-    max_web_calls: int = 20
+    max_steps: int = 9
+    max_web_calls: int = 30
     timeout_seconds_per_step: int = 20
     max_parallel_agents: int = 1
 
@@ -150,6 +150,23 @@ class WorkerRunOut(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
+class NeighborhoodIntelOut(BaseModel):
+    crime: list[dict[str, Any]] = Field(default_factory=list)
+    schools: list[dict[str, Any]] = Field(default_factory=list)
+    demographics: list[dict[str, Any]] = Field(default_factory=list)
+    market_trends: list[dict[str, Any]] = Field(default_factory=list)
+    walkability: list[dict[str, Any]] = Field(default_factory=list)
+    ai_summary: str | None = None
+
+
+class FloodZoneOut(BaseModel):
+    flood_zone: str | None = None
+    description: str | None = None
+    in_floodplain: bool | None = None
+    insurance_required: bool | None = None
+    panel_number: str | None = None
+
+
 class FullResearchOutput(BaseModel):
     property_profile: PropertyProfile
     evidence: list[EvidenceItemOut]
@@ -157,6 +174,9 @@ class FullResearchOutput(BaseModel):
     comps_rentals: list[CompRentalOut]
     underwrite: UnderwriteOut
     risk_score: RiskScoreOut
+    neighborhood_intel: NeighborhoodIntelOut | None = None
+    flood_zone: FloodZoneOut | None = None
+    extensive: dict[str, Any] | None = None
     dossier: DossierOut
     worker_runs: list[WorkerRunOut]
 

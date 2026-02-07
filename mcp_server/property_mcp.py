@@ -1975,7 +1975,7 @@ async def list_tools() -> list[Tool]:
         # ── Agentic Research Tools ──
         Tool(
             name="research_property",
-            description="Run a full agentic research analysis on a property address. Finds comparable sales, comparable rentals, calculates ARV, underwriting, risk score, and generates an investment dossier. Supports strategies: flip, rental, wholesale. This runs synchronously and may take 30-60 seconds. Voice: 'Research 123 Main St New York as a flip'.",
+            description="Run a full agentic research analysis on a property address. Finds comparable sales, comparable rentals, calculates ARV, underwriting, risk score, and generates an investment dossier. Supports strategies: flip, rental, wholesale. Set extensive=true for deep research with EPA environmental, wildfire, seismic, wetlands, historic places, HUD indices, and school districts. Voice: 'Do extensive research on 123 Main St New York'.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -2004,6 +2004,10 @@ async def list_tools() -> list[Tool]:
                         "type": "string",
                         "description": "Renovation scope: light ($15/sqft), medium ($35/sqft), heavy ($60/sqft). Default: medium",
                         "enum": ["light", "medium", "heavy"]
+                    },
+                    "extensive": {
+                        "type": "boolean",
+                        "description": "Set true for extensive/deep research: adds EPA environmental hazards, wildfire risk, seismic hazard, wetlands, historic places, HUD opportunity indices, and school districts. Takes longer but provides comprehensive risk assessment. Default: false"
                     }
                 },
                 "required": ["address"]
@@ -3235,13 +3239,21 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             if arguments.get("zip"):
                 payload["zip"] = arguments["zip"]
             payload["strategy"] = arguments.get("strategy", "wholesale")
+            assumptions = {}
             if arguments.get("rehab_tier"):
-                payload["assumptions"] = {"rehab_tier": arguments["rehab_tier"]}
+                assumptions["rehab_tier"] = arguments["rehab_tier"]
+            if arguments.get("extensive"):
+                assumptions["extra_agents"] = ["extensive"]
+                payload["mode"] = "orchestrated"
+                payload["limits"] = {"max_steps": 20, "max_web_calls": 50, "max_parallel_agents": 4, "timeout_seconds_per_step": 20}
+            if assumptions:
+                payload["assumptions"] = assumptions
 
+            timeout = 180 if arguments.get("extensive") else 120
             response = requests.post(
                 f"{API_BASE_URL}/agentic/research",
                 json=payload,
-                timeout=120,
+                timeout=timeout,
             )
             response.raise_for_status()
             result = response.json()
@@ -3339,6 +3351,84 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 flags = risk.get("compliance_flags", [])
                 if flags:
                     text += f"  Flags: {', '.join(flags)}\n"
+
+            # Flood zone
+            flood = output_data.get("flood_zone")
+            if flood:
+                text += f"\nFLOOD ZONE:\n"
+                text += f"  Zone: {flood.get('flood_zone', 'Unknown')}\n"
+                text += f"  Description: {flood.get('description', 'N/A')}\n"
+                if flood.get("in_floodplain"):
+                    text += f"  WARNING: Property is in a floodplain\n"
+                if flood.get("insurance_required"):
+                    text += f"  Flood insurance is REQUIRED\n"
+                else:
+                    text += f"  Flood insurance: not required\n"
+
+            # Neighborhood intelligence
+            neighborhood = output_data.get("neighborhood_intel")
+            if neighborhood:
+                text += f"\nNEIGHBORHOOD INTELLIGENCE:\n"
+                ai_summary = neighborhood.get("ai_summary")
+                if ai_summary:
+                    text += f"  {ai_summary}\n"
+                else:
+                    crime = neighborhood.get("crime", {})
+                    if crime.get("summary"):
+                        text += f"  Crime: {crime['summary']}\n"
+                    schools = neighborhood.get("schools", {})
+                    if schools.get("summary"):
+                        text += f"  Schools: {schools['summary']}\n"
+                    market = neighborhood.get("market_trends", {})
+                    if market.get("summary"):
+                        text += f"  Market: {market['summary']}\n"
+
+            # Extensive research data
+            extensive = output_data.get("extensive")
+            if extensive:
+                epa = extensive.get("epa_environmental")
+                if epa and epa.get("risk_summary"):
+                    text += f"\nEPA ENVIRONMENTAL:\n  {epa['risk_summary']}\n"
+                    for cat in ["superfund_sites", "brownfields", "toxic_releases", "hazardous_waste"]:
+                        sites = epa.get(cat, [])
+                        if sites:
+                            text += f"  {cat.replace('_', ' ').title()} ({len(sites)}):\n"
+                            for s in sites[:3]:
+                                text += f"    - {s.get('name', 'Unknown')}\n"
+
+                wildfire = extensive.get("wildfire_hazard")
+                if wildfire and wildfire.get("hazard_level"):
+                    text += f"\nWILDFIRE HAZARD: {wildfire['hazard_level']}\n"
+                    if wildfire.get("description"):
+                        text += f"  {wildfire['description']}\n"
+
+                hud = extensive.get("hud_opportunity")
+                if hud and any(v is not None for v in hud.values()):
+                    text += f"\nHUD OPPORTUNITY INDICES:\n"
+                    for k, v in hud.items():
+                        if v is not None:
+                            text += f"  {k.replace('_', ' ').title()}: {v}/100\n"
+
+                seismic = extensive.get("seismic_hazard")
+                if seismic and seismic.get("seismic_risk_level"):
+                    text += f"\nSEISMIC: {seismic.get('description', '')}\n"
+                    faults = seismic.get("nearby_faults", [])
+                    if faults:
+                        text += f"  {len(faults)} fault(s) within 10 miles\n"
+
+                wetland = extensive.get("wetlands")
+                if wetland and wetland.get("wetlands_found"):
+                    text += f"\nWETLANDS: {len(wetland.get('wetlands', []))} wetland(s) found — development may be restricted\n"
+
+                historic = extensive.get("historic_places")
+                if historic and historic.get("nearby_places"):
+                    text += f"\nHISTORIC PLACES: {len(historic['nearby_places'])} within 1 mile\n"
+                    if historic.get("in_historic_district"):
+                        text += "  In historic district — renovation restrictions, 20% tax credit eligible\n"
+
+                school = extensive.get("school_district")
+                if school and school.get("school_district"):
+                    text += f"\nSCHOOL DISTRICT: {school['school_district']}\n"
 
             # Worker summary
             runs = output_data.get("worker_runs", [])
