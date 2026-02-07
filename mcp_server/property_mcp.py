@@ -126,7 +126,7 @@ async def create_property_with_address(
 
 
 def find_property_by_address(address_query: str) -> int:
-    """Find a single property by address. Raises ValueError with options if multiple matches."""
+    """Find a single property by address, city, or state. Raises ValueError with options if multiple matches."""
     from app.database import SessionLocal
     from app.models.property import Property
     from sqlalchemy import func, or_
@@ -134,23 +134,61 @@ def find_property_by_address(address_query: str) -> int:
     db = SessionLocal()
     try:
         query_variations = normalize_voice_query(address_query)
-        properties = db.query(Property).filter(
-            or_(*[func.lower(Property.address).contains(var) for var in query_variations])
-        ).all()
+        # Build search terms: full variations + individual words (3+ chars)
+        search_terms = set(query_variations)
+        for var in query_variations:
+            for word in var.split():
+                if len(word) >= 3:
+                    search_terms.add(word)
+
+        # Remove overly generic terms that match everything
+        generic_terms = {'the', 'property', 'house', 'home', 'this', 'that', 'for', 'and'}
+        search_terms = search_terms - generic_terms
+
+        if not search_terms:
+            raise ValueError(f"No searchable terms in: {address_query}")
+
+        filters = []
+        for term in search_terms:
+            filters.append(func.lower(Property.address).contains(term))
+            filters.append(func.lower(Property.city).contains(term))
+            filters.append(func.lower(Property.state).contains(term))
+        properties = db.query(Property).filter(or_(*filters)).all()
 
         if not properties:
             from difflib import get_close_matches
-            all_addresses = [p.address.lower() for p in db.query(Property).limit(100).all()]
-            matches = get_close_matches(query_variations[0], all_addresses, n=3, cutoff=0.6)
+            all_props = db.query(Property).limit(100).all()
+            all_labels = [
+                f"{p.address}, {p.city or ''}, {p.state or ''}".lower().strip(", ")
+                for p in all_props
+            ]
+            matches = get_close_matches(query_variations[0], all_labels, n=3, cutoff=0.4)
             if matches:
                 raise ValueError(f"No exact match for '{address_query}'. Did you mean: {', '.join(matches)}?")
-            raise ValueError(f"No property found matching address: {address_query}")
+            raise ValueError(f"No property found matching: {address_query}")
 
         if len(properties) > 1:
+            # Score each property by how many search terms match
+            scored = []
+            for p in properties:
+                full_text = f"{(p.address or '').lower()} {(p.city or '').lower()} {(p.state or '').lower()}"
+                score = sum(1 for term in search_terms if term in full_text)
+                # Bonus for address match (more specific than state)
+                addr_score = sum(1 for term in search_terms if term in (p.address or '').lower())
+                city_score = sum(1 for term in search_terms if term in (p.city or '').lower())
+                scored.append((p, score * 10 + addr_score * 5 + city_score * 3))
+
+            scored.sort(key=lambda x: x[1], reverse=True)
+
+            # If top result has a clearly higher score, use it
+            if scored[0][1] > scored[1][1]:
+                return scored[0][0].id
+
+            # Still ambiguous - list options
             listing = "\n".join(
                 f"  - Property {p.id}: {p.address}, {p.city or ''}, {p.state or ''}"
                 + (f" (${p.price:,.0f})" if p.price else "")
-                for p in properties
+                for p, _ in scored
             )
             raise ValueError(
                 f"Found {len(properties)} properties matching '{address_query}'. "
@@ -186,7 +224,7 @@ async def update_property(property_id: Optional[int] = None, address_query: Opti
     if not update_data:
         raise ValueError("No fields to update")
 
-    response = requests.put(
+    response = requests.patch(
         f"{API_BASE_URL}/properties/{property_id}",
         json=update_data
     )
@@ -376,8 +414,11 @@ def normalize_voice_query(query: str) -> list[str]:
 
     # 1. Remove filler words
     fillers = ['um', 'uh', 'like', 'you know', 'so', 'well', 'the contract for',
-               'contracts for', 'the property at', 'show me', 'check', 'list',
-               'get', 'find', 'please', 'can you', 'could you', 'would you']
+               'contracts for', 'the property at', 'the property on', 'the property',
+               'property at', 'property on', 'show me', 'check', 'list',
+               'get', 'find', 'please', 'can you', 'could you', 'would you',
+               'the one on', 'the one at', 'the house on', 'the house at',
+               'details for', 'info for', 'info on', 'about the', 'about']
     query_clean = query.lower()
     for filler in fillers:
         query_clean = query_clean.replace(filler, ' ')
@@ -2019,12 +2060,61 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             # Include enrichment highlights if available
             enrichment = result.get('zillow_enrichment')
             if enrichment:
+                text += "\nZILLOW DATA:\n"
                 if enrichment.get('zestimate'):
-                    text += f"\nZestimate: ${enrichment['zestimate']:,.0f}\n"
+                    text += f"Zestimate: ${enrichment['zestimate']:,.0f}\n"
                 if enrichment.get('rent_zestimate'):
                     text += f"Rent estimate: ${enrichment['rent_zestimate']:,.0f}/month\n"
                 if enrichment.get('year_built'):
                     text += f"Year built: {enrichment['year_built']}\n"
+                if enrichment.get('home_type'):
+                    text += f"Home type: {enrichment['home_type']}\n"
+                if enrichment.get('living_area'):
+                    text += f"Living area: {enrichment['living_area']:,.0f} sqft\n"
+                if enrichment.get('lot_size'):
+                    units = enrichment.get('lot_area_units', 'sqft')
+                    text += f"Lot size: {enrichment['lot_size']:,.1f} {units}\n"
+                if enrichment.get('property_tax_rate'):
+                    text += f"Property tax rate: {enrichment['property_tax_rate']}%\n"
+                if enrichment.get('annual_tax_amount'):
+                    text += f"Annual taxes: ${enrichment['annual_tax_amount']:,.0f}\n"
+                if enrichment.get('description'):
+                    text += f"Description: {enrichment['description']}\n"
+                photos = enrichment.get('photos', [])
+                if photos:
+                    text += f"Photos: {len(photos)} available\n"
+                schools = enrichment.get('schools', [])
+                if schools:
+                    text += f"\nNearby schools:\n"
+                    for s in schools[:3]:
+                        rating = f" (rating: {s['rating']}/10)" if s.get('rating') else ""
+                        text += f"  - {s.get('name', 'Unknown')}{rating}\n"
+                tax_history = enrichment.get('tax_history', [])
+                if tax_history:
+                    text += f"\nTax history ({len(tax_history)} years):\n"
+                    for t in tax_history[:3]:
+                        text += f"  - {t.get('year', '?')}: ${t.get('value', 0):,.0f} (tax: ${t.get('tax', 0):,.0f})\n"
+
+            # Include skip trace data if available
+            skip_traces = result.get('skip_traces', [])
+            if skip_traces:
+                trace = skip_traces[0]
+                text += "\nOWNER INFO (Skip Trace):\n"
+                if trace.get('owner_name'):
+                    text += f"Owner: {trace['owner_name']}\n"
+                phones = trace.get('phone_numbers', [])
+                if phones:
+                    text += f"Phone numbers: {', '.join(phones)}\n"
+                emails = trace.get('emails', [])
+                if emails:
+                    text += f"Emails: {', '.join(emails)}\n"
+                if trace.get('mailing_address'):
+                    mailing = trace['mailing_address']
+                    if trace.get('mailing_city'):
+                        mailing += f", {trace['mailing_city']}"
+                    if trace.get('mailing_state'):
+                        mailing += f", {trace['mailing_state']}"
+                    text += f"Mailing address: {mailing}\n"
 
             return [TextContent(type="text", text=text)]
 
@@ -2099,33 +2189,52 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             property_id = resolve_property_id(arguments)
             result = await enrich_property(property_id)
 
-            text = f"Property {property_id} enriched with Zillow data.\n\n"
-            enrichment = result.get("enrichment", result)
+            # API returns {success, message, data, context_summary}
+            enrichment = result.get("data", result.get("enrichment", result))
+            address = enrichment.get("property_address", f"property {property_id}")
+            text = f"Property {address} enriched with Zillow data.\n\n"
+
             if enrichment.get('zestimate'):
                 text += f"Zestimate: ${enrichment['zestimate']:,.0f}\n"
             if enrichment.get('rent_zestimate'):
                 text += f"Rent estimate: ${enrichment['rent_zestimate']:,.0f}/month\n"
             if enrichment.get('year_built'):
                 text += f"Year built: {enrichment['year_built']}\n"
-            if enrichment.get('bedrooms'):
-                text += f"Bedrooms: {enrichment['bedrooms']}\n"
-            if enrichment.get('bathrooms'):
-                text += f"Bathrooms: {enrichment['bathrooms']}\n"
+            if enrichment.get('home_type'):
+                text += f"Home type: {enrichment['home_type']}\n"
             if enrichment.get('living_area'):
                 text += f"Living area: {enrichment['living_area']:,.0f} sqft\n"
             if enrichment.get('lot_size'):
-                text += f"Lot size: {enrichment['lot_size']}\n"
-            if enrichment.get('home_type'):
-                text += f"Home type: {enrichment['home_type']}\n"
-            photos = enrichment.get('photos', [])
-            if photos:
-                text += f"Photos: {len(photos)} available\n"
-            schools = enrichment.get('schools', [])
-            if schools:
-                text += f"\nNearby schools:\n"
-                for s in schools[:3]:
-                    rating = f" (rating: {s['rating']}/10)" if s.get('rating') else ""
-                    text += f"  - {s.get('name', 'Unknown')}{rating}\n"
+                text += f"Lot size: {enrichment['lot_size']:,.1f}\n"
+            if enrichment.get('photo_count'):
+                text += f"Photos: {enrichment['photo_count']} available\n"
+            if enrichment.get('zillow_url'):
+                text += f"Zillow: {enrichment['zillow_url']}\n"
+
+            # After enrichment, fetch full property data for schools/tax/description
+            try:
+                full = await get_property(property_id)
+                full_enrich = full.get('zillow_enrichment', {})
+                if full_enrich:
+                    if full_enrich.get('description'):
+                        text += f"\nDescription: {full_enrich['description']}\n"
+                    if full_enrich.get('property_tax_rate'):
+                        text += f"Property tax rate: {full_enrich['property_tax_rate']}%\n"
+                    if full_enrich.get('annual_tax_amount'):
+                        text += f"Annual taxes: ${full_enrich['annual_tax_amount']:,.0f}\n"
+                    schools = full_enrich.get('schools', [])
+                    if schools:
+                        text += f"\nNearby schools:\n"
+                        for s in schools[:3]:
+                            rating = f" (rating: {s['rating']}/10)" if s.get('rating') else ""
+                            text += f"  - {s.get('name', 'Unknown')}{rating}\n"
+                    tax_history = full_enrich.get('tax_history', [])
+                    if tax_history:
+                        text += f"\nTax history:\n"
+                        for t in tax_history[:3]:
+                            text += f"  - {t.get('year', '?')}: ${t.get('value', 0):,.0f} (tax: ${t.get('tax', 0):,.0f})\n"
+            except Exception:
+                pass  # Enrichment summary data is enough
 
             return [TextContent(type="text", text=text)]
 
@@ -2133,21 +2242,48 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             property_id = resolve_property_id(arguments)
             result = await skip_trace_property(property_id)
 
-            text = f"Skip trace completed for property {property_id}.\n\n"
-            trace = result.get("skip_trace", result)
+            # API returns {success, message, data, context_summary}
+            trace = result.get("data", result.get("skip_trace", result))
+            address = trace.get("property_address", f"property {property_id}")
+            text = f"Skip trace completed for {address}.\n\n"
+
             if trace.get('owner_name'):
                 text += f"Owner: {trace['owner_name']}\n"
-            phones = trace.get('phone_numbers', [])
-            if phones:
-                text += f"Phone numbers: {', '.join(phones)}\n"
-            emails = trace.get('email_addresses', [])
-            if emails:
-                text += f"Email addresses: {', '.join(emails)}\n"
-            if trace.get('mailing_address'):
-                text += f"Mailing address: {trace['mailing_address']}\n"
-            relatives = trace.get('relatives', [])
-            if relatives:
-                text += f"Relatives: {', '.join(relatives)}\n"
+            if trace.get('phone_count', 0) > 0:
+                text += f"Phone numbers found: {trace['phone_count']}\n"
+            if trace.get('email_count', 0) > 0:
+                text += f"Email addresses found: {trace['email_count']}\n"
+
+            # Also fetch full property data for complete skip trace details
+            try:
+                full = await get_property(property_id)
+                skip_traces = full.get('skip_traces', [])
+                if skip_traces:
+                    st = skip_traces[0]
+                    if st.get('owner_name') and st['owner_name'] != 'Unknown Owner':
+                        text += f"Owner: {st['owner_name']}\n"
+                    phones = st.get('phone_numbers', [])
+                    if phones:
+                        text += f"Phone numbers: {', '.join(phones)}\n"
+                    else:
+                        text += "Phone numbers: none found\n"
+                    emails = st.get('emails', [])
+                    if emails:
+                        text += f"Email addresses: {', '.join(emails)}\n"
+                    else:
+                        text += "Email addresses: none found\n"
+                    if st.get('mailing_address'):
+                        mailing = st['mailing_address']
+                        if st.get('mailing_city'):
+                            mailing += f", {st['mailing_city']}"
+                        if st.get('mailing_state'):
+                            mailing += f", {st['mailing_state']}"
+                        text += f"Mailing address: {mailing}\n"
+            except Exception:
+                pass
+
+            if not trace.get('owner_name') or trace.get('owner_name') == 'Unknown Owner':
+                text += "\nNote: Owner information was not available for this property.\n"
 
             return [TextContent(type="text", text=text)]
 
