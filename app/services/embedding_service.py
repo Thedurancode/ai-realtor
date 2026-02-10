@@ -340,51 +340,51 @@ class EmbeddingService:
             errors = 0
 
             if tbl == "properties":
-                records = db.query(Property).filter(Property.embedding.is_(None)).all()
-                for rec in records:
+                rows = db.execute(text("SELECT id FROM properties WHERE embedding IS NULL")).fetchall()
+                for row in rows:
                     try:
-                        if self.embed_property(db, rec.id):
+                        if self.embed_property(db, row.id):
                             embedded += 1
                         else:
                             skipped += 1
                     except Exception as e:
-                        logger.warning(f"Error embedding property {rec.id}: {e}")
+                        logger.warning(f"Error embedding property {row.id}: {e}")
                         errors += 1
 
             elif tbl == "property_recaps":
-                records = db.query(PropertyRecap).filter(PropertyRecap.embedding.is_(None)).all()
-                for rec in records:
+                rows = db.execute(text("SELECT id FROM property_recaps WHERE embedding IS NULL")).fetchall()
+                for row in rows:
                     try:
-                        if self.embed_recap(db, rec.id):
+                        if self.embed_recap(db, row.id):
                             embedded += 1
                         else:
                             skipped += 1
                     except Exception as e:
-                        logger.warning(f"Error embedding recap {rec.id}: {e}")
+                        logger.warning(f"Error embedding recap {row.id}: {e}")
                         errors += 1
 
             elif tbl == "dossiers":
-                records = db.query(Dossier).filter(Dossier.embedding.is_(None)).all()
-                for rec in records:
+                rows = db.execute(text("SELECT id FROM dossiers WHERE embedding IS NULL")).fetchall()
+                for row in rows:
                     try:
-                        if self.embed_dossier(db, rec.id):
+                        if self.embed_dossier(db, row.id):
                             embedded += 1
                         else:
                             skipped += 1
                     except Exception as e:
-                        logger.warning(f"Error embedding dossier {rec.id}: {e}")
+                        logger.warning(f"Error embedding dossier {row.id}: {e}")
                         errors += 1
 
             elif tbl == "evidence":
-                records = db.query(EvidenceItem).filter(EvidenceItem.embedding.is_(None)).all()
-                for rec in records:
+                rows = db.execute(text("SELECT id FROM evidence WHERE embedding IS NULL")).fetchall()
+                for row in rows:
                     try:
-                        if self.embed_evidence(db, rec.id):
+                        if self.embed_evidence(db, row.id):
                             embedded += 1
                         else:
                             skipped += 1
                     except Exception as e:
-                        logger.warning(f"Error embedding evidence {rec.id}: {e}")
+                        logger.warning(f"Error embedding evidence {row.id}: {e}")
                         errors += 1
 
             results[tbl] = {

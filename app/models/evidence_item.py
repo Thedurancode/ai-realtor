@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 
@@ -20,8 +19,6 @@ class EvidenceItem(Base):
     raw_excerpt = Column(Text, nullable=True)
     confidence = Column(Float, nullable=True)
     hash = Column(String(64), nullable=False, unique=True, index=True)
-
-    embedding = Column(Vector(1536), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

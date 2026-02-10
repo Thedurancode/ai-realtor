@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from pgvector.sqlalchemy import Vector
 import enum
 
 from app.database import Base
@@ -65,6 +64,4 @@ class Property(Base):
     contracts = relationship("Contract", back_populates="property")
     zillow_enrichment = relationship("ZillowEnrichment", back_populates="property", uselist=False)
     recap = relationship("PropertyRecap", back_populates="property", uselist=False)
-    embedding = Column(Vector(1536), nullable=True)
-
     offers = relationship("Offer", back_populates="property")

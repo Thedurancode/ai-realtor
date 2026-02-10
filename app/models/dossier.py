@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, DateTime, Text, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 
@@ -15,8 +14,6 @@ class Dossier(Base):
 
     markdown = Column(Text, nullable=False)
     citations = Column(JSON, nullable=True)
-
-    embedding = Column(Vector(1536), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
