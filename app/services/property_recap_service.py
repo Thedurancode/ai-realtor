@@ -5,10 +5,13 @@ Generates and maintains AI-powered property summaries that automatically
 update when property data changes. Used for phone calls and voice interactions.
 """
 import os
+import logging
 from typing import Optional
 from sqlalchemy.orm import Session
 from anthropic import Anthropic
 import json
+
+logger = logging.getLogger(__name__)
 
 from app.models.property import Property
 from app.models.property_recap import PropertyRecap
@@ -74,6 +77,13 @@ class PropertyRecapService:
 
         db.commit()
         db.refresh(recap)
+
+        # Auto-embed the recap for vector search
+        try:
+            from app.services.embedding_service import embedding_service
+            embedding_service.embed_recap(db, recap.id)
+        except Exception as e:
+            logger.warning(f"Failed to auto-embed recap {recap.id}: {e}")
 
         return recap
 

@@ -3445,15 +3445,22 @@ Be specific with numbers. If data is missing, say so clearly and explain the imp
 
         # Persist
         db.query(Dossier).filter(Dossier.job_id == job.id).delete()
-        db.add(
-            Dossier(
-                research_property_id=job.research_property_id,
-                job_id=job.id,
-                markdown=markdown_text,
-                citations=[{"evidence_id": ev.id, "source_url": ev.source_url} for ev in evidences],
-            )
+        new_dossier = Dossier(
+            research_property_id=job.research_property_id,
+            job_id=job.id,
+            markdown=markdown_text,
+            citations=[{"evidence_id": ev.id, "source_url": ev.source_url} for ev in evidences],
         )
+        db.add(new_dossier)
         db.commit()
+
+        # Auto-embed dossier for vector search
+        try:
+            from app.services.embedding_service import embedding_service
+            db.refresh(new_dossier)
+            embedding_service.embed_dossier(db, new_dossier.id)
+        except Exception:
+            pass  # best-effort, don't break pipeline
 
         return {
             "data": {"dossier": {"markdown": markdown_text}},
