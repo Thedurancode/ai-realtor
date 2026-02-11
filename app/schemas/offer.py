@@ -106,3 +106,22 @@ class MAOResponse(BaseModel):
     zestimate: float | None = None
     explanation: str = ""
     voice_summary: str = ""
+
+
+class OfferLetterRequest(BaseModel):
+    offer_price: float
+    financing_type: str = "cash"
+    closing_days: int = 30
+    contingencies: list[str] = Field(default_factory=list)
+    earnest_money: float | None = None
+    buyer_name: str | None = None
+    buyer_email: str | None = None
+
+
+class OfferLetterResponse(BaseModel):
+    letter_text: str
+    contract_id: int
+    negotiation_strategy: str
+    talking_points: list[str] = Field(default_factory=list)
+    voice_summary: str
+    docuseal_template_id: str | None = None
