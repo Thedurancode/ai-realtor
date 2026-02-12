@@ -3,10 +3,11 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies (gcc + libpq-dev for psycopg2)
+# Install system dependencies (gcc + libpq-dev for psycopg2, supervisor for process management)
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -24,10 +25,13 @@ COPY alembic.ini .
 COPY start.sh .
 COPY .env.example .env
 
+# Copy supervisor config
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
 RUN chmod +x start.sh
 
 # Expose ports: 8000 for FastAPI, 8001 for MCP SSE
 EXPOSE 8000 8001
 
-# Run both services
+# Run both services via supervisor
 CMD ["./start.sh"]
