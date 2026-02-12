@@ -52,6 +52,7 @@ def main_sse(port: int = 8001):
     sse = SseServerTransport("/messages/")
 
     async def handle_sse(request):
+        from starlette.responses import Response
         async with sse.connect_sse(
             request.scope, request.receive, request._send
         ) as (read_stream, write_stream):
@@ -60,11 +61,14 @@ def main_sse(port: int = 8001):
                 write_stream,
                 app.create_initialization_options()
             )
+        return Response()
 
     async def handle_messages(request):
+        from starlette.responses import Response
         await sse.handle_post_message(
             request.scope, request.receive, request._send
         )
+        return Response(status_code=202)
 
     async def health(request):
         return JSONResponse({"status": "ok", "server": "property-management-mcp", "transport": "sse"})
