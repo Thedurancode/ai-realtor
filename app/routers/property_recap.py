@@ -90,6 +90,53 @@ def get_property_recap(property_id: int, db: Session = Depends(get_db)):
     )
 
 
+@router.post("/property/{property_id}/send-report")
+@limiter.limit("10/minute")
+def send_property_report(
+    request: Request,
+    property_id: int,
+    report_type: str = "property_overview",
+    db: Session = Depends(get_db),
+):
+    """
+    Generate a PDF report and email it to the authenticated agent.
+
+    report_type: property_overview (default). More types coming soon.
+    """
+    from app.services.pdf_report_service import generate_and_send
+    from app.services.reports import list_report_types
+
+    agent_id = getattr(request.state, "agent_id", None)
+    if not agent_id:
+        raise HTTPException(status_code=401, detail="Agent authentication required")
+
+    try:
+        result = generate_and_send(
+            db=db,
+            property_id=property_id,
+            report_type=report_type,
+            agent_id=agent_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send report: {result.get('email', {}).get('error', 'unknown error')}",
+        )
+
+    return {
+        "success": True,
+        "message": f"{report_type.replace('_', ' ').title()} sent to {result['agent_email']}",
+        "filename": result["filename"],
+        "report_type": result["report_type"],
+        "property_id": result["property_id"],
+        "property_address": result["property_address"],
+        "available_report_types": list_report_types(),
+    }
+
+
 @router.post("/property/{property_id}/call", response_model=PhoneCallResponse)
 @limiter.limit("5/minute")
 async def make_property_call(

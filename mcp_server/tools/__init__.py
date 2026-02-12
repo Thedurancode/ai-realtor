@@ -11,3 +11,4 @@ from . import elevenlabs  # noqa: F401
 from . import offers  # noqa: F401
 from . import vector_search  # noqa: F401
 from . import deal_calculator  # noqa: F401
+from . import reports  # noqa: F401

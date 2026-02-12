@@ -201,6 +201,118 @@ This is an automated message.
         except Exception as e:
             return {"success": False, "error": str(e), "to": to_email}
 
+    def send_report_email(
+        self,
+        to_email: str,
+        to_name: str,
+        report_name: str,
+        property_address: str,
+        pdf_content: bytes,
+        pdf_filename: str,
+    ) -> Dict[str, Any]:
+        """
+        Send a PDF report as an email attachment via Resend.
+
+        Args:
+            to_email: Recipient email
+            to_name: Recipient name
+            report_name: Display name of the report (e.g. "Property Overview")
+            property_address: Property address for the subject line
+            pdf_content: Raw PDF bytes
+            pdf_filename: Filename for the attachment
+
+        Returns:
+            Resend response with email ID
+        """
+        import base64
+
+        subject = f"{report_name} — {property_address}"
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#f8f9fa;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8f9fa;padding:40px 0;">
+        <tr><td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                <tr>
+                    <td style="padding:48px 40px 32px;text-align:left;border-bottom:1px solid #e9ecef;">
+                        <h1 style="margin:0 0 8px;color:#1a1a1a;font-size:28px;font-weight:700;">
+                            {report_name}
+                        </h1>
+                        <p style="margin:0;color:#6c757d;font-size:15px;">{self.from_name}</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:40px;">
+                        <p style="margin:0 0 20px;color:#495057;font-size:16px;line-height:1.6;">
+                            Hi <strong style="color:#1a1a1a;">{to_name}</strong>,
+                        </p>
+                        <p style="margin:0 0 28px;color:#495057;font-size:16px;line-height:1.6;">
+                            Your <strong>{report_name}</strong> for
+                            <strong style="color:#1a1a1a;">{property_address}</strong>
+                            is attached to this email.
+                        </p>
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                               style="background-color:#f8f9fa;border-radius:12px;margin:0 0 28px;border:1px solid #e9ecef;">
+                            <tr><td style="padding:24px;">
+                                <p style="margin:0 0 4px;color:#868e96;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Attachment</p>
+                                <p style="margin:0;color:#1a1a1a;font-size:16px;font-weight:600;">{pdf_filename}</p>
+                            </td></tr>
+                        </table>
+                        <p style="margin:0;color:#868e96;font-size:14px;text-align:center;">
+                            Questions? Reply to this email or contact the sender.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:32px 40px;text-align:center;background-color:#fafbfc;border-radius:0 0 16px 16px;border-top:1px solid #e9ecef;">
+                        <p style="margin:0 0 8px;color:#868e96;font-size:13px;font-weight:500;">{self.from_name}</p>
+                        <p style="margin:0;color:#adb5bd;font-size:12px;">Powered by AI Realtor Platform</p>
+                    </td>
+                </tr>
+            </table>
+        </td></tr>
+    </table>
+</body>
+</html>
+"""
+
+        text_content = f"""Hi {to_name},
+
+Your {report_name} for {property_address} is attached to this email.
+
+---
+{self.from_name}
+Powered by AI Realtor Platform
+"""
+
+        try:
+            params = {
+                "from": f"{self.from_name} <{self.from_email}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+                "text": text_content,
+                "attachments": [
+                    {
+                        "filename": pdf_filename,
+                        "content": base64.b64encode(pdf_content).decode("utf-8"),
+                        "content_type": "application/pdf",
+                    }
+                ],
+            }
+
+            response = resend.Emails.send(params)
+            return {"success": True, "email_id": response.get("id"), "to": to_email}
+
+        except Exception as e:
+            return {"success": False, "error": str(e), "to": to_email}
+
     def send_multi_party_notification(
         self,
         submitters: List[Dict[str, Any]],
