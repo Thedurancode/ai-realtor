@@ -104,7 +104,12 @@ async def handle_list_properties(arguments: dict) -> list[TextContent]:
                 text += f" | {p.get('bedrooms', '?')} bed / {p.get('bathrooms', '?')} bath"
             if p.get('square_footage'):
                 text += f" | {p['square_footage']:,.0f} sqft"
-            text += f"\n  Status: {p.get('status', 'available')}\n\n"
+            text += f"\n  Status: {p.get('status', 'available')}"
+            if p.get('deal_score') is not None:
+                text += f" | Deal Score: {p['deal_score']:.0f}/100 (Grade {p.get('score_grade', '?')})"
+            if p.get('pipeline_status'):
+                text += f" | Pipeline: {p['pipeline_status']}"
+            text += "\n\n"
 
     return [TextContent(type="text", text=text)]
 
@@ -125,6 +130,16 @@ async def handle_get_property(arguments: dict) -> list[TextContent]:
     text += f"Status: {result.get('status', 'available')}\n"
     if result.get('property_type'):
         text += f"Type: {result['property_type']}\n"
+
+    if result.get('deal_score') is not None:
+        text += f"\nDEAL SCORE: {result['deal_score']:.0f}/100 (Grade {result.get('score_grade', '?')})\n"
+        breakdown = result.get('score_breakdown', {})
+        if breakdown:
+            for component, score in breakdown.items():
+                label = component.replace('_', ' ').title()
+                text += f"  {label}: {score:.0f}/100\n"
+    if result.get('pipeline_status'):
+        text += f"Pipeline: {result['pipeline_status']}\n"
 
     enrichment = result.get('zillow_enrichment')
     if enrichment:

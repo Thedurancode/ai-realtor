@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -54,6 +54,16 @@ class Property(Base):
     status = Column(Enum(PropertyStatus), default=PropertyStatus.AVAILABLE)
     deal_type = Column(Enum(DealType), nullable=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    # Deal scoring
+    deal_score = Column(Float, nullable=True)
+    score_grade = Column(String(2), nullable=True)
+    score_breakdown = Column(JSON, nullable=True)
+
+    # Auto-enrich pipeline tracking
+    pipeline_status = Column(String(20), nullable=True)  # pending, running, completed, failed
+    pipeline_started_at = Column(DateTime, nullable=True)
+    pipeline_completed_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

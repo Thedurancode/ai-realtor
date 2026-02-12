@@ -6,10 +6,13 @@ from app.schemas.offer import (
     CounterOfferCreate,
     MAOResponse,
     OfferCreate,
+    OfferLetterRequest,
+    OfferLetterResponse,
     OfferResponse,
     OfferSummary,
 )
 from app.services import offer_service
+from app.services.offer_drafter_service import offer_drafter_service
 
 router = APIRouter(prefix="/offers", tags=["offers"])
 
@@ -97,5 +100,37 @@ def get_property_offer_summary(property_id: int, db: Session = Depends(get_db)):
 def calculate_mao(property_id: int, db: Session = Depends(get_db)):
     try:
         return offer_service.calculate_mao(db=db, property_id=property_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/{offer_id}/draft-letter", response_model=OfferLetterResponse)
+async def draft_letter_from_offer(offer_id: int, db: Session = Depends(get_db)):
+    try:
+        result = await offer_drafter_service.draft_from_offer(db=db, offer_id=offer_id)
+        return OfferLetterResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/property/{property_id}/draft-letter", response_model=OfferLetterResponse)
+async def draft_letter_standalone(
+    property_id: int,
+    payload: OfferLetterRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        result = await offer_drafter_service.draft_standalone(
+            db=db,
+            property_id=property_id,
+            offer_price=payload.offer_price,
+            financing_type=payload.financing_type,
+            closing_days=payload.closing_days,
+            contingencies=payload.contingencies,
+            earnest_money=payload.earnest_money,
+            buyer_name=payload.buyer_name,
+            buyer_email=payload.buyer_email,
+        )
+        return OfferLetterResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

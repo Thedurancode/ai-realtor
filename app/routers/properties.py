@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -18,6 +18,7 @@ from app.services.google_places import google_places_service
 from app.services.contract_auto_attach import contract_auto_attach_service
 from app.services.deal_type_service import apply_deal_type, get_deal_type_summary
 from app.services.scheduled_compliance import schedule_compliance_check
+from app.services.property_pipeline_service import run_auto_enrich_pipeline
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
@@ -35,12 +36,17 @@ def get_ws_manager():
 
 
 @router.post("/", response_model=PropertyResponse, status_code=201)
-async def create_property(property: PropertyCreate, db: Session = Depends(get_db)):
+async def create_property(
+    property: PropertyCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     agent = db.query(Agent).filter(Agent.id == property.agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
     new_property = Property(**property.model_dump())
+    new_property.pipeline_status = "pending"
     db.add(new_property)
     db.commit()
     db.refresh(new_property)
@@ -51,12 +57,17 @@ async def create_property(property: PropertyCreate, db: Session = Depends(get_db
     # Schedule auto compliance check in 20 minutes
     asyncio.create_task(schedule_compliance_check(new_property.id))
 
+    # Kick off auto-enrich pipeline in background
+    background_tasks.add_task(run_auto_enrich_pipeline, new_property.id)
+
     return new_property
 
 
 @router.post("/voice", response_model=PropertyCreateFromVoiceResponse, status_code=201)
 async def create_property_from_voice(
-    property: PropertyCreateFromVoice, db: Session = Depends(get_db)
+    property: PropertyCreateFromVoice,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
 ):
     """
     Voice-optimized property creation.
@@ -91,6 +102,7 @@ async def create_property_from_voice(
         property_type=property.property_type,
         status=property.status,
         agent_id=property.agent_id,
+        pipeline_status="pending",
     )
     db.add(new_property)
     db.commit()
@@ -101,6 +113,9 @@ async def create_property_from_voice(
 
     # Schedule auto compliance check in 20 minutes
     asyncio.create_task(schedule_compliance_check(new_property.id))
+
+    # Kick off auto-enrich pipeline in background
+    background_tasks.add_task(run_auto_enrich_pipeline, new_property.id)
 
     price_formatted = f"${property.price:,.0f}"
     beds_info = f"{property.bedrooms} bedroom" if property.bedrooms else ""

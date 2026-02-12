@@ -134,5 +134,11 @@ class PropertyResponse(PropertyBase):
     zillow_enrichment: Optional[ZillowEnrichmentResponse] = None
     skip_traces: List[SkipTraceResponse] = []
 
+    # Deal scoring
+    deal_score: Optional[float] = None
+    score_grade: Optional[str] = None
+    score_breakdown: Optional[dict] = None
+    pipeline_status: Optional[str] = None
+
     class Config:
         from_attributes = True

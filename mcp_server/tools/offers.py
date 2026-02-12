@@ -261,3 +261,77 @@ register_tool(Tool(name="list_offers", description="List all offers, optionally 
 register_tool(Tool(name="get_offer_details", description="Get detailed offer summary for a property including voice-friendly response. Voice: 'What's the offer status on 123 Main?'.", inputSchema={"type": "object", "properties": {"property_id": {"type": "number", "description": "Property ID"}, "address": {"type": "string", "description": "Property address"}}}), handle_get_offer_details)
 
 register_tool(Tool(name="calculate_mao", description="Calculate Maximum Allowable Offer based on underwriting data or Zestimate. Voice: 'What's the max I should offer on property 5?'.", inputSchema={"type": "object", "properties": {"property_id": {"type": "number", "description": "Property ID"}, "address": {"type": "string", "description": "Property address"}}}), handle_calculate_mao)
+
+
+async def handle_draft_offer_letter(arguments: dict) -> list[TextContent]:
+    offer_id = arguments.get("offer_id")
+
+    # If we have an offer_id, draft from the existing offer
+    if offer_id:
+        response = api_post(f"/offers/{int(offer_id)}/draft-letter")
+        response.raise_for_status()
+        data = response.json()
+    else:
+        # Standalone: resolve property
+        property_id = arguments.get("property_id")
+        address = arguments.get("address")
+        if not property_id and address:
+            property_id = find_property_by_address(address)
+        if not property_id:
+            return [TextContent(type="text", text="Please provide an offer_id, property_id, or address.")]
+
+        offer_price = arguments.get("offer_price")
+        if not offer_price:
+            return [TextContent(type="text", text="Please provide an offer_price.")]
+
+        payload = {"offer_price": offer_price}
+        for key in ["financing_type", "closing_days", "contingencies", "earnest_money", "buyer_name", "buyer_email"]:
+            if arguments.get(key) is not None:
+                payload[key] = arguments[key]
+
+        response = api_post(f"/offers/property/{int(property_id)}/draft-letter", json=payload)
+        response.raise_for_status()
+        data = response.json()
+
+    # Format output
+    text = "OFFER LETTER DRAFTED\n"
+    text += f"  Contract ID: {data['contract_id']} (DRAFT — ready for DocuSeal)\n\n"
+
+    text += "VOICE SUMMARY:\n"
+    text += f"  {data.get('voice_summary', 'N/A')}\n\n"
+
+    text += "NEGOTIATION STRATEGY:\n"
+    text += f"  {data.get('negotiation_strategy', 'N/A')}\n\n"
+
+    points = data.get("talking_points", [])
+    if points:
+        text += "TALKING POINTS:\n"
+        for i, pt in enumerate(points, 1):
+            text += f"  {i}. {pt}\n"
+        text += "\n"
+
+    text += "FULL LETTER:\n"
+    text += data.get("letter_text", "N/A")
+
+    return [TextContent(type="text", text=text)]
+
+
+register_tool(Tool(
+    name="draft_offer_letter",
+    description="Draft an AI-generated offer letter for a property. Creates a DRAFT contract ready for DocuSeal signing. Voice: 'Draft an offer letter for property 5 at $750,000'.",
+    inputSchema={
+        "type": "object",
+        "properties": {
+            "offer_id": {"type": "number", "description": "Existing offer ID to draft from"},
+            "property_id": {"type": "number", "description": "Property ID (for standalone draft)"},
+            "address": {"type": "string", "description": "Property address (alternative to property_id)"},
+            "offer_price": {"type": "number", "description": "Offer price in dollars (required for standalone draft)"},
+            "financing_type": {"type": "string", "description": "Financing: cash, conventional, fha, va, hard_money, seller_financing", "default": "cash"},
+            "closing_days": {"type": "number", "description": "Days to close (default: 30)", "default": 30},
+            "contingencies": {"type": "array", "items": {"type": "string"}, "description": "List of contingencies"},
+            "earnest_money": {"type": "number", "description": "Earnest money deposit in dollars"},
+            "buyer_name": {"type": "string", "description": "Buyer's full name"},
+            "buyer_email": {"type": "string", "description": "Buyer's email address"},
+        },
+    },
+), handle_draft_offer_letter)

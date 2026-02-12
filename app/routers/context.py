@@ -428,6 +428,10 @@ async def enrich_property_with_zillow(
     db.commit()
     db.refresh(enrichment)
 
+    # Re-score property after enrichment
+    from app.services.property_pipeline_service import calculate_property_score
+    calculate_property_score(db, property)
+
     # Remember in context
     context = get_context(body.session_id)
     context.set_last_property(property.id, property.address)
