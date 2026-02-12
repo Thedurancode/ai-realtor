@@ -1,16 +1,50 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from typing import List
 import asyncio
 import json
 
-from app.database import engine, Base
+from app.database import engine, Base, SessionLocal
 from app.config import settings
 from app.rate_limit import limiter
+from app.auth import verify_api_key
 from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router
 import app.models  # noqa: F401 - ensure all models are registered for Alembic
+
+
+# Paths that don't require API key authentication
+PUBLIC_PATHS = frozenset(("/", "/docs", "/redoc", "/openapi.json"))
+PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/")
+
+
+class ApiKeyMiddleware(BaseHTTPMiddleware):
+    """Validate X-API-Key header on all non-public requests."""
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+
+        # Skip auth for public paths
+        if path in PUBLIC_PATHS or any(path.startswith(p) for p in PUBLIC_PREFIXES):
+            return await call_next(request)
+
+        api_key = request.headers.get("x-api-key")
+        if not api_key:
+            return JSONResponse(status_code=401, content={"detail": "Missing API key"})
+
+        db = SessionLocal()
+        try:
+            agent = verify_api_key(db, api_key)
+            if not agent:
+                return JSONResponse(status_code=401, content={"detail": "Invalid API key"})
+            request.state.agent_id = agent.id
+        finally:
+            db.close()
+
+        return await call_next(request)
 
 app = FastAPI(
     title="Real Estate API",
@@ -30,6 +64,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# API key authentication middleware
+app.add_middleware(ApiKeyMiddleware)
 
 app.include_router(agents_router)
 app.include_router(properties_router)
