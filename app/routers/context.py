@@ -506,3 +506,84 @@ async def enrich_property_with_zillow(
         },
         context_summary=context.get_summary()
     )
+
+
+# ── Conversation History Endpoints ──
+
+class LogConversationRequest(BaseModel):
+    """Log a conversation entry"""
+    session_id: str = "mcp_session"
+    tool_name: str
+    input_summary: str
+    output_summary: str
+    input_data: Optional[dict] = None
+    output_data: Optional[dict] = None
+    success: bool = True
+    duration_ms: Optional[int] = None
+
+
+@router.post("/history/log")
+def log_conversation_entry(body: LogConversationRequest, db: Session = Depends(get_db)):
+    """Log a conversation/tool call to history."""
+    from app.services.conversation_history_service import log_conversation
+
+    entry = log_conversation(
+        db=db,
+        session_id=body.session_id,
+        tool_name=body.tool_name,
+        input_summary=body.input_summary,
+        output_summary=body.output_summary,
+        input_data=body.input_data,
+        output_data=body.output_data,
+        success=body.success,
+        duration_ms=body.duration_ms,
+    )
+    return {"success": True, "id": entry.id}
+
+
+@router.get("/history")
+def get_history(
+    session_id: str = "mcp_session",
+    limit: int = 10,
+    hours_ago: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """Get conversation history for a session."""
+    from app.services.conversation_history_service import (
+        get_conversation_history,
+        format_history_for_voice,
+    )
+
+    history = get_conversation_history(
+        db=db,
+        session_id=session_id,
+        limit=limit,
+        hours_ago=hours_ago,
+    )
+
+    return {
+        "session_id": session_id,
+        "count": len(history),
+        "summary": format_history_for_voice(history),
+        "entries": [
+            {
+                "id": h.id,
+                "tool_name": h.tool_name,
+                "input_summary": h.input_summary,
+                "output_summary": h.output_summary,
+                "success": h.success == 1,
+                "duration_ms": h.duration_ms,
+                "created_at": h.created_at.isoformat() if h.created_at else None,
+            }
+            for h in history
+        ],
+    }
+
+
+@router.delete("/history")
+def clear_history_endpoint(session_id: str = "mcp_session", db: Session = Depends(get_db)):
+    """Clear conversation history for a session."""
+    from app.services.conversation_history_service import clear_history
+
+    count = clear_history(db=db, session_id=session_id)
+    return {"success": True, "deleted": count}
