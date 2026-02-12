@@ -19,19 +19,20 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Enable pgvector extension — skip gracefully if not installed
+    # Check if pgvector extension is available without breaking the transaction
     conn = op.get_bind()
-    try:
-        conn.execute(sa.text('CREATE EXTENSION IF NOT EXISTS vector'))
-    except Exception:
-        # pgvector not available on this database — skip vector columns
-        # Vector search will be unavailable until pgvector is installed
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM pg_available_extensions WHERE name = 'vector'"
+    ))
+    if not result.fetchone():
         import logging
         logging.warning(
             "pgvector extension not available — skipping vector search columns. "
             "Install pgvector on the database and re-run this migration to enable."
         )
         return
+
+    conn.execute(sa.text('CREATE EXTENSION IF NOT EXISTS vector'))
 
     # Add embedding columns directly as vector type
     op.execute('ALTER TABLE properties ADD COLUMN IF NOT EXISTS embedding vector(1536)')
