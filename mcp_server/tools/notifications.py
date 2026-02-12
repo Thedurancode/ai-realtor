@@ -45,10 +45,12 @@ async def handle_list_notifications(arguments: dict) -> list[TextContent]:
     unread_only = arguments.get("unread_only", False)
     result = await list_notifications(limit=limit, unread_only=unread_only)
 
+    default_icon = "\U0001f514"  # 🔔 bell emoji
     if isinstance(result, list) and len(result) > 0:
         summary = f"Found {len(result)} notification(s):\n\n"
         for notif in result:
-            summary += f"{notif.get('icon', '\U0001f514')} {notif['title']}\n"
+            icon = notif.get('icon', default_icon)
+            summary += f"{icon} {notif['title']}\n"
             summary += f"   {notif['message']}\n"
             summary += f"   Type: {notif['type']} | Priority: {notif['priority']}\n"
             summary += f"   Created: {notif['created_at']}\n\n"
