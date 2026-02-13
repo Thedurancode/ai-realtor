@@ -201,7 +201,7 @@ def get_property(property_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/{property_id}", response_model=PropertyResponse)
 async def update_property(
-    property_id: int, property: PropertyUpdate, db: Session = Depends(get_db)
+    property_id: int, property: PropertyUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db),
 ):
     from app.services.notification_service import notification_service
 
@@ -252,6 +252,9 @@ async def update_property(
             new_status=db_property.status.value if db_property.status else "unknown",
             agent_id=db_property.agent_id
         )
+
+    from app.services.property_recap_service import regenerate_recap_background
+    background_tasks.add_task(regenerate_recap_background, db_property.id, "property_updated")
 
     return db_property
 

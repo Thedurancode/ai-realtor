@@ -1,7 +1,7 @@
 """
 Context-aware endpoints for natural conversation flow
 """
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -316,7 +316,8 @@ class ContextEnrichRequest(BaseModel):
 async def enrich_property_with_zillow(
     request: Request,
     body: ContextEnrichRequest,
-    db: Session = Depends(get_db)
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
 ):
     """
     Enrich property with comprehensive Zillow data.
@@ -487,6 +488,9 @@ async def enrich_property_with_zillow(
             "property_address": property.address
         })
 
+    from app.services.property_recap_service import regenerate_recap_background
+    background_tasks.add_task(regenerate_recap_background, property.id, "enrichment_updated")
+
     return ContextResponse(
         success=True,
         message=enrichment_message,
@@ -520,6 +524,7 @@ class LogConversationRequest(BaseModel):
     output_data: Optional[dict] = None
     success: bool = True
     duration_ms: Optional[int] = None
+    property_id: Optional[int] = None
 
 
 @router.post("/history/log")
@@ -537,6 +542,7 @@ def log_conversation_entry(body: LogConversationRequest, db: Session = Depends(g
         output_data=body.output_data,
         success=body.success,
         duration_ms=body.duration_ms,
+        property_id=body.property_id,
     )
     return {"success": True, "id": entry.id}
 
@@ -546,9 +552,10 @@ def get_history(
     session_id: str = "mcp_session",
     limit: int = 10,
     hours_ago: Optional[int] = None,
+    property_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
-    """Get conversation history for a session."""
+    """Get conversation history for a session, optionally filtered by property."""
     from app.services.conversation_history_service import (
         get_conversation_history,
         format_history_for_voice,
@@ -559,12 +566,48 @@ def get_history(
         session_id=session_id,
         limit=limit,
         hours_ago=hours_ago,
+        property_id=property_id,
     )
 
     return {
         "session_id": session_id,
         "count": len(history),
         "summary": format_history_for_voice(history),
+        "entries": [
+            {
+                "id": h.id,
+                "property_id": h.property_id,
+                "tool_name": h.tool_name,
+                "input_summary": h.input_summary,
+                "output_summary": h.output_summary,
+                "success": h.success == 1,
+                "duration_ms": h.duration_ms,
+                "created_at": h.created_at.isoformat() if h.created_at else None,
+            }
+            for h in history
+        ],
+    }
+
+
+@router.get("/history/property/{property_id}")
+def get_property_history_endpoint(property_id: int, limit: int = 50, db: Session = Depends(get_db)):
+    """Get full action timeline for a specific property across all sessions."""
+    from app.services.conversation_history_service import (
+        get_property_history,
+        format_property_history_for_voice,
+    )
+
+    prop = db.query(Property).filter(Property.id == property_id).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    history = get_property_history(db=db, property_id=property_id, limit=limit)
+
+    return {
+        "property_id": property_id,
+        "property_address": prop.address,
+        "count": len(history),
+        "summary": format_property_history_for_voice(history),
         "entries": [
             {
                 "id": h.id,

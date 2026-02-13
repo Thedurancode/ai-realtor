@@ -18,6 +18,7 @@ from app.models.property_recap import PropertyRecap
 from app.models.contract import Contract, ContractStatus
 from app.models.zillow_enrichment import ZillowEnrichment
 from app.models.contact import Contact
+from app.models.property_note import PropertyNote
 from app.services.contract_auto_attach import contract_auto_attach_service
 from app.services.deal_type_service import get_deal_type_summary
 
@@ -105,6 +106,15 @@ class PropertyRecapService:
             Contact.property_id == property.id
         ).all()
 
+        # Get notes
+        notes = (
+            db.query(PropertyNote)
+            .filter(PropertyNote.property_id == property.id)
+            .order_by(PropertyNote.created_at.desc())
+            .limit(20)
+            .all()
+        )
+
         # Get contract readiness
         readiness = contract_auto_attach_service.get_required_contracts_status(db, property)
 
@@ -172,6 +182,14 @@ class PropertyRecapService:
                 }
                 for c in contacts
             ],
+            "notes": [
+                {
+                    "content": n.content,
+                    "source": n.source.value if n.source else "manual",
+                    "created_at": n.created_at.isoformat() if n.created_at else None,
+                }
+                for n in notes
+            ],
         }
 
     async def _generate_ai_recap(self, context: dict) -> tuple[str, str, dict]:
@@ -187,6 +205,7 @@ class PropertyRecapService:
         enrichment_info = context.get("enrichment")
         contacts_info = context["contacts"]
         deal_type_info = context.get("deal_type")
+        notes_info = context.get("notes", [])
 
         # Build prompt
         prompt = f"""You are a real estate assistant generating a comprehensive property summary for phone calls and voice interactions.
@@ -220,13 +239,15 @@ Contracts:
 CONTACTS ({len(contacts_info)}):
 {self._format_contacts_for_prompt(contacts_info)}
 
+{self._format_notes_for_prompt(notes_info)}
+
 Generate TWO summaries:
 
 1. DETAILED RECAP (3-4 paragraphs):
    - Comprehensive property overview
    - Current status and transaction readiness
    - Contract status and what's needed
-   - Key highlights and concerns
+   - Key highlights, concerns, and any relevant notes from the agent
    - Next steps
 
 2. VOICE SUMMARY (2-3 sentences):
@@ -279,6 +300,7 @@ Return as JSON:
             "readiness": readiness_info,
             "enrichment": enrichment_info,
             "contacts": contacts_info,
+            "notes": notes_info,
             "ai_summary": {
                 "detailed": result.get("detailed_recap", ""),
                 "voice": result.get("voice_summary", ""),
@@ -348,6 +370,17 @@ Return as JSON:
             lines.append(f"  - {c['name']} ({c['role']})")
         return "\n".join(lines)
 
+    def _format_notes_for_prompt(self, notes: list) -> str:
+        """Format property notes for AI prompt"""
+        if not notes:
+            return ""
+
+        lines = [f"AGENT NOTES ({len(notes)}):"]
+        for n in notes:
+            source = n.get("source", "manual")
+            lines.append(f"  - [{source}] {n['content']}")
+        return "\n".join(lines)
+
     def get_recap(self, db: Session, property_id: int) -> Optional[PropertyRecap]:
         """Get existing recap for a property"""
         return db.query(PropertyRecap).filter(
@@ -375,3 +408,21 @@ Return as JSON:
 
 # Singleton instance
 property_recap_service = PropertyRecapService()
+
+
+async def regenerate_recap_background(property_id: int, trigger: str) -> None:
+    """Background-safe recap regeneration with its own DB session.
+
+    Use this with FastAPI BackgroundTasks so the recap runs after the
+    request's DB session is closed.
+    """
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        prop = db.query(Property).filter(Property.id == property_id).first()
+        if prop:
+            await property_recap_service.generate_recap(db, prop, trigger=trigger)
+    except Exception as exc:
+        logger.warning("Background recap failed for property %s: %s", property_id, exc)
+    finally:
+        db.close()

@@ -1,5 +1,5 @@
 import re
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -102,7 +102,7 @@ def format_role_for_voice(role: ContactRole) -> str:
 
 
 @router.post("/", response_model=ContactResponse, status_code=201)
-async def create_contact(contact: ContactCreate, db: Session = Depends(get_db)):
+async def create_contact(contact: ContactCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Create a contact for a property."""
     property = db.query(Property).filter(Property.id == contact.property_id).first()
     if not property:
@@ -140,12 +140,15 @@ async def create_contact(contact: ContactCreate, db: Session = Depends(get_db)):
             lead_source="Manual Entry"
         )
 
+    from app.services.property_recap_service import regenerate_recap_background
+    background_tasks.add_task(regenerate_recap_background, property.id, "contact_added")
+
     return new_contact
 
 
 @router.post("/voice", response_model=ContactCreateFromVoiceResponse, status_code=201)
-def create_contact_from_voice(
-    request: ContactCreateFromVoice, db: Session = Depends(get_db)
+async def create_contact_from_voice(
+    request: ContactCreateFromVoice, background_tasks: BackgroundTasks, db: Session = Depends(get_db),
 ):
     """
     Voice-optimized contact creation.
@@ -216,6 +219,9 @@ def create_contact_from_voice(
     )
     if request.phone:
         voice_confirmation += f" Phone number: {format_phone_for_voice(request.phone)}."
+
+    from app.services.property_recap_service import regenerate_recap_background
+    background_tasks.add_task(regenerate_recap_background, property.id, "contact_added")
 
     return ContactCreateFromVoiceResponse(
         contact=new_contact,

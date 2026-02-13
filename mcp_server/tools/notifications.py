@@ -70,3 +70,158 @@ register_tool(
     Tool(name="list_notifications", description="List recent notifications from the system. Shows notification history including contracts signed, new leads, price changes, etc.", inputSchema={"type": "object", "properties": {"limit": {"type": "number", "description": "Number of notifications to return (default: 10)", "default": 10}, "unread_only": {"type": "boolean", "description": "Only show unread notifications", "default": False}}}),
     handle_list_notifications
 )
+
+
+# ── Phase 3: Proactive notification tools ──
+
+def _human_time_ago(timestamp_str: str) -> str:
+    """Convert ISO timestamp to human-readable 'X ago' format."""
+    from datetime import datetime, timezone
+
+    try:
+        ts = timestamp_str.replace("Z", "+00:00")
+        if "+" not in ts and "-" not in ts[10:]:
+            ts += "+00:00"
+        timestamp = datetime.fromisoformat(ts)
+        now = datetime.now(timezone.utc)
+        diff = now - timestamp
+
+        if diff.days > 0:
+            return f"{diff.days}d ago"
+        hours = diff.seconds // 3600
+        if hours > 0:
+            return f"{hours}h ago"
+        minutes = diff.seconds // 60
+        if minutes > 0:
+            return f"{minutes}m ago"
+        return "just now"
+    except Exception:
+        return "recently"
+
+
+async def handle_get_notification_summary(arguments: dict) -> list[TextContent]:
+    """Voice-friendly digest of recent activity."""
+    hours = arguments.get("hours", 24)
+    result = await list_notifications(limit=50, unread_only=False)
+
+    if not isinstance(result, list) or not result:
+        return [TextContent(type="text", text=f"No activity in the last {hours} hours.")]
+
+    # Group by type
+    from collections import Counter
+    type_counts = Counter()
+    urgent_items = []
+    for n in result:
+        ntype = n.get("type", "general")
+        type_counts[ntype] += 1
+        if n.get("priority") == "urgent":
+            urgent_items.append(n)
+
+    type_labels = {
+        "contract_signed": "contracts signed",
+        "new_lead": "new leads",
+        "property_price_change": "price changes",
+        "property_status_change": "status changes",
+        "skip_trace_complete": "skip traces completed",
+        "enrichment_complete": "enrichments completed",
+        "appointment_reminder": "appointment reminders",
+        "general": "general notifications",
+    }
+
+    text = f"Activity summary ({len(result)} events):\n\n"
+
+    if urgent_items:
+        text += "URGENT:\n"
+        for item in urgent_items[:3]:
+            text += f"  {item.get('icon', '')} {item['title']}: {item['message']}\n"
+        text += "\n"
+
+    for ntype, count in type_counts.most_common():
+        label = type_labels.get(ntype, ntype.replace("_", " "))
+        text += f"  {count} {label}\n"
+
+    # Show most recent 3
+    text += "\nMost recent:\n"
+    for n in result[:3]:
+        time_ago = _human_time_ago(n.get("created_at", ""))
+        text += f"  {n.get('icon', '')} {n['title']} ({time_ago})\n"
+
+    return [TextContent(type="text", text=text)]
+
+
+async def handle_acknowledge_notification(arguments: dict) -> list[TextContent]:
+    """Mark notification as read or dismissed."""
+    notification_id = arguments["notification_id"]
+    action = arguments.get("action", "read")
+
+    response = api_post(f"/notifications/{notification_id}/{action}")
+    response.raise_for_status()
+    return [TextContent(type="text", text=f"Notification #{notification_id} marked as {action}.")]
+
+
+async def handle_poll_for_updates(arguments: dict) -> list[TextContent]:
+    """Check for new unread notifications — enables proactive assistant behavior."""
+    result = await list_notifications(limit=5, unread_only=True)
+
+    if not isinstance(result, list) or not result:
+        return [TextContent(type="text", text="No new updates.")]
+
+    count = len(result)
+    urgent = [n for n in result if n.get("priority") == "urgent"]
+
+    text = f"You have {count} new update{'s' if count != 1 else ''}. "
+
+    if urgent:
+        text += f"URGENT: {urgent[0]['title']}. "
+    else:
+        text += f"Most recent: {result[0]['title']}. "
+
+    text += "Would you like to hear them all?"
+    return [TextContent(type="text", text=text)]
+
+
+register_tool(
+    Tool(
+        name="get_notification_summary",
+        description="Get a voice-friendly summary of recent activity and notifications. "
+                    "Groups events by type (contracts signed, new leads, etc.) and highlights urgent items. "
+                    "Voice: 'What happened today?' or 'Give me a summary'",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "hours": {"type": "integer", "default": 24, "description": "Look back this many hours"},
+            },
+        },
+    ),
+    handle_get_notification_summary,
+)
+
+register_tool(
+    Tool(
+        name="acknowledge_notification",
+        description="Mark a notification as read or dismissed. "
+                    "Voice: 'Got it, dismiss notification 5'",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "notification_id": {"type": "integer", "description": "Notification ID to acknowledge"},
+                "action": {"type": "string", "enum": ["read", "dismiss"], "default": "read", "description": "Mark as read or dismiss"},
+            },
+            "required": ["notification_id"],
+        },
+    ),
+    handle_acknowledge_notification,
+)
+
+register_tool(
+    Tool(
+        name="poll_for_updates",
+        description="Check for any new unread notifications. Use proactively to inform the user. "
+                    "Voice: 'Any updates?' or 'Check for new activity'",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
+    ),
+    handle_poll_for_updates,
+)

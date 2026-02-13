@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -82,7 +82,7 @@ def build_voice_response(result: SkipTrace, property: Property) -> SkipTraceVoic
 @router.post("/voice", response_model=SkipTraceVoiceResponse)
 @limiter.limit("5/minute")
 async def skip_trace_by_address_voice(
-    request: Request, body: SkipTraceRequest, db: Session = Depends(get_db)
+    request: Request, body: SkipTraceRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db),
 ):
     """
     Voice-optimized skip trace by address.
@@ -140,13 +140,16 @@ async def skip_trace_by_address_voice(
     db.commit()
     db.refresh(skip_trace)
 
+    from app.services.property_recap_service import regenerate_recap_background
+    background_tasks.add_task(regenerate_recap_background, property.id, "skip_trace_completed")
+
     return build_voice_response(skip_trace, property)
 
 
 @router.post("/property/{property_id}", response_model=SkipTraceVoiceResponse)
 @limiter.limit("5/minute")
 async def skip_trace_by_property_id(
-    request: Request, property_id: int, db: Session = Depends(get_db)
+    request: Request, property_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db),
 ):
     """
     Run skip trace on a property by ID.
@@ -192,6 +195,9 @@ async def skip_trace_by_property_id(
     db.commit()
     db.refresh(skip_trace)
 
+    from app.services.property_recap_service import regenerate_recap_background
+    background_tasks.add_task(regenerate_recap_background, property.id, "skip_trace_completed")
+
     return build_voice_response(skip_trace, property)
 
 
@@ -222,7 +228,7 @@ def get_skip_trace_for_property(property_id: int, db: Session = Depends(get_db))
 
 @router.post("/property/{property_id}/refresh", response_model=SkipTraceVoiceResponse)
 @limiter.limit("5/minute")
-async def refresh_skip_trace(request: Request, property_id: int, db: Session = Depends(get_db)):
+async def refresh_skip_trace(request: Request, property_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Force a new skip trace, even if one already exists.
     """
@@ -255,5 +261,8 @@ async def refresh_skip_trace(request: Request, property_id: int, db: Session = D
     db.add(skip_trace)
     db.commit()
     db.refresh(skip_trace)
+
+    from app.services.property_recap_service import regenerate_recap_background
+    background_tasks.add_task(regenerate_recap_background, property.id, "skip_trace_refreshed")
 
     return build_voice_response(skip_trace, property)

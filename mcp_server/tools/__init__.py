@@ -13,3 +13,6 @@ from . import vector_search  # noqa: F401
 from . import deal_calculator  # noqa: F401
 from . import reports  # noqa: F401
 from . import conversation  # noqa: F401
+from . import voice_campaigns  # noqa: F401
+from . import workflows  # noqa: F401
+from . import property_notes  # noqa: F401

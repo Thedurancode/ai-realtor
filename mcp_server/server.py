@@ -27,6 +27,7 @@ async def list_tools() -> list[Tool]:
 @app.call_tool()
 async def call_tool(name: str, arguments: Any) -> list[TextContent]:
     from .utils.activity_logging import log_activity_event, update_activity_event
+    from .utils.context_enrichment import enrich_response
     from .utils.http_client import api_post
 
     start_time = time.time()
@@ -38,6 +39,16 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         if not handler:
             raise ValueError(f"Unknown tool: {name}")
         result = await handler(arguments)
+
+        # Auto-inject conversation context into response
+        try:
+            result = enrich_response(
+                tool_name=name,
+                arguments=arguments or {},
+                result=result,
+            )
+        except Exception:
+            pass  # Never let context enrichment break the main response
 
         # Log to conversation history
         duration_ms = int((time.time() - start_time) * 1000)
@@ -61,7 +72,7 @@ def _log_conversation(tool_name: str, arguments: Any, result: list[TextContent] 
     from .utils.http_client import api_post
 
     # Skip logging conversation history tools to avoid recursion
-    if tool_name in ("get_conversation_history", "what_did_we_discuss", "clear_conversation_history"):
+    if tool_name in ("get_conversation_history", "what_did_we_discuss", "clear_conversation_history", "get_property_history"):
         return
 
     try:
@@ -75,14 +86,23 @@ def _log_conversation(tool_name: str, arguments: Any, result: list[TextContent] 
         else:
             output_summary = f"Failed: {error}" if error else "Failed"
 
-        api_post("/context/history/log", json={
+        # Extract property_id from arguments if present
+        property_id = None
+        if isinstance(arguments, dict):
+            property_id = arguments.get("property_id")
+
+        payload = {
             "session_id": "mcp_session",
             "tool_name": tool_name,
             "input_summary": input_summary,
             "output_summary": output_summary,
             "success": success,
             "duration_ms": duration_ms,
-        })
+        }
+        if property_id is not None:
+            payload["property_id"] = property_id
+
+        api_post("/context/history/log", json=payload)
     except Exception:
         pass  # Don't fail the main operation if logging fails
 
@@ -119,6 +139,20 @@ def _summarize_input(tool_name: str, arguments: Any) -> str:
     # Notification tools
     if tool_name == "send_notification":
         return f"Send notification: {arguments.get('title')}"
+
+    # Campaign tools
+    if tool_name == "create_voice_campaign":
+        return f"Create campaign '{arguments.get('name')}' ({arguments.get('call_purpose')})"
+    if tool_name == "start_voice_campaign":
+        return f"Start campaign #{arguments.get('campaign_id')}"
+    if tool_name == "pause_voice_campaign":
+        return f"Pause campaign #{arguments.get('campaign_id')}"
+    if tool_name == "get_campaign_status":
+        return f"Get status for campaign #{arguments.get('campaign_id')}"
+    if tool_name == "list_voice_campaigns":
+        return f"List campaigns (status: {arguments.get('status', 'all')})"
+    if tool_name == "add_campaign_targets":
+        return f"Add targets to campaign #{arguments.get('campaign_id')}"
 
     # Default
     return f"Called {tool_name}"

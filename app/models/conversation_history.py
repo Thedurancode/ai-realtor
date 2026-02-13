@@ -1,5 +1,5 @@
 """Conversation history model for tracking MCP tool calls."""
-from sqlalchemy import Column, Integer, String, DateTime, Text, Index
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, Index
 from sqlalchemy.types import JSON
 from sqlalchemy.sql import func
 
@@ -13,6 +13,7 @@ class ConversationHistory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String(128), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=True, index=True)
     tool_name = Column(String(128), nullable=False, index=True)
     input_summary = Column(Text, nullable=True)
     output_summary = Column(Text, nullable=True)

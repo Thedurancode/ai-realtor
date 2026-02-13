@@ -19,6 +19,31 @@ try:
 except Exception:  # pragma: no cover - optional dependency in some runtimes
     Anthropic = None  # type: ignore
 
+# Lazy imports for new action services to avoid circular imports at module load.
+def _get_zillow_service():
+    from app.services.zillow_enrichment import zillow_enrichment_service
+    return zillow_enrichment_service
+
+def _get_skip_trace_service():
+    from app.services.skip_trace import skip_trace_service
+    return skip_trace_service
+
+def _get_contract_ai_service():
+    from app.services.contract_ai_service import contract_ai_service
+    return contract_ai_service
+
+def _get_compliance_engine():
+    from app.services.compliance_engine import compliance_engine
+    return compliance_engine
+
+def _get_vapi_service():
+    from app.services.vapi_service import vapi_service
+    return vapi_service
+
+def _get_notification_service():
+    from app.services.notification_service import notification_service
+    return notification_service
+
 
 @dataclass
 class GoalPlanStep:
@@ -34,12 +59,23 @@ class VoiceGoalPlannerService:
     """Build and execute multi-step goal plans with checkpoints."""
 
     ALLOWED_ACTIONS = {
+        # Original actions
         "resolve_property",
         "inspect_property",
         "check_contract_readiness",
         "attach_required_contracts",
         "generate_property_recap",
         "summarize_next_actions",
+        # Phase 1: New voice-first actions
+        "enrich_property",
+        "skip_trace_property",
+        "ai_suggest_contracts",
+        "apply_ai_suggestions",
+        "check_compliance",
+        "make_phone_call",
+        "send_notification",
+        "update_property_status",
+        "add_note",
     }
 
     def __init__(self):
@@ -64,24 +100,114 @@ class VoiceGoalPlannerService:
         normalized = goal.lower().strip()
 
         attach_requires_confirmation = execution_mode != "autonomous"
+        call_requires_confirmation = execution_mode != "autonomous"
 
-        if any(token in normalized for token in ["deal", "close", "end-to-end", "transaction"]):
+        # New lead / full pipeline workflow (must be before enrich — goal text contains "enrich")
+        if any(token in normalized for token in ["new lead", "pipeline", "full workup", "onboard"]):
+            return [
+                GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property."),
+                GoalPlanStep(2, "enrich_property", "Enrich Property", "Enrich with Zillow data."),
+                GoalPlanStep(3, "skip_trace_property", "Skip Trace", "Find owner contact information."),
+                GoalPlanStep(4, "check_compliance", "Run Compliance Check", "Verify regulatory requirements."),
+                GoalPlanStep(
+                    5, "attach_required_contracts", "Attach Contracts",
+                    "Auto-attach required contracts.",
+                    risk_level="medium", requires_confirmation=attach_requires_confirmation,
+                ),
+                GoalPlanStep(6, "generate_property_recap", "Generate Recap", "Create comprehensive AI recap."),
+                GoalPlanStep(7, "summarize_next_actions", "Summarize Next Actions", "Provide recommended next actions."),
+            ]
+
+        # Full deal / close / ready-to-close workflow
+        if any(token in normalized for token in ["deal", "close", "end-to-end", "transaction", "ready"]):
             return [
                 GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property from explicit input, query, or memory."),
                 GoalPlanStep(2, "inspect_property", "Inspect Property", "Load key property context required for downstream actions."),
-                GoalPlanStep(3, "check_contract_readiness", "Check Contract Readiness", "Evaluate required contracts and completion status."),
+                GoalPlanStep(3, "enrich_property", "Enrich Property", "Enrich with Zillow data for market context."),
+                GoalPlanStep(4, "check_contract_readiness", "Check Contract Readiness", "Evaluate required contracts and completion status."),
                 GoalPlanStep(
-                    4,
-                    "attach_required_contracts",
-                    "Attach Missing Contracts",
+                    5, "attach_required_contracts", "Attach Missing Contracts",
                     "Auto-attach required contracts that are not yet present.",
-                    risk_level="medium",
-                    requires_confirmation=attach_requires_confirmation,
+                    risk_level="medium", requires_confirmation=attach_requires_confirmation,
                 ),
-                GoalPlanStep(5, "generate_property_recap", "Generate Recap", "Create/update an AI recap for voice calls and summaries."),
-                GoalPlanStep(6, "summarize_next_actions", "Summarize Next Actions", "Produce concise execution checkpoint summary and next actions."),
+                GoalPlanStep(6, "check_compliance", "Run Compliance Check", "Verify property meets all regulatory requirements."),
+                GoalPlanStep(7, "generate_property_recap", "Generate Recap", "Create/update an AI recap for voice calls and summaries."),
+                GoalPlanStep(8, "summarize_next_actions", "Summarize Next Actions", "Produce concise execution checkpoint summary and next actions."),
             ]
 
+        # Enrich workflow
+        if any(token in normalized for token in ["enrich", "zillow", "zestimate", "market value"]):
+            return [
+                GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property."),
+                GoalPlanStep(2, "enrich_property", "Enrich Property", "Enrich with Zillow data (Zestimate, photos, schools, features)."),
+                GoalPlanStep(3, "generate_property_recap", "Generate Recap", "Update AI recap with enrichment data."),
+                GoalPlanStep(4, "summarize_next_actions", "Summarize Next Actions", "Provide recommended next actions."),
+            ]
+
+        # Skip trace workflow
+        if any(token in normalized for token in ["skip trace", "skip-trace", "find owner", "owner info", "who owns"]):
+            steps = [
+                GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property."),
+                GoalPlanStep(2, "skip_trace_property", "Skip Trace", "Find owner contact information."),
+            ]
+            # If the goal mentions calling the owner, add phone call step
+            if any(token in normalized for token in ["call", "phone", "reach out", "contact"]):
+                steps.append(GoalPlanStep(
+                    3, "make_phone_call", "Call Owner",
+                    "Make a cold call to the property owner.",
+                    risk_level="high", requires_confirmation=call_requires_confirmation,
+                ))
+                steps.append(GoalPlanStep(4, "summarize_next_actions", "Summarize Next Actions", "Summarize results."))
+            else:
+                steps.append(GoalPlanStep(3, "generate_property_recap", "Generate Recap", "Update recap with owner info."))
+                steps.append(GoalPlanStep(4, "summarize_next_actions", "Summarize Next Actions", "Provide recommended next actions."))
+            return steps
+
+        # AI contract suggestion workflow
+        if any(token in normalized for token in ["suggest contract", "ai contract", "what contracts", "recommend contract", "contract audit", "ai to suggest", "contract cleanup"]):
+            return [
+                GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property."),
+                GoalPlanStep(2, "inspect_property", "Inspect Property", "Load property context for AI analysis."),
+                GoalPlanStep(3, "ai_suggest_contracts", "AI Suggest Contracts", "Use AI to recommend required contracts."),
+                GoalPlanStep(
+                    4, "apply_ai_suggestions", "Apply AI Suggestions",
+                    "Create contracts from AI recommendations.",
+                    risk_level="medium", requires_confirmation=attach_requires_confirmation,
+                ),
+                GoalPlanStep(5, "summarize_next_actions", "Summarize Next Actions", "Provide recommended next actions."),
+            ]
+
+        # Compliance check workflow
+        if any(token in normalized for token in ["compliance", "compliant", "regulation", "legal check"]):
+            return [
+                GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property."),
+                GoalPlanStep(2, "inspect_property", "Inspect Property", "Load property details."),
+                GoalPlanStep(3, "check_compliance", "Run Compliance Check", "Check all regulatory requirements."),
+                GoalPlanStep(4, "summarize_next_actions", "Summarize Next Actions", "Summarize compliance results."),
+            ]
+
+        # Add note workflow
+        if any(token in normalized for token in ["note", "jot down", "remember that", "write down"]):
+            return [
+                GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property."),
+                GoalPlanStep(2, "add_note", "Add Note", "Save the note to the property."),
+                GoalPlanStep(3, "summarize_next_actions", "Summarize", "Confirm note was saved."),
+            ]
+
+        # Call / phone workflow
+        if any(token in normalized for token in ["call", "phone"]) and not any(token in normalized for token in ["skip"]):
+            return [
+                GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property."),
+                GoalPlanStep(2, "generate_property_recap", "Generate Recap", "Ensure recap is current for the call."),
+                GoalPlanStep(
+                    3, "make_phone_call", "Make Phone Call",
+                    "Make a VAPI phone call about the property.",
+                    risk_level="high", requires_confirmation=call_requires_confirmation,
+                ),
+                GoalPlanStep(4, "summarize_next_actions", "Summarize Next Actions", "Summarize call results."),
+            ]
+
+        # Default plan (unchanged)
         return [
             GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the property associated with the user request."),
             GoalPlanStep(2, "inspect_property", "Inspect Property", "Load core details for decision making."),
@@ -210,6 +336,7 @@ class VoiceGoalPlannerService:
         )
 
         state: dict[str, Any] = {
+            "goal": goal,
             "property_id": property_id,
             "property_query": property_query,
             "property": None,
@@ -307,6 +434,7 @@ class VoiceGoalPlannerService:
         goal_node_key: str,
     ) -> dict[str, Any]:
         try:
+            # Original actions
             if step.action == "resolve_property":
                 return self._step_resolve_property(db, state, session_id, goal_node_key, step)
 
@@ -324,6 +452,34 @@ class VoiceGoalPlannerService:
 
             if step.action == "summarize_next_actions":
                 return self._step_summarize_next_actions(db, state, session_id, goal_node_key, step)
+
+            # Phase 1: New voice-first actions
+            if step.action == "enrich_property":
+                return await self._step_enrich_property(db, state, session_id, goal_node_key, step)
+
+            if step.action == "skip_trace_property":
+                return await self._step_skip_trace_property(db, state, session_id, goal_node_key, step)
+
+            if step.action == "ai_suggest_contracts":
+                return await self._step_ai_suggest_contracts(db, state, session_id, goal_node_key, step)
+
+            if step.action == "apply_ai_suggestions":
+                return await self._step_apply_ai_suggestions(db, state, session_id, goal_node_key, step)
+
+            if step.action == "check_compliance":
+                return await self._step_check_compliance(db, state, session_id, goal_node_key, step)
+
+            if step.action == "make_phone_call":
+                return await self._step_make_phone_call(db, state, session_id, goal_node_key, step)
+
+            if step.action == "send_notification":
+                return self._step_send_notification(db, state, session_id, goal_node_key, step)
+
+            if step.action == "update_property_status":
+                return self._step_update_property_status(db, state, session_id, goal_node_key, step)
+
+            if step.action == "add_note":
+                return self._step_add_note(db, state, session_id, goal_node_key, step)
 
             return self._checkpoint(step, "failed", f"Unknown step action: {step.action}")
         except Exception as exc:
@@ -538,6 +694,519 @@ class VoiceGoalPlannerService:
         msg = f"Auto-attached {len(attached)} required contract(s)."
         return self._checkpoint(step, "completed", msg, data={"attached_contracts": state["attached_contracts"]})
 
+    # ── Phase 1: New voice-first action executors ──
+
+    async def _step_enrich_property(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        prop: Property | None = state.get("property")
+        if prop is None:
+            return self._checkpoint(step, "failed", "Property context missing.")
+
+        full_address = f"{prop.address}, {prop.city}, {prop.state} {prop.zip_code or ''}".strip()
+        svc = _get_zillow_service()
+        enrichment_data = await svc.enrich_by_address(full_address)
+
+        zestimate = enrichment_data.get("zestimate")
+        rent_zestimate = enrichment_data.get("rentZestimate")
+        photo_count = len(enrichment_data.get("photos", []))
+        zpid = enrichment_data.get("zpid")
+
+        # Persist enrichment to DB via the enrichment model
+        from app.models.zillow_enrichment import ZillowEnrichment
+        existing = db.query(ZillowEnrichment).filter(ZillowEnrichment.property_id == prop.id).first()
+        if existing:
+            existing.zestimate = zestimate
+            existing.rent_zestimate = rent_zestimate
+            existing.zpid = int(zpid) if zpid else existing.zpid
+            existing.photos = enrichment_data.get("photos")
+            existing.reso_facts = enrichment_data.get("resoFacts")
+            existing.schools = enrichment_data.get("schools")
+            existing.tax_history = enrichment_data.get("taxHistory")
+            existing.price_history = enrichment_data.get("priceHistory")
+        else:
+            new_enrichment = ZillowEnrichment(
+                property_id=prop.id,
+                zpid=int(zpid) if zpid else None,
+                zestimate=zestimate,
+                rent_zestimate=rent_zestimate,
+                photos=enrichment_data.get("photos"),
+                reso_facts=enrichment_data.get("resoFacts"),
+                schools=enrichment_data.get("schools"),
+                tax_history=enrichment_data.get("taxHistory"),
+                price_history=enrichment_data.get("priceHistory"),
+            )
+            db.add(new_enrichment)
+
+        data = {
+            "zestimate": zestimate,
+            "rent_zestimate": rent_zestimate,
+            "photo_count": photo_count,
+            "zpid": zpid,
+        }
+        state["enrichment"] = data
+
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="enrichment",
+            node_key=str(prop.id),
+            summary=f"Zillow enrichment for #{prop.id}: Zestimate ${zestimate:,.0f}" if zestimate else f"Zillow enrichment for #{prop.id}",
+            payload=data, importance=0.8,
+        )
+        memory_graph_service.upsert_edge(
+            db, session_id=session_id,
+            source=MemoryRef("goal", goal_node_key),
+            target=MemoryRef("enrichment", str(prop.id)),
+            relation="enriched", weight=0.85,
+        )
+
+        zest_text = f", Zestimate: ${zestimate:,.0f}" if zestimate else ""
+        return self._checkpoint(
+            step, "completed",
+            f"Enriched {prop.address} with Zillow data ({photo_count} photos{zest_text}).",
+            data=data,
+        )
+
+    async def _step_skip_trace_property(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        prop: Property | None = state.get("property")
+        if prop is None:
+            return self._checkpoint(step, "failed", "Property context missing.")
+
+        svc = _get_skip_trace_service()
+        result = await svc.skip_trace(
+            address=prop.address,
+            city=prop.city,
+            state=prop.state,
+            zip_code=prop.zip_code or "",
+        )
+
+        owner_name = result.get("owner_name", "Unknown")
+        phones = result.get("phone_numbers", [])
+        emails = result.get("email_addresses", result.get("emails", []))
+
+        # Persist skip trace to DB
+        from app.models.skip_trace import SkipTrace
+        existing = db.query(SkipTrace).filter(SkipTrace.property_id == prop.id).first()
+        if existing:
+            existing.owner_name = owner_name
+            existing.phone_numbers = phones
+            existing.emails = emails
+            existing.mailing_address = result.get("mailing_address")
+            existing.raw_response = result
+        else:
+            new_st = SkipTrace(
+                property_id=prop.id,
+                owner_name=owner_name,
+                phone_numbers=phones,
+                emails=emails,
+                mailing_address=result.get("mailing_address"),
+                raw_response=result,
+            )
+            db.add(new_st)
+
+        data = {
+            "owner_name": owner_name,
+            "phone_count": len(phones),
+            "email_count": len(emails),
+            "phones": phones[:3],
+        }
+        state["skip_trace"] = data
+
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="owner",
+            node_key=str(prop.id),
+            summary=f"Owner: {owner_name}, {len(phones)} phones, {len(emails)} emails",
+            payload=data, importance=0.85,
+        )
+        memory_graph_service.upsert_edge(
+            db, session_id=session_id,
+            source=MemoryRef("goal", goal_node_key),
+            target=MemoryRef("owner", str(prop.id)),
+            relation="traced", weight=0.9,
+        )
+
+        state["next_actions"].append(f"Contact owner {owner_name}")
+        return self._checkpoint(
+            step, "completed",
+            f"Found owner: {owner_name} ({len(phones)} phone numbers, {len(emails)} emails).",
+            data=data,
+        )
+
+    async def _step_ai_suggest_contracts(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        prop: Property | None = state.get("property")
+        if prop is None:
+            return self._checkpoint(step, "failed", "Property context missing.")
+
+        svc = _get_contract_ai_service()
+        suggestions = await svc.suggest_required_contracts(db, prop)
+
+        required = suggestions.get("required_contracts", [])
+        optional = suggestions.get("optional_contracts", [])
+
+        data = {
+            "total_suggested": len(required) + len(optional),
+            "required_count": len(required),
+            "optional_count": len(optional),
+            "required_names": [c.get("name", "") for c in required[:5]],
+            "summary": suggestions.get("summary", ""),
+        }
+        state["ai_suggestions"] = suggestions
+
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="ai_suggestions",
+            node_key=str(prop.id),
+            summary=f"AI suggests {len(required)} required, {len(optional)} optional contracts",
+            payload=data, importance=0.8,
+        )
+        memory_graph_service.upsert_edge(
+            db, session_id=session_id,
+            source=MemoryRef("goal", goal_node_key),
+            target=MemoryRef("ai_suggestions", str(prop.id)),
+            relation="suggested", weight=0.85,
+        )
+
+        return self._checkpoint(
+            step, "completed",
+            f"AI suggests {len(required)} required and {len(optional)} optional contracts.",
+            data=data,
+        )
+
+    async def _step_apply_ai_suggestions(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        prop: Property | None = state.get("property")
+        if prop is None:
+            return self._checkpoint(step, "failed", "Property context missing.")
+
+        suggestions = state.get("ai_suggestions")
+        if not suggestions:
+            return self._checkpoint(step, "failed", "No AI suggestions in state. Run ai_suggest_contracts first.")
+
+        # Apply by creating contracts from suggestions (inline, mirrors router logic)
+        from app.models.contract import Contract, ContractStatus, RequirementSource
+        from app.models.contract_template import ContractTemplate
+
+        existing_contracts = db.query(Contract).filter(Contract.property_id == prop.id).all()
+        existing_names = {c.name.lower() for c in existing_contracts}
+
+        created_contracts: list[Contract] = []
+        for suggestion in suggestions.get("required_contracts", []):
+            template_id = suggestion.get("template_id")
+            contract_name = suggestion.get("name", "")
+            reason = suggestion.get("reason", "")
+
+            if contract_name.lower() in existing_names:
+                continue
+
+            template = db.query(ContractTemplate).filter(ContractTemplate.id == template_id).first() if template_id else None
+            if template:
+                contract = Contract(
+                    property_id=prop.id,
+                    name=template.name,
+                    description=template.description,
+                    docuseal_template_id=template.docuseal_template_id,
+                    is_required=True,
+                    requirement_source=RequirementSource.AI_SUGGESTED,
+                    requirement_reason=reason,
+                    status=ContractStatus.DRAFT,
+                )
+                db.add(contract)
+                created_contracts.append(contract)
+
+        db.flush()  # Get IDs for memory graph
+
+        data = {
+            "contracts_created": len(created_contracts),
+            "contract_names": [c.name for c in created_contracts[:5]],
+        }
+        state["applied_suggestions"] = data
+
+        for contract in created_contracts:
+            memory_graph_service.remember_contract(
+                db, session_id=session_id,
+                contract_id=contract.id, name=contract.name,
+                status=contract.status.value if contract.status else "DRAFT",
+                property_id=prop.id,
+            )
+            memory_graph_service.upsert_edge(
+                db, session_id=session_id,
+                source=MemoryRef("goal", goal_node_key),
+                target=MemoryRef("contract", str(contract.id)),
+                relation="created", weight=0.9,
+            )
+
+        return self._checkpoint(
+            step, "completed",
+            f"Applied AI suggestions: created {len(created_contracts)} contract(s).",
+            data=data,
+        )
+
+    async def _step_check_compliance(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        prop: Property | None = state.get("property")
+        if prop is None:
+            return self._checkpoint(step, "failed", "Property context missing.")
+
+        engine = _get_compliance_engine()
+        check = await engine.run_compliance_check(db, prop, check_type="full")
+
+        data = {
+            "check_id": check.id,
+            "status": check.status,
+            "total_rules_checked": check.total_rules_checked,
+            "passed_count": check.passed_count,
+            "failed_count": check.failed_count,
+            "warning_count": check.warning_count,
+        }
+        state["compliance"] = data
+
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="compliance",
+            node_key=str(prop.id),
+            summary=f"Compliance: {check.status} ({check.passed_count} passed, {check.failed_count} failed)",
+            payload=data, importance=0.9,
+        )
+        memory_graph_service.upsert_edge(
+            db, session_id=session_id,
+            source=MemoryRef("goal", goal_node_key),
+            target=MemoryRef("compliance", str(prop.id)),
+            relation="checked", weight=0.9,
+        )
+
+        if check.failed_count > 0:
+            state["next_actions"].append(f"Resolve {check.failed_count} compliance violation(s)")
+
+        return self._checkpoint(
+            step, "completed",
+            f"Compliance check: {check.status}. {check.passed_count} passed, {check.failed_count} failed, {check.warning_count} warnings.",
+            data=data,
+        )
+
+    async def _step_make_phone_call(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        prop: Property | None = state.get("property")
+        if prop is None:
+            return self._checkpoint(step, "failed", "Property context missing.")
+
+        # Determine phone number from skip trace or state
+        phone_number = state.get("phone_number")
+        call_purpose = state.get("call_purpose", "property_update")
+
+        if not phone_number:
+            skip_trace = state.get("skip_trace")
+            if skip_trace and skip_trace.get("phones"):
+                phone_number = skip_trace["phones"][0]
+                call_purpose = "skip_trace_outreach"
+
+        if not phone_number:
+            return self._checkpoint(
+                step, "failed",
+                "No phone number available. Run skip_trace_property first or provide phone_number.",
+            )
+
+        svc = _get_vapi_service()
+        call_result = await svc.make_property_call(
+            db=db, property=prop,
+            phone_number=phone_number,
+            call_purpose=call_purpose,
+        )
+
+        call_id = call_result.get("id") or call_result.get("call_id")
+        data = {
+            "call_id": call_id,
+            "phone_number": phone_number,
+            "call_purpose": call_purpose,
+            "status": call_result.get("status", "initiated"),
+        }
+        state["phone_call"] = data
+
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="phone_call",
+            node_key=str(call_id or prop.id),
+            summary=f"Called {phone_number} about {prop.address} ({call_purpose})",
+            payload=data, importance=0.85,
+        )
+        memory_graph_service.upsert_edge(
+            db, session_id=session_id,
+            source=MemoryRef("goal", goal_node_key),
+            target=MemoryRef("phone_call", str(call_id or prop.id)),
+            relation="called", weight=0.9,
+        )
+
+        return self._checkpoint(
+            step, "completed",
+            f"Phone call initiated to {phone_number} ({call_purpose}).",
+            data=data,
+        )
+
+    def _step_send_notification(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        prop: Property | None = state.get("property")
+        address = prop.address if prop else "Unknown"
+
+        title = state.get("notification_title", f"Goal completed for {address}")
+        message = state.get("notification_message", step.instruction)
+
+        svc = _get_notification_service()
+        from app.models.notification import NotificationType
+        notification = svc.create_notification(
+            db=db,
+            notification_type=NotificationType.GENERAL,
+            title=title,
+            message=message,
+            property_id=prop.id if prop else None,
+        )
+
+        data = {"notification_id": notification.id, "title": title}
+        return self._checkpoint(step, "completed", f"Notification sent: {title}", data=data)
+
+    def _step_update_property_status(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        prop: Property | None = state.get("property")
+        if prop is None:
+            return self._checkpoint(step, "failed", "Property context missing.")
+
+        new_status = state.get("new_status")
+        if not new_status:
+            return self._checkpoint(step, "failed", "No new_status provided in state.")
+
+        from app.models.property import PropertyStatus
+        try:
+            status_enum = PropertyStatus(new_status)
+        except ValueError:
+            return self._checkpoint(step, "failed", f"Invalid status: {new_status}")
+
+        old_status = prop.status.value if prop.status else "none"
+        prop.status = status_enum
+
+        data = {"old_status": old_status, "new_status": new_status}
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="status_change",
+            node_key=str(prop.id),
+            summary=f"Status changed: {old_status} -> {new_status}",
+            payload=data, importance=0.7,
+        )
+
+        return self._checkpoint(
+            step, "completed",
+            f"Updated property status from {old_status} to {new_status}.",
+            data=data,
+        )
+
+    def _step_add_note(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        prop: Property | None = state.get("property")
+        if prop is None:
+            return self._checkpoint(step, "failed", "Property context missing.")
+
+        # Extract note content: explicit override > goal text > step instruction
+        content = state.get("note_content")
+        if not content:
+            # Extract from goal text — strip common prefixes like "note that", "jot down", etc.
+            goal_text = state.get("goal", "")
+            import re
+            cleaned = re.sub(
+                r"^(note|jot down|write down|remember)\s+(that\s+)?(property\s+\d+\s+)?(has\s+)?",
+                "", goal_text, flags=re.IGNORECASE,
+            ).strip()
+            if cleaned and len(cleaned) > 5:
+                content = cleaned
+        if not content:
+            return self._checkpoint(step, "failed", "No note content provided.")
+
+        source = state.get("note_source", "voice")
+        created_by = state.get("note_created_by", "voice assistant")
+
+        from app.models.property_note import PropertyNote, NoteSource
+        try:
+            source_enum = NoteSource(source)
+        except ValueError:
+            source_enum = NoteSource.VOICE
+
+        note = PropertyNote(
+            property_id=prop.id,
+            content=content,
+            source=source_enum,
+            created_by=created_by,
+        )
+        db.add(note)
+        db.flush()
+
+        data = {"note_id": note.id, "content": content[:200], "source": source}
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="property_note",
+            node_key=f"note_{note.id}",
+            summary=f"Note added: {content[:100]}",
+            payload=data, importance=0.5,
+        )
+        memory_graph_service.upsert_edge(
+            db, session_id=session_id,
+            source=MemoryRef("property", str(prop.id)),
+            target=MemoryRef("property_note", f"note_{note.id}"),
+            relation="has_note",
+        )
+
+        return self._checkpoint(
+            step, "completed",
+            f"Note added to property #{prop.id}: {content[:120]}",
+            data=data,
+        )
+
+    # ── End Phase 1 actions ──
+
     async def _step_generate_recap(
         self,
         db: Session,
@@ -608,6 +1277,20 @@ class VoiceGoalPlannerService:
         if readiness.get("is_ready_to_close"):
             next_actions.append("Prepare closing package and schedule final walkthrough")
 
+        # New state-driven suggestions
+        enrichment = state.get("enrichment")
+        if enrichment and not state.get("skip_trace"):
+            next_actions.append("Run skip trace to find owner contact information")
+
+        compliance = state.get("compliance")
+        if compliance and compliance.get("failed_count", 0) > 0:
+            next_actions.append(f"Resolve {compliance['failed_count']} compliance violation(s)")
+
+        skip_trace = state.get("skip_trace")
+        if skip_trace and not state.get("phone_call"):
+            owner = skip_trace.get("owner_name", "owner")
+            next_actions.append(f"Consider calling {owner} about the property")
+
         # Deduplicate while preserving order.
         deduped: list[str] = []
         for action in next_actions:
@@ -652,16 +1335,40 @@ class VoiceGoalPlannerService:
             )
 
         address = prop.address if prop else "the target property"
-        readiness_text = (
-            f"Readiness is {readiness.get('completed', 0)}/{readiness.get('total_required', 0)} complete "
-            f"with {readiness.get('missing', 0)} missing contracts."
-        )
+        parts = [f"Goal '{goal}' completed for {address}."]
+
+        # Enrichment summary
+        enrichment = state.get("enrichment")
+        if enrichment and enrichment.get("zestimate"):
+            parts.append(f"Zestimate: ${enrichment['zestimate']:,.0f}.")
+
+        # Skip trace summary
+        skip_trace = state.get("skip_trace")
+        if skip_trace:
+            parts.append(f"Owner: {skip_trace.get('owner_name', 'Unknown')} ({skip_trace.get('phone_count', 0)} phones).")
+
+        # Readiness summary
+        if readiness:
+            parts.append(
+                f"Readiness: {readiness.get('completed', 0)}/{readiness.get('total_required', 0)} complete, "
+                f"{readiness.get('missing', 0)} missing."
+            )
+
+        # Compliance summary
+        compliance = state.get("compliance")
+        if compliance:
+            parts.append(f"Compliance: {compliance.get('status', 'N/A')}.")
+
+        # Phone call summary
+        phone_call = state.get("phone_call")
+        if phone_call:
+            parts.append(f"Call initiated to {phone_call.get('phone_number', 'N/A')}.")
 
         if next_actions:
             actions = " ".join([f"- {a}" for a in next_actions])
-            return f"Goal '{goal}' completed for {address}. {readiness_text} Next actions: {actions}"
+            parts.append(f"Next actions: {actions}")
 
-        return f"Goal '{goal}' completed for {address}. {readiness_text}"
+        return " ".join(parts)
 
     def _compute_intelligence_score(
         self,
