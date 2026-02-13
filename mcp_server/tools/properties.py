@@ -8,10 +8,20 @@ from ..utils.property_resolver import resolve_property_id, find_property_by_addr
 
 # ── Helpers ──
 
-async def list_properties(limit: int = 10, status=None) -> dict:
+async def list_properties(limit: int = 10, status=None, property_type=None, city=None, min_price=None, max_price=None, bedrooms=None) -> dict:
     params = {"limit": limit}
     if status:
         params["status"] = status
+    if property_type:
+        params["property_type"] = property_type
+    if city:
+        params["city"] = city
+    if min_price is not None:
+        params["min_price"] = min_price
+    if max_price is not None:
+        params["max_price"] = max_price
+    if bedrooms is not None:
+        params["bedrooms"] = bedrooms
     response = api_get("/properties/", params=params)
     response.raise_for_status()
     return response.json()
@@ -90,7 +100,15 @@ async def enrich_property(property_id: int) -> dict:
 async def handle_list_properties(arguments: dict) -> list[TextContent]:
     limit = arguments.get("limit", 10)
     status = arguments.get("status")
-    result = await list_properties(limit=limit, status=status)
+    property_type = arguments.get("property_type")
+    city = arguments.get("city")
+    min_price = arguments.get("min_price")
+    max_price = arguments.get("max_price")
+    bedrooms = arguments.get("bedrooms")
+    result = await list_properties(
+        limit=limit, status=status, property_type=property_type,
+        city=city, min_price=min_price, max_price=max_price, bedrooms=bedrooms,
+    )
 
     if not result:
         text = f"No {status} properties found." if status else "No properties found."
@@ -318,7 +336,7 @@ async def handle_enrich_property(arguments: dict) -> list[TextContent]:
 # ── Tool Registration ──
 
 register_tool(
-    Tool(name="list_properties", description="List all properties in the database. Optionally filter by status (available, pending, sold). Returns property details including address, price, bedrooms, bathrooms, enrichment data, and skip trace information.", inputSchema={"type": "object", "properties": {"limit": {"type": "number", "description": "Maximum number of properties to return (default: 10)", "default": 10}, "status": {"type": "string", "description": "Filter by property status: available, pending, sold, rented, off_market", "enum": ["available", "pending", "sold", "rented", "off_market"]}}}),
+    Tool(name="list_properties", description="List all properties in the database. Filter by status, property type, city, price range, or bedrooms. Voice examples: 'show me all condos', 'list houses under 500k in Miami', 'show available land'.", inputSchema={"type": "object", "properties": {"limit": {"type": "number", "description": "Maximum number of properties to return (default: 10)", "default": 10}, "status": {"type": "string", "description": "Filter by property status", "enum": ["available", "pending", "sold", "rented", "off_market"]}, "property_type": {"type": "string", "description": "Filter by property type", "enum": ["house", "condo", "townhouse", "apartment", "land", "commercial", "multi_family"]}, "city": {"type": "string", "description": "Filter by city name (partial match)"}, "min_price": {"type": "number", "description": "Minimum price filter"}, "max_price": {"type": "number", "description": "Maximum price filter"}, "bedrooms": {"type": "number", "description": "Minimum number of bedrooms"}}}),
     handle_list_properties
 )
 
