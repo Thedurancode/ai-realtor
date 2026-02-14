@@ -80,6 +80,8 @@ class VoiceGoalPlannerService:
         "check_insights",
         "schedule_task",
         "get_analytics",
+        # Phase 3: Follow-up queue
+        "check_follow_ups",
     }
 
     def __init__(self):
@@ -196,6 +198,13 @@ class VoiceGoalPlannerService:
                 GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property if mentioned."),
                 GoalPlanStep(2, "schedule_task", "Schedule Task", "Create a scheduled reminder or recurring task."),
                 GoalPlanStep(3, "summarize_next_actions", "Summarize", "Confirm task was scheduled."),
+            ]
+
+        # Follow-up queue workflow (must be before insights — "work on next" is more specific)
+        if any(token in normalized for token in ["work on next", "follow-up queue", "follow up queue", "who should i call", "top priority", "what's next", "what should i"]):
+            return [
+                GoalPlanStep(1, "check_follow_ups", "Check Follow-Up Queue", "Get AI-prioritized follow-up queue."),
+                GoalPlanStep(2, "summarize_next_actions", "Summarize", "Present prioritized follow-ups."),
             ]
 
         # Insights / alerts / follow-up workflow
@@ -506,6 +515,10 @@ class VoiceGoalPlannerService:
 
             if step.action == "add_note":
                 return self._step_add_note(db, state, session_id, goal_node_key, step)
+
+            # Phase 3: Follow-up queue
+            if step.action == "check_follow_ups":
+                return self._step_check_follow_ups(db, state, session_id, goal_node_key, step)
 
             return self._checkpoint(step, "failed", f"Unknown step action: {step.action}")
         except Exception as exc:
@@ -1232,6 +1245,55 @@ class VoiceGoalPlannerService:
         )
 
     # ── End Phase 1 actions ──
+
+    # ── Phase 3: Follow-up queue ──
+
+    def _step_check_follow_ups(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        from app.services.follow_up_queue_service import follow_up_queue_service
+
+        result = follow_up_queue_service.get_queue(db, limit=5)
+        items = result.get("items", [])
+        total = result.get("total", 0)
+        voice = result.get("voice_summary", "No follow-ups.")
+
+        state["follow_up_queue"] = result
+
+        if items:
+            top = items[0]
+            state["next_actions"].append(
+                f"Top follow-up: {top['address'].split(',')[0]} — {top['reasons'][0] if top['reasons'] else 'needs attention'}"
+            )
+
+        data = {
+            "total": total,
+            "top_items": [
+                {"property_id": i["property_id"], "address": i["address"], "priority": i["priority"], "score": i["score"]}
+                for i in items[:3]
+            ],
+            "voice_summary": voice,
+        }
+
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="follow_up_queue",
+            node_key="latest",
+            summary=voice[:500],
+            payload=data, importance=0.8,
+        )
+        memory_graph_service.upsert_edge(
+            db, session_id=session_id,
+            source=MemoryRef("goal", goal_node_key),
+            target=MemoryRef("follow_up_queue", "latest"),
+            relation="checked", weight=0.85,
+        )
+
+        return self._checkpoint(step, "completed", voice, data=data)
 
     async def _step_generate_recap(
         self,
