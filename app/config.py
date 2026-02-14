@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     campaign_worker_enabled: bool = True
     campaign_worker_interval_seconds: int = 15
     campaign_worker_max_calls_per_tick: int = 5
+    daily_digest_enabled: bool = True
+    daily_digest_hour: int = 8
 
     class Config:
         env_file = ".env"

@@ -76,6 +76,10 @@ class VoiceGoalPlannerService:
         "send_notification",
         "update_property_status",
         "add_note",
+        # Phase 2: Intelligence & automation actions
+        "check_insights",
+        "schedule_task",
+        "get_analytics",
     }
 
     def __init__(self):
@@ -184,6 +188,28 @@ class VoiceGoalPlannerService:
                 GoalPlanStep(2, "inspect_property", "Inspect Property", "Load property details."),
                 GoalPlanStep(3, "check_compliance", "Run Compliance Check", "Check all regulatory requirements."),
                 GoalPlanStep(4, "summarize_next_actions", "Summarize Next Actions", "Summarize compliance results."),
+            ]
+
+        # Schedule / remind workflow (must be before insights — "follow up in" is more specific than "follow up")
+        if any(token in normalized for token in ["remind", "schedule", "set reminder", "follow up in", "in 2 day", "in 3 day"]):
+            return [
+                GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property if mentioned."),
+                GoalPlanStep(2, "schedule_task", "Schedule Task", "Create a scheduled reminder or recurring task."),
+                GoalPlanStep(3, "summarize_next_actions", "Summarize", "Confirm task was scheduled."),
+            ]
+
+        # Insights / alerts / follow-up workflow
+        if any(token in normalized for token in ["attention", "alert", "insight", "overdue", "follow up", "what needs"]):
+            return [
+                GoalPlanStep(1, "check_insights", "Check Insights", "Scan for stale properties, deadlines, and gaps."),
+                GoalPlanStep(2, "summarize_next_actions", "Summarize", "Present prioritized alerts."),
+            ]
+
+        # Portfolio / analytics workflow
+        if any(token in normalized for token in ["portfolio", "analytics", "dashboard", "numbers", "how many properties", "summary of all"]):
+            return [
+                GoalPlanStep(1, "get_analytics", "Get Analytics", "Pull portfolio-wide analytics and metrics."),
+                GoalPlanStep(2, "summarize_next_actions", "Summarize", "Present portfolio summary."),
             ]
 
         # Add note workflow

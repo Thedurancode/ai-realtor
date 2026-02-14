@@ -17,6 +17,11 @@ class NotificationType(enum.Enum):
     SKIP_TRACE_COMPLETE = "skip_trace_complete"
     ENRICHMENT_COMPLETE = "enrichment_complete"
     GENERAL = "general"
+    FOLLOW_UP_DUE = "follow_up_due"
+    CONTRACT_DEADLINE = "contract_deadline"
+    SCHEDULED_TASK = "scheduled_task"
+    PIPELINE_AUTO_ADVANCE = "pipeline_auto_advance"
+    DAILY_DIGEST = "daily_digest"
 
 
 class NotificationPriority(enum.Enum):

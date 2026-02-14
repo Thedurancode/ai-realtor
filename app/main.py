@@ -12,7 +12,7 @@ from app.database import engine, Base, SessionLocal
 from app.config import settings
 from app.rate_limit import limiter
 from app.auth import verify_api_key
-from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router
+from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router
 import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 
@@ -97,6 +97,11 @@ app.include_router(search_router)
 app.include_router(deal_calculator_router)
 app.include_router(workflows_router)
 app.include_router(property_notes_router)
+app.include_router(insights_router)
+app.include_router(scheduled_tasks_router)
+app.include_router(analytics_router)
+app.include_router(pipeline_router)
+app.include_router(daily_digest_router)
 
 
 # WebSocket connection manager
@@ -193,6 +198,11 @@ async def _periodic_cache_cleanup():
 @app.on_event("startup")
 async def startup():
     asyncio.create_task(_periodic_cache_cleanup())
+
+    # Scheduled task runner (reminders, recurring tasks)
+    from app.services.task_runner import run_task_loop
+    asyncio.create_task(run_task_loop())
+
     if settings.campaign_worker_enabled:
         from app.services.voice_campaign_service import run_campaign_worker_loop
 
@@ -202,3 +212,53 @@ async def startup():
                 max_calls_per_campaign=settings.campaign_worker_max_calls_per_tick,
             )
         )
+
+    # Auto-schedule daily digest if enabled
+    if settings.daily_digest_enabled:
+        _schedule_daily_digest()
+
+
+def _schedule_daily_digest():
+    """Ensure a recurring daily digest task exists."""
+    try:
+        from app.models.scheduled_task import ScheduledTask, TaskType, TaskStatus
+        from datetime import datetime, timezone, timedelta
+
+        db = SessionLocal()
+        try:
+            existing = (
+                db.query(ScheduledTask)
+                .filter(
+                    ScheduledTask.task_type == TaskType.RECURRING,
+                    ScheduledTask.action == "generate_daily_digest",
+                    ScheduledTask.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING]),
+                )
+                .first()
+            )
+            if existing:
+                return  # Already scheduled
+
+            # Schedule for next occurrence at configured hour
+            now = datetime.now(timezone.utc)
+            next_run = now.replace(hour=settings.daily_digest_hour, minute=0, second=0, microsecond=0)
+            if next_run <= now:
+                next_run += timedelta(days=1)
+
+            task = ScheduledTask(
+                task_type=TaskType.RECURRING,
+                status=TaskStatus.PENDING,
+                title="Daily Digest",
+                description="AI-generated morning briefing with portfolio insights and alerts",
+                scheduled_at=next_run,
+                repeat_interval_hours=24,
+                next_run_at=next_run,
+                action="generate_daily_digest",
+                created_by="system",
+            )
+            db.add(task)
+            db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to schedule daily digest: %s", e)

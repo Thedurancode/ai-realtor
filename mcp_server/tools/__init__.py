@@ -16,3 +16,8 @@ from . import conversation  # noqa: F401
 from . import voice_campaigns  # noqa: F401
 from . import workflows  # noqa: F401
 from . import property_notes  # noqa: F401
+from . import insights  # noqa: F401
+from . import scheduled_tasks  # noqa: F401
+from . import analytics  # noqa: F401
+from . import pipeline  # noqa: F401
+from . import daily_digest  # noqa: F401
