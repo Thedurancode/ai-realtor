@@ -218,7 +218,7 @@ Each property gets an AI-generated recap that includes:
 
 Say a natural language goal and the planner builds and executes a plan automatically.
 
-**15 supported actions:**
+**18 supported actions:**
 - `resolve_property` - Find the target property
 - `enrich_property` - Pull Zillow data
 - `skip_trace_property` - Find owner contacts
@@ -234,6 +234,9 @@ Say a natural language goal and the planner builds and executes a plan automatic
 - `summarize_next_actions` - Summary and next steps
 - `check_contract_readiness` - Check closing readiness
 - `create_property` - Create new property
+- `check_insights` - Scan for alerts and issues
+- `schedule_task` - Create reminders and recurring tasks
+- `get_analytics` - Pull portfolio-wide analytics
 
 **Heuristic plan matching:**
 - "Set up property 5 as a new lead" → resolve → enrich → skip trace → contracts → recap → summarize
@@ -242,6 +245,9 @@ Say a natural language goal and the planner builds and executes a plan automatic
 - "Enrich property 5" → resolve → enrich → recap → summarize
 - "Skip trace property 5" → resolve → skip trace → summarize
 - "Call the owner of property 5" → resolve → skip trace → call → summarize
+- "What needs attention?" → check insights → summarize
+- "Remind me to follow up on property 5 in 3 days" → resolve → schedule task → summarize
+- "How's my portfolio doing?" → get analytics → summarize
 
 **Safety features:**
 - Checkpoint/rollback after each step
@@ -433,7 +439,150 @@ Track all events in real-time: property CRUD, enrichments, skip traces, contract
 
 ---
 
-## MCP Tools — Complete List (77 tools)
+### 20. Proactive Insights
+
+**On-demand intelligence that surfaces problems before they escalate**
+
+6 alert rules scan your properties:
+1. **Stale properties** — No activity in 7+ days (14+ = high priority)
+2. **Contract deadlines** — Required contracts approaching or overdue deadlines
+3. **Unsigned contracts** — Required contracts sitting in DRAFT/SENT for 3+ days
+4. **Missing enrichment** — Properties without Zillow data
+5. **Missing skip trace** — Properties with unknown owners
+6. **High score, no action** — Deal score 80+ but no contracts started
+
+Alerts are grouped by priority (urgent/high/medium/low) with voice summaries.
+
+**API Endpoints:**
+```
+GET /insights/                      - All alerts (optional ?priority= filter)
+GET /insights/property/{property_id} - Alerts for one property
+```
+
+**MCP Tools:**
+- `get_insights` - Voice: "What needs attention?" or "Show me alerts"
+- `get_property_insights` - Voice: "Any issues with property 5?"
+
+---
+
+### 21. Scheduled Tasks
+
+**Persistent reminders, follow-ups, and recurring tasks**
+
+DB-backed task system with background runner (60-second loop).
+
+**Task types:** REMINDER, RECURRING, FOLLOW_UP, CONTRACT_CHECK
+
+**Features:**
+- Automatic notification creation when tasks are due
+- Recurring tasks auto-create next occurrence
+- Property-linked tasks for context
+- Background asyncio loop processes due tasks
+
+**API Endpoints:**
+```
+POST   /scheduled-tasks/              - Create task
+GET    /scheduled-tasks/              - List tasks (optional ?status= filter)
+GET    /scheduled-tasks/{id}          - Get specific task
+DELETE /scheduled-tasks/{id}/cancel   - Cancel task
+GET    /scheduled-tasks/due           - List due tasks
+```
+
+**MCP Tools:**
+- `create_scheduled_task` - Voice: "Remind me to follow up on property 5 in 3 days"
+- `list_scheduled_tasks` - Voice: "What tasks are scheduled?"
+- `cancel_scheduled_task` - Voice: "Cancel task 3"
+
+---
+
+### 22. Cross-Property Analytics
+
+**Portfolio-level intelligence aggregated from existing data**
+
+6 metric categories:
+1. **Pipeline stats** — Properties by status and type
+2. **Portfolio value** — Total price, average price, total Zestimate, equity
+3. **Contract stats** — By status, unsigned required count
+4. **Activity stats** — Actions in last 24h/7d/30d, most active properties
+5. **Deal scores** — Average score, grade distribution (A-F), top 5 deals
+6. **Enrichment coverage** — Zillow and skip trace percentages
+
+**API Endpoints:**
+```
+GET /analytics/portfolio  - Full portfolio dashboard
+GET /analytics/pipeline   - Pipeline breakdown only
+GET /analytics/contracts  - Contract stats only
+```
+
+**MCP Tools:**
+- `get_portfolio_summary` - Voice: "How's my portfolio?" or "Give me the numbers"
+- `get_pipeline_summary` - Voice: "How many properties in each status?"
+- `get_contract_summary` - Voice: "How are my contracts looking?"
+
+---
+
+### 23. Pipeline Automation
+
+**Auto-advance property status based on activity**
+
+Properties automatically move through your pipeline:
+
+| From | To | Condition |
+|---|---|---|
+| AVAILABLE | PENDING | Has enrichment + skip trace + at least 1 contract |
+| PENDING | SOLD | All required contracts COMPLETED |
+| AVAILABLE/PENDING | OFF_MARKET | No activity in 30+ days |
+
+**Safety features:**
+- 24-hour grace period after manual status changes
+- Notifications created for every auto-transition
+- Conversation history logged for audit trail
+- Recap auto-regenerated after status change
+- Runs every 5 minutes in the background
+
+**API Endpoints:**
+```
+GET  /pipeline/status  - Recent auto-transitions
+POST /pipeline/check   - Manual trigger for testing
+```
+
+**MCP Tools:**
+- `get_pipeline_status` - Voice: "What's the pipeline status?" or "Show recent auto-transitions"
+- `trigger_pipeline_check` - Voice: "Run pipeline automation now"
+
+---
+
+### 24. Daily Digest
+
+**AI-generated morning briefing combining insights + analytics + notifications**
+
+Claude AI generates a daily digest every morning at 8 AM (configurable) that includes:
+- Portfolio snapshot (total properties, value, changes)
+- Urgent alerts from insights
+- Contract status summary
+- Activity summary (last 24h)
+- Top recommendations
+
+**Two outputs:**
+1. **Full briefing** (3-5 paragraphs) — For reading
+2. **Voice summary** (2-3 sentences) — For text-to-speech
+
+Auto-scheduled as a recurring task on server startup. Stored as DAILY_DIGEST notification.
+
+**API Endpoints:**
+```
+GET  /digest/latest           - Most recent digest
+POST /digest/generate         - Manual trigger
+GET  /digest/history?days=7   - Past digests
+```
+
+**MCP Tools:**
+- `get_daily_digest` - Voice: "What's my daily digest?" or "Morning summary"
+- `trigger_daily_digest` - Voice: "Generate a fresh digest now"
+
+---
+
+## MCP Tools — Complete List (85 tools)
 
 **Property Tools (7):**
 `list_properties`, `get_property`, `create_property`, `update_property`, `delete_property`, `enrich_property`, `skip_trace_property`
@@ -468,10 +617,25 @@ Track all events in real-time: property CRUD, enrichments, skip traces, contract
 **Notification Tools (5):**
 `send_notification`, `list_notifications`, `acknowledge_notification`, `get_notification_summary`, `poll_for_updates`
 
+**Insights Tools (2):**
+`get_insights`, `get_property_insights`
+
+**Scheduled Task Tools (3):**
+`create_scheduled_task`, `list_scheduled_tasks`, `cancel_scheduled_task`
+
+**Analytics Tools (3):**
+`get_portfolio_summary`, `get_pipeline_summary`, `get_contract_summary`
+
+**Pipeline Automation Tools (2):**
+`get_pipeline_status`, `trigger_pipeline_check`
+
+**Daily Digest Tools (2):**
+`get_daily_digest`, `trigger_daily_digest`
+
 **Webhook Tools (1):**
 `test_webhook_configuration`
 
-**Total: 77 MCP tools** for complete voice control of the entire platform.
+**Total: 85 MCP tools** for complete voice control of the entire platform.
 
 ---
 
@@ -522,6 +686,31 @@ Track all events in real-time: property CRUD, enrichments, skip traces, contract
 # Research
 "Research property 5 in depth"
 "Find properties similar to property 5"
+
+# Insights & Alerts
+"What needs attention?"
+"Any issues with property 5?"
+"Show me alerts"
+
+# Scheduling
+"Remind me to follow up on property 5 in 3 days"
+"What tasks are scheduled?"
+"Cancel task 3"
+
+# Analytics
+"How's my portfolio doing?"
+"How many properties in each status?"
+"How are my contracts looking?"
+
+# Pipeline Automation
+"What's the pipeline status?"
+"Run pipeline automation now"
+"Show recent auto-transitions"
+
+# Daily Digest
+"What's my daily digest?"
+"Morning summary"
+"Generate a fresh digest now"
 ```
 
 ---
@@ -551,7 +740,7 @@ Track all events in real-time: property CRUD, enrichments, skip traces, contract
 - Anthropic Claude (AI analysis)
 
 **Voice & Communication:**
-- MCP Server (Claude Desktop integration) — 77 tools
+- MCP Server (Claude Desktop integration) — 85 tools
 - VAPI (voice AI platform)
 - ElevenLabs (text-to-speech)
 - WebSocket (real-time updates)
@@ -576,7 +765,7 @@ Track all events in real-time: property CRUD, enrichments, skip traces, contract
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   MCP Server (Python)                        │
-│              77 Tools for Voice Control                      │
+│              85 Tools for Voice Control                      │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Context Auto-Injection • Activity Logging            │   │
 │  │ Property-Linked Conversation History                 │   │
@@ -588,14 +777,20 @@ Track all events in real-time: property CRUD, enrichments, skip traces, contract
 │                  FastAPI Backend                             │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Routers: Properties, Contracts, Webhooks, Recaps,    │   │
-│  │   Notes, Workflows, Contacts, Compliance, Offers     │   │
+│  │   Notes, Workflows, Contacts, Compliance, Offers,   │   │
+│  │   Insights, Analytics, Pipeline, Digest, Tasks      │   │
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Services: Voice Goal Planner, AI Recap, VAPI,        │   │
-│  │   Enrichment, Skip Trace, Compliance, Workflows      │   │
+│  │   Enrichment, Skip Trace, Compliance, Workflows,    │   │
+│  │   Insights, Analytics, Pipeline, Daily Digest       │   │
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Auto-Recap: Background regeneration on key events    │   │
+│  └──────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Background: Task Runner (60s) + Pipeline Check (5m) │   │
+│  │ + Daily Digest (8 AM) + Campaign Worker             │   │
 │  └──────────────────────────────────────────────────────┘   │
 └────────────┬────────────────────────┬───────────────────────┘
              │                        │
@@ -642,6 +837,7 @@ Track all events in real-time: property CRUD, enrichments, skip traces, contract
 - `conversation_history` - Per-property audit trail (with property_id FK)
 - `activity_events` - Event log
 - `offers` - Property offers
+- `scheduled_tasks` - Reminders, recurring tasks, follow-ups (with TaskType/TaskStatus enums)
 - `todos` - Tasks
 - `agent_preferences` - Agent settings
 
@@ -721,19 +917,25 @@ fly postgres connect -a ai-realtor-db               # DB console
 
 ## Recent Updates (Feb 2026)
 
-- Voice Goal Planner with 15 autonomous actions and heuristic plan matching
+- **Proactive Intelligence Layer:**
+  - Insights service with 6 alert rules (stale properties, contract deadlines, unsigned contracts, missing enrichment/skip trace, high deal score)
+  - Scheduled tasks system with background runner, reminders, follow-ups, recurring tasks
+  - Cross-property analytics with 6 metric categories (pipeline, value, contracts, activity, deal scores, enrichment coverage)
+  - Pipeline automation — auto-advance property status (AVAILABLE→PENDING→SOLD, →OFF_MARKET) with 24h manual grace period
+  - Daily digest — AI-generated morning briefing at 8 AM combining insights + analytics + notifications
+- Voice Goal Planner with 18 autonomous actions and heuristic plan matching
 - Property Notes system with NoteSource enum and voice integration
 - Workflow Templates (5 pre-built workflows)
 - Voice Campaign Management (6 MCP tools)
 - Proactive Notifications (5 MCP tools)
 - Context Auto-Injection for all MCP responses
-- Auto-Recap Regeneration on key events (notes, enrichment, skip trace, contacts, property updates)
+- Auto-Recap Regeneration on key events (notes, enrichment, skip trace, contacts, property updates, pipeline transitions)
 - Property-Linked Conversation History with per-property audit trail
 - Property filtering by type, city, price range, bedrooms via MCP
 - Deal Calculator and Offer Management (18 MCP tools)
 - Research and Semantic Search (7 MCP tools)
 - ElevenLabs voice integration
-- MCP tools expanded from 20 to **77 total**
+- MCP tools expanded from 20 to **85 total**
 
 ---
 
