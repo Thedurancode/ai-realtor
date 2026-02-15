@@ -12,7 +12,7 @@ from app.database import engine, Base, SessionLocal
 from app.config import settings
 from app.rate_limit import limiter
 from app.auth import verify_api_key
-from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router
+from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router
 import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 
@@ -106,6 +106,8 @@ app.include_router(follow_ups_router)
 app.include_router(comps_router)
 app.include_router(bulk_router)
 app.include_router(activity_timeline_router)
+app.include_router(property_scoring_router)
+app.include_router(market_watchlist_router)
 
 
 # WebSocket connection manager

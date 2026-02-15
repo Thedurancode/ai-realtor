@@ -25,3 +25,5 @@ from . import follow_ups  # noqa: F401
 from . import comps  # noqa: F401
 from . import bulk  # noqa: F401
 from . import activity_timeline  # noqa: F401
+from . import property_scoring  # noqa: F401
+from . import market_watchlist  # noqa: F401

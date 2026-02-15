@@ -54,6 +54,10 @@ async def create_property(
     # Auto-attach required contracts
     contract_auto_attach_service.auto_attach_contracts(db, new_property)
 
+    # Check market watchlists for matches
+    from app.services.watchlist_service import watchlist_service
+    watchlist_service.check_and_notify(db, new_property)
+
     # Schedule auto compliance check in 20 minutes
     asyncio.create_task(schedule_compliance_check(new_property.id))
 
@@ -110,6 +114,10 @@ async def create_property_from_voice(
 
     # Auto-attach required contracts
     attached_contracts = contract_auto_attach_service.auto_attach_contracts(db, new_property)
+
+    # Check market watchlists for matches
+    from app.services.watchlist_service import watchlist_service
+    watchlist_service.check_and_notify(db, new_property)
 
     # Schedule auto compliance check in 20 minutes
     asyncio.create_task(schedule_compliance_check(new_property.id))

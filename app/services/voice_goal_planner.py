@@ -88,6 +88,10 @@ class VoiceGoalPlannerService:
         "bulk_operation",
         # Phase 6: Activity timeline
         "get_activity_timeline",
+        # Phase 7: Property scoring
+        "score_property",
+        # Phase 8: Market watchlists
+        "check_watchlists",
     }
 
     def __init__(self):
@@ -113,6 +117,21 @@ class VoiceGoalPlannerService:
 
         attach_requires_confirmation = execution_mode != "autonomous"
         call_requires_confirmation = execution_mode != "autonomous"
+
+        # Property scoring workflow (must be before deal — "rate this deal" should score, not full pipeline)
+        if any(token in normalized for token in ["score", "rate this", "how good", "deal quality", "grade this", "rank"]):
+            return [
+                GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property."),
+                GoalPlanStep(2, "score_property", "Score Property", "Run 4-dimension scoring engine."),
+                GoalPlanStep(3, "summarize_next_actions", "Summarize", "Present scoring results."),
+            ]
+
+        # Market watchlist workflow
+        if any(token in normalized for token in ["watchlist", "watch for", "alert me when", "notify me when", "watching"]):
+            return [
+                GoalPlanStep(1, "check_watchlists", "Check Watchlists", "List or manage market watchlists."),
+                GoalPlanStep(2, "summarize_next_actions", "Summarize", "Present watchlist status."),
+            ]
 
         # New lead / full pipeline workflow (must be before enrich — goal text contains "enrich")
         if any(token in normalized for token in ["new lead", "pipeline", "full workup", "onboard"]):
@@ -562,6 +581,14 @@ class VoiceGoalPlannerService:
             # Phase 6: Activity timeline
             if step.action == "get_activity_timeline":
                 return self._step_get_activity_timeline(db, state, session_id, goal_node_key, step)
+
+            # Phase 7: Property scoring
+            if step.action == "score_property":
+                return self._step_score_property(db, state, session_id, goal_node_key, step)
+
+            # Phase 8: Market watchlists
+            if step.action == "check_watchlists":
+                return self._step_check_watchlists(db, state, session_id, goal_node_key, step)
 
             return self._checkpoint(step, "failed", f"Unknown step action: {step.action}")
         except Exception as exc:
@@ -1491,6 +1518,90 @@ class VoiceGoalPlannerService:
         )
 
         return self._checkpoint(step, "completed", voice, data=data)
+
+    def _step_score_property(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        prop: Property | None = state.get("property")
+        if prop is None:
+            return self._checkpoint(step, "failed", "Property context missing.")
+
+        from app.services.property_scoring_service import property_scoring_service
+
+        result = property_scoring_service.score_property(db, prop.id, save=True)
+        if result.get("error"):
+            return self._checkpoint(step, "failed", result["error"])
+
+        voice = result.get("voice_summary", f"Score: {result['score']}")
+        data = {
+            "score": result["score"],
+            "grade": result["grade"],
+            "dimensions": {k: v.get("score") for k, v in result.get("dimensions", {}).items()},
+        }
+        state["scoring"] = data
+
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="property_score",
+            node_key=str(prop.id), summary=voice[:500], payload=data, importance=0.75,
+        )
+        memory_graph_service.upsert_edge(
+            db, session_id=session_id,
+            source=MemoryRef("goal", goal_node_key),
+            target=MemoryRef("property_score", str(prop.id)),
+            relation="scored", weight=0.85,
+        )
+
+        return self._checkpoint(step, "completed", voice, data=data)
+
+    def _step_check_watchlists(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        from app.services.watchlist_service import watchlist_service
+
+        watchlists = watchlist_service.list(db)
+        if not watchlists:
+            return self._checkpoint(step, "completed", "No watchlists found. Create one with 'Watch for Miami condos under 500k'.")
+
+        active = [w for w in watchlists if w.is_active]
+        paused = [w for w in watchlists if not w.is_active]
+
+        lines = [f"You have {len(watchlists)} watchlist(s) ({len(active)} active, {len(paused)} paused)."]
+        for w in watchlists:
+            status = "ACTIVE" if w.is_active else "PAUSED"
+            criteria = w.criteria or {}
+            parts = []
+            if criteria.get("city"):
+                parts.append(criteria["city"])
+            if criteria.get("property_type"):
+                parts.append(criteria["property_type"])
+            if criteria.get("max_price"):
+                parts.append(f"<${criteria['max_price']:,.0f}")
+            if criteria.get("min_bedrooms"):
+                parts.append(f"{criteria['min_bedrooms']}+ beds")
+            criteria_str = ", ".join(parts) if parts else "custom"
+            lines.append(f"  #{w.id} {w.name} [{status}] — {criteria_str} ({w.match_count or 0} matches)")
+
+        summary = "\n".join(lines)
+        state["watchlists"] = {"total": len(watchlists), "active": len(active)}
+
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="watchlists",
+            node_key="all", summary=summary[:500],
+            payload={"total": len(watchlists), "active": len(active)},
+            importance=0.6,
+        )
+
+        return self._checkpoint(step, "completed", summary, data=state["watchlists"])
 
     async def _step_generate_recap(
         self,
