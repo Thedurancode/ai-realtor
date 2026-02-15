@@ -159,126 +159,24 @@ def _save_skip_trace(db: Session, property_id: int, data: dict[str, Any]) -> Non
 
 def calculate_property_score(db: Session, prop: Property) -> dict[str, Any]:
     """
-    Compute a deal quality score (0-100) from enrichment and skip trace data.
+    Compute a deal quality score (0-100) using the 4-dimension scoring engine.
 
-    Components (weights re-normalized when data is missing):
-      - Zestimate vs Price: 30  (higher spread = better deal)
-      - Days on Market:     20  (longer DOM = more motivated seller)
-      - Price Trend:        20  (declining history = negotiation opportunity)
-      - Tax vs Price:       10  (tax assessment below price = potential overpricing)
-      - School Quality:     10  (higher avg rating = better resale)
-      - Skip Trace Reach:   10  (has phone/email = easier to contact)
+    Delegates to PropertyScoringService which scores across:
+      - Market (30%): Zestimate spread, DOM, price trend, schools, tax gap
+      - Financial (25%): Upside potential, rental yield, price per sqft
+      - Readiness (25%): Contracts, contacts, skip trace reachability
+      - Engagement (20%): Recent activity, notes, tasks, notifications
 
     Returns dict with score, grade, and breakdown. Also saves to property.
     """
-    enrichment = (
-        db.query(ZillowEnrichment)
-        .filter(ZillowEnrichment.property_id == prop.id)
-        .first()
-    )
-    skip_trace = (
-        db.query(SkipTrace)
-        .filter(SkipTrace.property_id == prop.id)
-        .order_by(SkipTrace.created_at.desc())
-        .first()
-    )
+    from app.services.property_scoring_service import property_scoring_service
 
-    components: list[tuple[str, float, float]] = []  # (name, weight, score 0-100)
+    result = property_scoring_service.score_property(db, prop.id, save=True)
+    if result.get("error"):
+        return {"score": 0, "grade": "F", "breakdown": {}}
 
-    # 1. Zestimate vs Price
-    if enrichment and enrichment.zestimate and prop.price and prop.price > 0:
-        spread = (enrichment.zestimate - prop.price) / prop.price
-        # spread of +20% or more → 100, 0% → 50, -20% or worse → 0
-        score = max(0.0, min(100.0, 50 + spread * 250))
-        components.append(("zestimate_vs_price", 30, score))
-
-    # 2. Days on Market
-    if enrichment and enrichment.days_on_zillow is not None:
-        dom = enrichment.days_on_zillow
-        # 0 days → 0, 90+ days → 100 (more motivated seller)
-        score = max(0.0, min(100.0, dom / 90 * 100))
-        components.append(("days_on_market", 20, score))
-
-    # 3. Price Trend (declining = opportunity)
-    if enrichment and enrichment.price_history:
-        prices = [
-            p["price"] for p in enrichment.price_history
-            if p.get("price") and p.get("event") in ("Listed for sale", "Price change", None)
-        ]
-        if len(prices) >= 2:
-            # Compare most recent to oldest in history
-            newest, oldest = prices[0], prices[-1]
-            if oldest > 0:
-                change = (newest - oldest) / oldest
-                # -20% drop → 100, 0% → 50, +20% rise → 0
-                score = max(0.0, min(100.0, 50 - change * 250))
-                components.append(("price_trend", 20, score))
-
-    # 4. Tax Assessment vs Price
-    if enrichment and enrichment.tax_history and prop.price and prop.price > 0:
-        latest_tax = enrichment.tax_history[0] if enrichment.tax_history else None
-        if latest_tax and latest_tax.get("value") and latest_tax["value"] > 0:
-            tax_val = latest_tax["value"]
-            gap = (prop.price - tax_val) / prop.price
-            # If price is 30%+ above tax assessment → 100 (overpriced, room to negotiate)
-            # If price equals assessment → 50, below assessment → 0
-            score = max(0.0, min(100.0, gap * 333))
-            components.append(("tax_vs_price", 10, score))
-
-    # 5. School Quality
-    if enrichment and enrichment.schools:
-        ratings = [s["rating"] for s in enrichment.schools if s.get("rating")]
-        if ratings:
-            avg_rating = sum(ratings) / len(ratings)
-            # Rating 1-10 scale → 0-100
-            score = max(0.0, min(100.0, avg_rating * 10))
-            components.append(("school_quality", 10, score))
-
-    # 6. Skip Trace Reachability
-    if skip_trace:
-        has_phones = bool(skip_trace.phone_numbers and len(skip_trace.phone_numbers) > 0)
-        has_emails = bool(skip_trace.emails and len(skip_trace.emails) > 0)
-        has_name = bool(skip_trace.owner_name and skip_trace.owner_name != "Unknown Owner")
-        score = 0.0
-        if has_name:
-            score += 40
-        if has_phones:
-            score += 30
-        if has_emails:
-            score += 30
-        components.append(("skip_trace_reachability", 10, score))
-
-    # Compute weighted score (re-normalize weights when data is missing)
-    if not components:
-        result = {"score": 0, "grade": "F", "breakdown": {}}
-        prop.deal_score = 0
-        prop.score_grade = "F"
-        prop.score_breakdown = result["breakdown"]
-        db.commit()
-        return result
-
-    total_weight = sum(w for _, w, _ in components)
-    weighted_sum = sum(w * s for _, w, s in components)
-    final_score = round(weighted_sum / total_weight, 1)
-
-    # Grade scale
-    if final_score >= 80:
-        grade = "A"
-    elif final_score >= 60:
-        grade = "B"
-    elif final_score >= 40:
-        grade = "C"
-    elif final_score >= 20:
-        grade = "D"
-    else:
-        grade = "F"
-
-    breakdown = {name: round(score, 1) for name, _, score in components}
-
-    # Save to property
-    prop.deal_score = final_score
-    prop.score_grade = grade
-    prop.score_breakdown = breakdown
-    db.commit()
-
-    return {"score": final_score, "grade": grade, "breakdown": breakdown}
+    return {
+        "score": result["score"],
+        "grade": result["grade"],
+        "breakdown": result.get("breakdown", {}),
+    }
