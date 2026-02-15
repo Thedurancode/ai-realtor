@@ -218,8 +218,9 @@ Each property gets an AI-generated recap that includes:
 
 Say a natural language goal and the planner builds and executes a plan automatically.
 
-**18 supported actions:**
+**24 supported actions:**
 - `resolve_property` - Find the target property
+- `inspect_property` - Load property context
 - `enrich_property` - Pull Zillow data
 - `skip_trace_property` - Find owner contacts
 - `attach_required_contracts` - Auto-attach templates
@@ -237,6 +238,10 @@ Say a natural language goal and the planner builds and executes a plan automatic
 - `check_insights` - Scan for alerts and issues
 - `schedule_task` - Create reminders and recurring tasks
 - `get_analytics` - Pull portfolio-wide analytics
+- `check_follow_ups` - Get AI-prioritized follow-up queue
+- `get_comps` - Pull comparable sales dashboard
+- `bulk_operation` - Execute operations across multiple properties
+- `get_activity_timeline` - Fetch unified activity timeline
 
 **Heuristic plan matching:**
 - "Set up property 5 as a new lead" → resolve → enrich → skip trace → contracts → recap → summarize
@@ -245,6 +250,10 @@ Say a natural language goal and the planner builds and executes a plan automatic
 - "Enrich property 5" → resolve → enrich → recap → summarize
 - "Skip trace property 5" → resolve → skip trace → summarize
 - "Call the owner of property 5" → resolve → skip trace → call → summarize
+- "Show me comps for property 5" → resolve → get comps → summarize
+- "Enrich all Miami properties" → bulk operation → summarize
+- "What should I work on next?" → check follow-ups → summarize
+- "What happened today?" → resolve → get activity timeline → summarize
 - "What needs attention?" → check insights → summarize
 - "Remind me to follow up on property 5 in 3 days" → resolve → schedule task → summarize
 - "How's my portfolio doing?" → get analytics → summarize
@@ -582,7 +591,140 @@ GET  /digest/history?days=7   - Past digests
 
 ---
 
-## MCP Tools — Complete List (85 tools)
+### 25. Smart Follow-Up Queue
+
+**AI-prioritized queue ranking properties by urgency**
+
+Scoring algorithm combines weighted signals:
+- Days since last activity (base score, capped at 300)
+- Deal grade multiplier (A=2x through F=0.5x)
+- Contract deadline approaching (+40)
+- Overdue tasks (+35)
+- Unsigned required contracts (+30)
+- Skip trace with no outreach (+25)
+- Missing contacts (+15)
+
+Priority mapping: 300+ = urgent, 200+ = high, 100+ = medium, below = low
+
+**Features:**
+- Batch signal queries to avoid N+1
+- Snooze via ScheduledTask (default 72h)
+- Complete action logs to ConversationHistory
+- Best contact finder (prefers buyer → seller → skip trace owner)
+
+**API Endpoints:**
+```
+GET  /follow-ups/queue?limit=10&priority=high   - Get ranked queue
+POST /follow-ups/{property_id}/complete          - Mark follow-up done
+POST /follow-ups/{property_id}/snooze?hours=72   - Snooze property
+```
+
+**MCP Tools:**
+- `get_follow_up_queue` - Voice: "What should I work on next?" or "Show me my follow-up queue"
+- `complete_follow_up` - Voice: "Mark follow-up done for property 5"
+- `snooze_follow_up` - Voice: "Snooze property 5 for 48 hours"
+
+---
+
+### 26. Comparable Sales Dashboard
+
+**Comp aggregation from 3 data sources with market metrics**
+
+**Data sources:**
+1. **Agentic research** — CompSale/CompRental records from deep property research
+2. **Zillow price_history** — Historical sales from enrichment data
+3. **Internal portfolio** — Same city/state properties with similarity scoring
+
+**Market metrics:**
+- Average/median sale prices
+- Price per square foot
+- 6-month price trend analysis
+- Subject vs market comparison
+- Zestimate vs comps analysis
+- Pricing recommendation (rules-based, no LLM)
+
+**API Endpoints:**
+```
+GET /comps/{property_id}          - Full dashboard (all sources + metrics)
+GET /comps/{property_id}/sales    - Sales comps only
+GET /comps/{property_id}/rentals  - Rental comps only
+```
+
+**MCP Tools:**
+- `get_comps_dashboard` - Voice: "Show me comps for property 5"
+- `get_comp_sales` - Voice: "What are nearby sales for property 5?"
+- `get_comp_rentals` - Voice: "What are rental comps for property 5?"
+
+---
+
+### 27. Bulk Operations Engine
+
+**Execute operations across multiple properties at once**
+
+**6 supported operations:**
+
+| Operation | What it does | Skip Logic |
+|---|---|---|
+| `enrich` | Zillow enrichment | Skip if already enriched (unless force=true) |
+| `skip_trace` | Owner contact discovery | Skip if already traced (unless force=true) |
+| `attach_contracts` | Auto-attach contract templates | Always run |
+| `generate_recaps` | AI property recaps | Always run |
+| `update_status` | Change property status | Skip if already target status |
+| `check_compliance` | Regulatory compliance check | Always run |
+
+**Features:**
+- Property selection via explicit IDs AND/OR dynamic filters (city, status, property_type, price range, bedrooms)
+- Union of both selection methods, capped at 50 properties
+- Per-property error isolation with individual commits
+- Voice summary of results
+
+**API Endpoints:**
+```
+POST /bulk/execute      - Execute a bulk operation
+GET  /bulk/operations   - List available operations
+```
+
+**MCP Tools:**
+- `execute_bulk_operation` - Voice: "Enrich all Miami properties" or "Skip trace properties 1 through 5"
+- `list_bulk_operations` - Voice: "What bulk operations are available?"
+
+---
+
+### 28. Activity Timeline Dashboard
+
+**Unified chronological event feed from 7 data sources**
+
+**Data sources aggregated:**
+1. **ConversationHistory** — MCP tool calls and voice commands
+2. **Notification** — System alerts and task completions
+3. **PropertyNote** — Freeform notes from all sources
+4. **ScheduledTask** — Reminders, follow-ups, recurring tasks
+5. **Contract** — Lifecycle events (created, sent, completed)
+6. **ZillowEnrichment** — Enrichment completions
+7. **SkipTrace** — Skip trace completions
+
+**Features:**
+- Per-property AND portfolio-wide views
+- Filter by event types, date range, text search
+- Contracts emit 3 events from different timestamps (created, sent, completed)
+- Pagination with offset/limit
+- Voice summaries with type counts and latest event
+
+**API Endpoints:**
+```
+GET /activity-timeline/                        - Full timeline with all filters
+GET /activity-timeline/property/{property_id}  - Property-specific timeline
+GET /activity-timeline/recent?hours=24         - Last N hours of activity
+```
+
+**MCP Tools:**
+- `get_activity_timeline` - Voice: "Show me the timeline" or "What's the activity on property 5?"
+- `get_property_timeline` - Voice: "Show me everything on property 3"
+- `get_recent_activity` - Voice: "What happened today?" or "What's new?"
+
+---
+
+## MCP Tools — Complete List (96 tools)
 
 **Property Tools (7):**
 `list_properties`, `get_property`, `create_property`, `update_property`, `delete_property`, `enrich_property`, `skip_trace_property`
@@ -632,10 +774,22 @@ GET  /digest/history?days=7   - Past digests
 **Daily Digest Tools (2):**
 `get_daily_digest`, `trigger_daily_digest`
 
+**Follow-Up Queue Tools (3):**
+`get_follow_up_queue`, `complete_follow_up`, `snooze_follow_up`
+
+**Comparable Sales Tools (3):**
+`get_comps_dashboard`, `get_comp_sales`, `get_comp_rentals`
+
+**Bulk Operations Tools (2):**
+`execute_bulk_operation`, `list_bulk_operations`
+
+**Activity Timeline Tools (3):**
+`get_activity_timeline`, `get_property_timeline`, `get_recent_activity`
+
 **Webhook Tools (1):**
 `test_webhook_configuration`
 
-**Total: 85 MCP tools** for complete voice control of the entire platform.
+**Total: 96 MCP tools** for complete voice control of the entire platform.
 
 ---
 
@@ -711,6 +865,29 @@ GET  /digest/history?days=7   - Past digests
 "What's my daily digest?"
 "Morning summary"
 "Generate a fresh digest now"
+
+# Follow-Up Queue
+"What should I work on next?"
+"Show me my follow-up queue"
+"Snooze property 5 for 48 hours"
+
+# Comparable Sales
+"Show me comps for property 5"
+"What are nearby sales for property 5?"
+"What are rental comps for property 5?"
+
+# Bulk Operations
+"Enrich all Miami properties"
+"Skip trace properties 1 through 5"
+"Generate recaps for all available properties"
+"What bulk operations are available?"
+
+# Activity Timeline
+"Show me the timeline"
+"What happened today?"
+"What's the activity on property 5?"
+"Show me everything on property 3"
+"What's new?"
 ```
 
 ---
@@ -923,7 +1100,18 @@ fly postgres connect -a ai-realtor-db               # DB console
   - Cross-property analytics with 6 metric categories (pipeline, value, contracts, activity, deal scores, enrichment coverage)
   - Pipeline automation — auto-advance property status (AVAILABLE→PENDING→SOLD, →OFF_MARKET) with 24h manual grace period
   - Daily digest — AI-generated morning briefing at 8 AM combining insights + analytics + notifications
-- Voice Goal Planner with 18 autonomous actions and heuristic plan matching
+- **Operational Intelligence Layer:**
+  - Smart Follow-Up Queue — AI-scored priority queue with 7 weighted signals, snooze, and best-contact finder (3 MCP tools)
+  - Comparable Sales Dashboard — 3-source comp aggregation with market metrics and pricing recommendations (3 MCP tools)
+  - Bulk Operations Engine — 6 operations across up to 50 properties with error isolation (2 MCP tools)
+  - Activity Timeline Dashboard — 7-source unified chronological feed with filtering and search (3 MCP tools)
+- **Proactive Intelligence Layer:**
+  - Insights service with 6 alert rules (stale properties, contract deadlines, unsigned contracts, missing enrichment/skip trace, high deal score)
+  - Scheduled tasks system with background runner, reminders, follow-ups, recurring tasks
+  - Cross-property analytics with 6 metric categories (pipeline, value, contracts, activity, deal scores, enrichment coverage)
+  - Pipeline automation — auto-advance property status (AVAILABLE→PENDING→SOLD, →OFF_MARKET) with 24h manual grace period
+  - Daily digest — AI-generated morning briefing at 8 AM combining insights + analytics + notifications
+- Voice Goal Planner with 24 autonomous actions and heuristic plan matching
 - Property Notes system with NoteSource enum and voice integration
 - Workflow Templates (5 pre-built workflows)
 - Voice Campaign Management (6 MCP tools)
@@ -935,7 +1123,7 @@ fly postgres connect -a ai-realtor-db               # DB console
 - Deal Calculator and Offer Management (18 MCP tools)
 - Research and Semantic Search (7 MCP tools)
 - ElevenLabs voice integration
-- MCP tools expanded from 20 to **85 total**
+- MCP tools expanded from 20 to **96 total**
 
 ---
 
