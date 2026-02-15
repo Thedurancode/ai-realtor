@@ -218,7 +218,7 @@ Each property gets an AI-generated recap that includes:
 
 Say a natural language goal and the planner builds and executes a plan automatically.
 
-**24 supported actions:**
+**26 supported actions:**
 - `resolve_property` - Find the target property
 - `inspect_property` - Load property context
 - `enrich_property` - Pull Zillow data
@@ -242,6 +242,8 @@ Say a natural language goal and the planner builds and executes a plan automatic
 - `get_comps` - Pull comparable sales dashboard
 - `bulk_operation` - Execute operations across multiple properties
 - `get_activity_timeline` - Fetch unified activity timeline
+- `score_property` - Run 4-dimension property scoring engine
+- `check_watchlists` - List and manage market watchlists
 
 **Heuristic plan matching:**
 - "Set up property 5 as a new lead" → resolve → enrich → skip trace → contracts → recap → summarize
@@ -257,6 +259,11 @@ Say a natural language goal and the planner builds and executes a plan automatic
 - "What needs attention?" → check insights → summarize
 - "Remind me to follow up on property 5 in 3 days" → resolve → schedule task → summarize
 - "How's my portfolio doing?" → get analytics → summarize
+- "Score property 5" → resolve → score property → summarize
+- "How good is this deal?" → resolve → score property → summarize
+- "What are my best deals?" → resolve → score property → summarize
+- "Watch for Miami condos under 500k" → check watchlists → summarize
+- "Show me my watchlists" → check watchlists → summarize
 
 **Safety features:**
 - Checkpoint/rollback after each step
@@ -724,7 +731,78 @@ GET /activity-timeline/recent?hours=24         - Last N hours of activity
 
 ---
 
-## MCP Tools — Complete List (96 tools)
+### 29. Property Scoring Engine
+
+**Multi-dimensional deal quality scoring across 4 dimensions**
+
+Replaces the old 6-component scorer with a richer 4-dimension engine. Uses existing `deal_score`, `score_grade`, `score_breakdown` columns (no migration needed).
+
+**4 Scoring Dimensions:**
+
+| Dimension | Weight | What It Measures |
+|---|---|---|
+| **Market** | 30% | Zestimate spread, days on market, price trend, school quality, tax gap |
+| **Financial** | 25% | Zestimate upside, rental yield, price per sqft |
+| **Readiness** | 25% | Contract completion %, contact coverage, skip trace reachability |
+| **Engagement** | 20% | Recent activity (7d), notes count, active tasks, recent notifications |
+
+Each dimension produces a sub-score (0-100). Final score = weighted average with re-normalization when data is missing.
+
+**Grade scale:** A (80+), B (60+), C (40+), D (20+), F (<20)
+
+**Data sources:** ZillowEnrichment, Property, Contract, Contact, SkipTrace, ConversationHistory, PropertyNote, ScheduledTask, Notification
+
+**API Endpoints:**
+```
+POST /scoring/property/{property_id}    - Score a single property (recalculates)
+POST /scoring/bulk                      - Score multiple properties
+GET  /scoring/property/{property_id}    - Get stored score breakdown
+GET  /scoring/top?limit=10&min_score=0  - Get top-scored properties
+```
+
+**MCP Tools:**
+- `score_property` - Voice: "Score property 5" or "Rate this deal" or "How good is property 5?"
+- `get_score_breakdown` - Voice: "Show me the score breakdown for property 5"
+- `bulk_score_properties` - Voice: "Score all my properties" or "Rate everything"
+- `get_top_properties` - Voice: "What are my best deals?" or "Top properties" or "Show me A-grade deals"
+
+---
+
+### 30. Market Watchlist
+
+**Saved-search alerts that fire when new matching properties are added**
+
+Create watchlists with criteria (city, state, property type, price range, bedrooms, bathrooms, sqft). When any new property is created via `POST /properties/` or `POST /properties/voice`, all active watchlists are checked. Matches create HIGH priority notifications.
+
+**Criteria (AND logic — all provided criteria must match):**
+- `city` — case-insensitive partial match
+- `state` — case-insensitive exact match
+- `property_type` — exact match (house, condo, townhouse, etc.)
+- `min_price` / `max_price` — price range
+- `min_bedrooms` / `min_bathrooms` — minimum rooms
+- `min_sqft` — minimum square footage
+
+**API Endpoints:**
+```
+POST   /watchlists/                     - Create watchlist
+GET    /watchlists/                     - List watchlists (optional ?agent_id= ?is_active=)
+GET    /watchlists/{id}                 - Get specific watchlist
+PUT    /watchlists/{id}                 - Update watchlist
+DELETE /watchlists/{id}                 - Delete watchlist
+POST   /watchlists/{id}/toggle          - Pause/resume watchlist
+POST   /watchlists/check/{property_id}  - Manual check against all watchlists
+```
+
+**MCP Tools:**
+- `create_watchlist` - Voice: "Watch for Miami condos under 500k"
+- `list_watchlists` - Voice: "Show me my watchlists"
+- `toggle_watchlist` - Voice: "Pause watchlist 1"
+- `delete_watchlist` - Voice: "Delete watchlist 3"
+- `check_watchlist_matches` - Voice: "Does property 5 match any watchlists?"
+
+---
+
+## MCP Tools — Complete List (105 tools)
 
 **Property Tools (7):**
 `list_properties`, `get_property`, `create_property`, `update_property`, `delete_property`, `enrich_property`, `skip_trace_property`
@@ -786,10 +864,16 @@ GET /activity-timeline/recent?hours=24         - Last N hours of activity
 **Activity Timeline Tools (3):**
 `get_activity_timeline`, `get_property_timeline`, `get_recent_activity`
 
+**Property Scoring Tools (4):**
+`score_property`, `get_score_breakdown`, `bulk_score_properties`, `get_top_properties`
+
+**Market Watchlist Tools (5):**
+`create_watchlist`, `list_watchlists`, `toggle_watchlist`, `delete_watchlist`, `check_watchlist_matches`
+
 **Webhook Tools (1):**
 `test_webhook_configuration`
 
-**Total: 96 MCP tools** for complete voice control of the entire platform.
+**Total: 105 MCP tools** for complete voice control of the entire platform.
 
 ---
 
@@ -888,6 +972,26 @@ GET /activity-timeline/recent?hours=24         - Last N hours of activity
 "What's the activity on property 5?"
 "Show me everything on property 3"
 "What's new?"
+
+# Property Scoring
+"Score property 5"
+"Rate this deal"
+"How good is property 3?"
+"Grade this property"
+"Score all my properties"
+"What are my best deals?"
+"Show me A-grade deals"
+"Show me the score breakdown for property 5"
+
+# Market Watchlists
+"Watch for Miami condos under 500k"
+"Set up alerts for Brooklyn 3-bedrooms"
+"Alert me when houses under 300k in Austin come up"
+"Show me my watchlists"
+"What am I watching?"
+"Pause watchlist 1"
+"Delete watchlist 3"
+"Does property 5 match any watchlists?"
 ```
 
 ---
@@ -917,7 +1021,7 @@ GET /activity-timeline/recent?hours=24         - Last N hours of activity
 - Anthropic Claude (AI analysis)
 
 **Voice & Communication:**
-- MCP Server (Claude Desktop integration) — 85 tools
+- MCP Server (Claude Desktop integration) — 105 tools
 - VAPI (voice AI platform)
 - ElevenLabs (text-to-speech)
 - WebSocket (real-time updates)
@@ -942,7 +1046,7 @@ GET /activity-timeline/recent?hours=24         - Last N hours of activity
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   MCP Server (Python)                        │
-│              85 Tools for Voice Control                      │
+│             105 Tools for Voice Control                      │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Context Auto-Injection • Activity Logging            │   │
 │  │ Property-Linked Conversation History                 │   │
@@ -955,12 +1059,14 @@ GET /activity-timeline/recent?hours=24         - Last N hours of activity
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Routers: Properties, Contracts, Webhooks, Recaps,    │   │
 │  │   Notes, Workflows, Contacts, Compliance, Offers,   │   │
-│  │   Insights, Analytics, Pipeline, Digest, Tasks      │   │
+│  │   Insights, Analytics, Pipeline, Digest, Tasks,     │   │
+│  │   Scoring, Watchlists                               │   │
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Services: Voice Goal Planner, AI Recap, VAPI,        │   │
 │  │   Enrichment, Skip Trace, Compliance, Workflows,    │   │
-│  │   Insights, Analytics, Pipeline, Daily Digest       │   │
+│  │   Insights, Analytics, Pipeline, Daily Digest,      │   │
+│  │   Property Scoring, Watchlist                       │   │
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Auto-Recap: Background regeneration on key events    │   │
@@ -1016,6 +1122,7 @@ GET /activity-timeline/recent?hours=24         - Last N hours of activity
 - `offers` - Property offers
 - `scheduled_tasks` - Reminders, recurring tasks, follow-ups (with TaskType/TaskStatus enums)
 - `todos` - Tasks
+- `market_watchlists` - Saved-search alerts with JSON criteria
 - `agent_preferences` - Agent settings
 
 **Key relationships:**
@@ -1094,6 +1201,11 @@ fly postgres connect -a ai-realtor-db               # DB console
 
 ## Recent Updates (Feb 2026)
 
+- **Property Scoring Engine:**
+  - 4-dimension scoring (Market 30%, Financial 25%, Readiness 25%, Engagement 20%) with 15+ signals from 9 data sources
+  - Weight re-normalization when data is missing, A-F grade scale
+  - Bulk scoring, top properties ranking, voice-native commands (4 MCP tools)
+  - Replaces old 6-component scorer with backward-compatible delegation
 - **Proactive Intelligence Layer:**
   - Insights service with 6 alert rules (stale properties, contract deadlines, unsigned contracts, missing enrichment/skip trace, high deal score)
   - Scheduled tasks system with background runner, reminders, follow-ups, recurring tasks
@@ -1105,13 +1217,11 @@ fly postgres connect -a ai-realtor-db               # DB console
   - Comparable Sales Dashboard — 3-source comp aggregation with market metrics and pricing recommendations (3 MCP tools)
   - Bulk Operations Engine — 6 operations across up to 50 properties with error isolation (2 MCP tools)
   - Activity Timeline Dashboard — 7-source unified chronological feed with filtering and search (3 MCP tools)
-- **Proactive Intelligence Layer:**
-  - Insights service with 6 alert rules (stale properties, contract deadlines, unsigned contracts, missing enrichment/skip trace, high deal score)
-  - Scheduled tasks system with background runner, reminders, follow-ups, recurring tasks
-  - Cross-property analytics with 6 metric categories (pipeline, value, contracts, activity, deal scores, enrichment coverage)
-  - Pipeline automation — auto-advance property status (AVAILABLE→PENDING→SOLD, →OFF_MARKET) with 24h manual grace period
-  - Daily digest — AI-generated morning briefing at 8 AM combining insights + analytics + notifications
-- Voice Goal Planner with 24 autonomous actions and heuristic plan matching
+- **Market Watchlist:**
+  - Saved-search alerts with flexible JSON criteria (city, state, type, price, rooms, sqft)
+  - Auto-fires on property creation via both `POST /properties/` and `POST /properties/voice`
+  - HIGH priority notifications with watchlist metadata, toggle pause/resume (5 MCP tools)
+- Voice Goal Planner with 26 autonomous actions and heuristic plan matching
 - Property Notes system with NoteSource enum and voice integration
 - Workflow Templates (5 pre-built workflows)
 - Voice Campaign Management (6 MCP tools)
@@ -1123,7 +1233,7 @@ fly postgres connect -a ai-realtor-db               # DB console
 - Deal Calculator and Offer Management (18 MCP tools)
 - Research and Semantic Search (7 MCP tools)
 - ElevenLabs voice integration
-- MCP tools expanded from 20 to **96 total**
+- MCP tools expanded from 20 to **105 total**
 
 ---
 
