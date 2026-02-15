@@ -84,6 +84,8 @@ class VoiceGoalPlannerService:
         "check_follow_ups",
         # Phase 4: Comparable sales
         "get_comps",
+        # Phase 5: Bulk operations
+        "bulk_operation",
     }
 
     def __init__(self):
@@ -208,6 +210,13 @@ class VoiceGoalPlannerService:
                 GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property if mentioned."),
                 GoalPlanStep(2, "schedule_task", "Schedule Task", "Create a scheduled reminder or recurring task."),
                 GoalPlanStep(3, "summarize_next_actions", "Summarize", "Confirm task was scheduled."),
+            ]
+
+        # Bulk operations workflow (must be before insights — "all properties" is more specific)
+        if any(token in normalized for token in ["bulk", "all properties", "every property", "batch", "enrich all", "skip trace all", "recap all"]):
+            return [
+                GoalPlanStep(1, "bulk_operation", "Bulk Operation", "Execute the operation across matching properties."),
+                GoalPlanStep(2, "summarize_next_actions", "Summarize", "Present bulk operation results."),
             ]
 
         # Follow-up queue workflow (must be before insights — "work on next" is more specific)
@@ -533,6 +542,10 @@ class VoiceGoalPlannerService:
             # Phase 4: Comparable sales
             if step.action == "get_comps":
                 return self._step_get_comps(db, state, session_id, goal_node_key, step)
+
+            # Phase 5: Bulk operations
+            if step.action == "bulk_operation":
+                return await self._step_bulk_operation(db, state, session_id, goal_node_key, step)
 
             return self._checkpoint(step, "failed", f"Unknown step action: {step.action}")
         except Exception as exc:
@@ -1351,6 +1364,79 @@ class VoiceGoalPlannerService:
             source=MemoryRef("goal", goal_node_key),
             target=MemoryRef("comps_analysis", str(prop.id)),
             relation="analyzed", weight=0.85,
+        )
+
+        return self._checkpoint(step, "completed", voice, data=data)
+
+    async def _step_bulk_operation(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        from app.services.bulk_operations_service import bulk_operations_service
+
+        goal = (state.get("goal") or "").lower()
+
+        # Infer operation from goal text
+        operation = "generate_recaps"  # safe default
+        if any(w in goal for w in ["enrich", "zillow", "zestimate"]):
+            operation = "enrich"
+        elif any(w in goal for w in ["skip trace", "skip-trace", "find owner"]):
+            operation = "skip_trace"
+        elif any(w in goal for w in ["contract", "attach"]):
+            operation = "attach_contracts"
+        elif any(w in goal for w in ["status", "mark as", "update to"]):
+            operation = "update_status"
+        elif any(w in goal for w in ["compliance", "compliant"]):
+            operation = "check_compliance"
+        elif any(w in goal for w in ["recap", "summary"]):
+            operation = "generate_recaps"
+
+        # Infer filters from goal text
+        filters: dict[str, Any] = {}
+        for status_val in ["available", "pending", "sold", "rented", "off_market"]:
+            if status_val.replace("_", " ") in goal:
+                filters["status"] = status_val
+                break
+
+        # Infer params
+        params: dict[str, Any] = {}
+        if "force" in goal:
+            params["force"] = True
+        if operation == "update_status":
+            for s in ["available", "pending", "sold", "rented", "off_market"]:
+                if f"to {s.replace('_', ' ')}" in goal:
+                    params["status"] = s
+                    break
+
+        result = await bulk_operations_service.execute(
+            db=db, operation=operation, filters=filters if filters else None, params=params if params else None,
+        )
+
+        voice = result.get("voice_summary", "Bulk operation complete.")
+        data = {
+            "operation": result["operation"],
+            "total": result["total"],
+            "succeeded": result["succeeded"],
+            "failed": result["failed"],
+            "skipped": result["skipped"],
+        }
+        state["bulk_result"] = data
+
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="bulk_operation",
+            node_key=f"{operation}_{result['total']}",
+            summary=voice[:500],
+            payload=data, importance=0.7,
+        )
+        memory_graph_service.upsert_edge(
+            db, session_id=session_id,
+            source=MemoryRef("goal", goal_node_key),
+            target=MemoryRef("bulk_operation", f"{operation}_{result['total']}"),
+            relation="executed", weight=0.8,
         )
 
         return self._checkpoint(step, "completed", voice, data=data)
