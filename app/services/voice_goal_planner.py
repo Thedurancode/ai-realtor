@@ -86,6 +86,8 @@ class VoiceGoalPlannerService:
         "get_comps",
         # Phase 5: Bulk operations
         "bulk_operation",
+        # Phase 6: Activity timeline
+        "get_activity_timeline",
     }
 
     def __init__(self):
@@ -225,6 +227,16 @@ class VoiceGoalPlannerService:
                 GoalPlanStep(1, "check_follow_ups", "Check Follow-Up Queue", "Get AI-prioritized follow-up queue."),
                 GoalPlanStep(2, "summarize_next_actions", "Summarize", "Present prioritized follow-ups."),
             ]
+
+        # Activity timeline workflow (must be before insights — "what happened" is more specific)
+        if any(token in normalized for token in ["timeline", "what happened", "recent activity", "show me activity", "what's been going on"]):
+            if "conversation" not in normalized and "discuss" not in normalized:
+                steps = [
+                    GoalPlanStep(1, "resolve_property", "Resolve Property", "Find the target property if mentioned."),
+                    GoalPlanStep(2, "get_activity_timeline", "Get Timeline", "Fetch activity timeline."),
+                    GoalPlanStep(3, "summarize_next_actions", "Summarize", "Present timeline results."),
+                ]
+                return steps
 
         # Insights / alerts / follow-up workflow
         if any(token in normalized for token in ["attention", "alert", "insight", "overdue", "follow up", "what needs"]):
@@ -546,6 +558,10 @@ class VoiceGoalPlannerService:
             # Phase 5: Bulk operations
             if step.action == "bulk_operation":
                 return await self._step_bulk_operation(db, state, session_id, goal_node_key, step)
+
+            # Phase 6: Activity timeline
+            if step.action == "get_activity_timeline":
+                return self._step_get_activity_timeline(db, state, session_id, goal_node_key, step)
 
             return self._checkpoint(step, "failed", f"Unknown step action: {step.action}")
         except Exception as exc:
@@ -1437,6 +1453,41 @@ class VoiceGoalPlannerService:
             source=MemoryRef("goal", goal_node_key),
             target=MemoryRef("bulk_operation", f"{operation}_{result['total']}"),
             relation="executed", weight=0.8,
+        )
+
+        return self._checkpoint(step, "completed", voice, data=data)
+
+    def _step_get_activity_timeline(
+        self,
+        db: Session,
+        state: dict[str, Any],
+        session_id: str,
+        goal_node_key: str,
+        step: GoalPlanStep,
+    ) -> dict[str, Any]:
+        from app.services.activity_timeline_service import activity_timeline_service
+
+        property_id = state.get("property_id")
+        prop: Property | None = state.get("property")
+        pid = prop.id if prop else property_id
+
+        timeline = activity_timeline_service.get_timeline(db=db, property_id=pid, limit=20)
+        voice = timeline.get("voice_summary", "No activity found.")
+        total = timeline.get("total_events", 0)
+
+        data = {"total_events": total, "property_id": pid}
+        state["activity_timeline"] = data
+
+        node_key = f"timeline_{pid or 'portfolio'}"
+        memory_graph_service.upsert_node(
+            db, session_id=session_id, node_type="activity_timeline",
+            node_key=node_key, summary=voice[:500], payload=data, importance=0.6,
+        )
+        memory_graph_service.upsert_edge(
+            db, session_id=session_id,
+            source=MemoryRef("goal", goal_node_key),
+            target=MemoryRef("activity_timeline", node_key),
+            relation="queried", weight=0.7,
         )
 
         return self._checkpoint(step, "completed", voice, data=data)

@@ -24,3 +24,4 @@ from . import daily_digest  # noqa: F401
 from . import follow_ups  # noqa: F401
 from . import comps  # noqa: F401
 from . import bulk  # noqa: F401
+from . import activity_timeline  # noqa: F401
