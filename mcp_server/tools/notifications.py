@@ -47,14 +47,10 @@ async def handle_list_notifications(arguments: dict) -> list[TextContent]:
 
     default_icon = "\U0001f514"  # 🔔 bell emoji
     if isinstance(result, list) and len(result) > 0:
-        summary = f"Found {len(result)} notification(s):\n\n"
+        summary = f"You have {len(result)} notification(s).\n\n"
         for notif in result:
-            icon = notif.get('icon', default_icon)
-            summary += f"{icon} {notif['title']}\n"
-            summary += f"   {notif['message']}\n"
-            summary += f"   Type: {notif['type']} | Priority: {notif['priority']}\n"
-            summary += f"   Created: {notif['created_at']}\n\n"
-        return [TextContent(type="text", text=summary)]
+            summary += f"#{notif.get('id', '')} {notif['title']}: {notif['message']} [{notif['priority']}] ({notif['created_at']})\n"
+        return [TextContent(type="text", text=summary.strip())]
     else:
         return [TextContent(type="text", text="No notifications found.")]
 
@@ -128,23 +124,15 @@ async def handle_get_notification_summary(arguments: dict) -> list[TextContent]:
         "general": "general notifications",
     }
 
-    text = f"Activity summary ({len(result)} events):\n\n"
+    # Build conversational summary
+    parts = [f"{count} {type_labels.get(ntype, ntype.replace('_', ' '))}" for ntype, count in type_counts.most_common()]
+    text = f"Activity summary: {len(result)} events — {', '.join(parts)}."
 
     if urgent_items:
-        text += "URGENT:\n"
-        for item in urgent_items[:3]:
-            text += f"  {item.get('icon', '')} {item['title']}: {item['message']}\n"
-        text += "\n"
+        text += f" URGENT: {urgent_items[0]['title']}: {urgent_items[0]['message']}."
 
-    for ntype, count in type_counts.most_common():
-        label = type_labels.get(ntype, ntype.replace("_", " "))
-        text += f"  {count} {label}\n"
-
-    # Show most recent 3
-    text += "\nMost recent:\n"
-    for n in result[:3]:
-        time_ago = _human_time_ago(n.get("created_at", ""))
-        text += f"  {n.get('icon', '')} {n['title']} ({time_ago})\n"
+    recent_parts = [f"{n['title']} ({_human_time_ago(n.get('created_at', ''))})" for n in result[:3]]
+    text += f" Most recent: {'; '.join(recent_parts)}."
 
     return [TextContent(type="text", text=text)]
 

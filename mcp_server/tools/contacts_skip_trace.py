@@ -35,44 +35,41 @@ async def handle_skip_trace_property(arguments: dict) -> list[TextContent]:
 
     trace = result.get("data", result.get("skip_trace", result))
     address = trace.get("property_address", f"property {property_id}")
-    text = f"Skip trace completed for {address}.\n\n"
 
-    if trace.get('owner_name'):
-        text += f"Owner: {trace['owner_name']}\n"
-    if trace.get('phone_count', 0) > 0:
-        text += f"Phone numbers found: {trace['phone_count']}\n"
-    if trace.get('email_count', 0) > 0:
-        text += f"Email addresses found: {trace['email_count']}\n"
-
+    # Try to get detailed info from property endpoint
+    owner = trace.get('owner_name')
+    phones = []
+    emails = []
+    mailing = None
     try:
         full = await get_property(property_id)
         skip_traces = full.get('skip_traces', [])
         if skip_traces:
             st = skip_traces[0]
             if st.get('owner_name') and st['owner_name'] != 'Unknown Owner':
-                text += f"Owner: {st['owner_name']}\n"
-            phones = st.get('phone_numbers', [])
-            if phones:
-                text += f"Phone numbers: {', '.join(phones)}\n"
-            else:
-                text += "Phone numbers: none found\n"
-            emails = st.get('emails', [])
-            if emails:
-                text += f"Email addresses: {', '.join(emails)}\n"
-            else:
-                text += "Email addresses: none found\n"
+                owner = st['owner_name']
+            phones = st.get('phone_numbers', []) or []
+            emails = st.get('emails', []) or []
             if st.get('mailing_address'):
                 mailing = st['mailing_address']
                 if st.get('mailing_city'):
                     mailing += f", {st['mailing_city']}"
                 if st.get('mailing_state'):
                     mailing += f", {st['mailing_state']}"
-                text += f"Mailing address: {mailing}\n"
     except Exception:
         pass
 
-    if not trace.get('owner_name') or trace.get('owner_name') == 'Unknown Owner':
-        text += "\nNote: Owner information was not available for this property.\n"
+    text = f"Skip trace completed for {address}."
+    if owner and owner != 'Unknown Owner':
+        text += f" Owner: {owner}."
+    else:
+        text += " Owner information was not available."
+    if phones:
+        text += f" Phone: {', '.join(phones)}."
+    if emails:
+        text += f" Email: {', '.join(emails)}."
+    if mailing:
+        text += f" Mailing address: {mailing}."
 
     return [TextContent(type="text", text=text)]
 

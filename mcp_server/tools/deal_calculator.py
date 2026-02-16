@@ -27,56 +27,36 @@ async def handle_calculate_deal(arguments: dict) -> list[TextContent]:
     data = response.json()
 
     text = data.get("voice_summary", "")
-    text += "\n\n=== STRATEGY COMPARISON ===\n\n"
 
-    def _fmt_strategy(label, s):
+    # Concise strategy comparison
+    def _fmt(label, s):
+        if not s:
+            return ""
         ds = s.get("deal_score", {})
         grade = ds.get("grade", "?") if ds else "?"
-        block = f"{label} (Grade {grade}):\n"
-        block += f"  Offer: ${s.get('offer_price', 0):,.0f}\n"
-        block += f"  Profit: ${s.get('net_profit', 0) or 0:,.0f}\n"
+        parts = [f"offer ${s.get('offer_price', 0):,.0f}", f"profit ${s.get('net_profit', 0) or 0:,.0f}"]
         if s.get("roi_percent"):
-            block += f"  ROI: {s['roi_percent']:.1f}%\n"
+            parts.append(f"ROI {s['roi_percent']:.1f}%")
         if s.get("monthly_cash_flow"):
-            block += f"  Cash Flow: ${s['monthly_cash_flow']:,.0f}/mo\n"
+            parts.append(f"cash flow ${s['monthly_cash_flow']:,.0f}/mo")
         if s.get("cap_rate"):
-            block += f"  Cap Rate: {s['cap_rate']:.1f}%\n"
-        if s.get("cash_on_cash_return"):
-            block += f"  Cash-on-Cash: {s['cash_on_cash_return']:.1f}%\n"
-        if s.get("holding_costs"):
-            block += f"  Holding Costs: ${s['holding_costs']:,.0f}\n"
-        fin = s.get("financing")
-        if fin:
-            block += f"  Financing: ${fin['loan_amount']:,.0f} loan @ {fin['interest_rate']*100:.1f}% ({fin['loan_type']})\n"
-            block += f"  Monthly P&I: ${fin['monthly_payment']:,.0f}\n"
-        eb = s.get("expense_breakdown")
-        if eb:
-            block += f"  Monthly Expenses: ${eb['total_monthly']:,.0f} (mgmt ${eb['property_management']:,.0f} + vacancy ${eb['vacancy_reserve']:,.0f} + capex ${eb['capex_reserve']:,.0f} + repairs ${eb['repairs_reserve']:,.0f} + ins ${eb['insurance']:,.0f} + tax ${eb['property_tax']:,.0f} + debt ${eb['debt_service']:,.0f})\n"
+            parts.append(f"cap rate {s['cap_rate']:.1f}%")
         brrrr = s.get("brrrr")
-        if brrrr:
-            block += f"  Initial Cash In: ${brrrr['initial_cash_in']:,.0f}\n"
-            block += f"  Refi Loan: ${brrrr['refi_loan_amount']:,.0f}\n"
-            block += f"  Cash Back at Refi: ${brrrr['cash_back_at_refi']:,.0f}\n"
-            block += f"  Cash Left in Deal: ${brrrr['cash_left_in_deal']:,.0f}\n"
-            if brrrr.get("infinite_return"):
-                block += f"  *** INFINITE RETURN — All cash recovered! ***\n"
-            block += f"  Post-Refi Cash Flow: ${brrrr['monthly_cash_flow_post_refi']:,.0f}/mo\n"
-        return block
+        if brrrr and brrrr.get("infinite_return"):
+            parts.append("INFINITE RETURN")
+        return f"\n{label} (Grade {grade}): {', '.join(parts)}."
 
-    text += _fmt_strategy("WHOLESALE", data.get("wholesale", {}))
     text += "\n"
-    text += _fmt_strategy("FIX & FLIP", data.get("flip", {}))
-    text += "\n"
-    text += _fmt_strategy("RENTAL", data.get("rental", {}))
+    text += _fmt("Wholesale", data.get("wholesale", {}))
+    text += _fmt("Fix & Flip", data.get("flip", {}))
+    text += _fmt("Rental", data.get("rental", {}))
+    if data.get("brrrr"):
+        text += _fmt("BRRRR", data["brrrr"])
 
-    brrrr_data = data.get("brrrr")
-    if brrrr_data:
-        text += "\n"
-        text += _fmt_strategy("BRRRR", brrrr_data)
-
-    text += f"\nRECOMMENDED: {data.get('recommended_strategy', '').upper()}\n{data.get('recommendation_reason', '')}"
-    text += f"\nARV: ${data.get('arv', 0):,.0f} (source: {data.get('data_sources', {}).get('arv_source', 'unknown')})"
-    return [TextContent(type="text", text=text)]
+    rec = data.get('recommended_strategy', '').replace('_', ' ').title()
+    text += f"\n\nRecommended: {rec}. {data.get('recommendation_reason', '')}"
+    text += f"\nARV: ${data.get('arv', 0):,.0f} (source: {data.get('data_sources', {}).get('arv_source', 'unknown')})."
+    return [TextContent(type="text", text=text.strip())]
 
 
 async def handle_compare_strategies(arguments: dict) -> list[TextContent]:
@@ -91,8 +71,8 @@ async def handle_compare_strategies(arguments: dict) -> list[TextContent]:
     response.raise_for_status()
     data = response.json()
 
-    text = f"Strategy Comparison: {data.get('property_address', '')}\n"
-    text += f"List Price: ${data.get('list_price', 0) or 0:,.0f} | ARV: ${data.get('arv', 0):,.0f}\n\n"
+    addr = data.get('property_address', 'this property')
+    text = f"Strategy comparison for {addr} (list ${data.get('list_price', 0) or 0:,.0f}, ARV ${data.get('arv', 0):,.0f}):\n"
 
     strategies = ["wholesale", "flip", "rental"]
     if data.get("brrrr"):
@@ -100,25 +80,26 @@ async def handle_compare_strategies(arguments: dict) -> list[TextContent]:
 
     for s_name in strategies:
         s = data.get(s_name, {})
+        if not s:
+            continue
         ds = s.get("deal_score", {})
         grade = ds.get("grade", "?") if ds else "?"
-        text += f"{s_name.upper()} (Grade {grade}):\n"
-        text += f"  Offer: ${s.get('offer_price', 0):,.0f}\n"
-        text += f"  Profit: ${s.get('net_profit', 0) or 0:,.0f}\n"
+        label = s_name.replace("_", " ").title()
+        parts = [f"offer ${s.get('offer_price', 0):,.0f}", f"profit ${s.get('net_profit', 0) or 0:,.0f}"]
         if s.get("roi_percent"):
-            text += f"  ROI: {s['roi_percent']:.1f}%\n"
+            parts.append(f"ROI {s['roi_percent']:.1f}%")
         if s.get("monthly_cash_flow"):
-            text += f"  Cash Flow: ${s['monthly_cash_flow']:,.0f}/mo\n"
+            parts.append(f"cash flow ${s['monthly_cash_flow']:,.0f}/mo")
         if s.get("cap_rate"):
-            text += f"  Cap Rate: {s['cap_rate']:.1f}%\n"
+            parts.append(f"cap rate {s['cap_rate']:.1f}%")
         brrrr = s.get("brrrr")
         if brrrr and brrrr.get("infinite_return"):
-            text += f"  *** INFINITE RETURN ***\n"
-        text += "\n"
+            parts.append("INFINITE RETURN")
+        text += f"\n{label} (Grade {grade}): {', '.join(parts)}."
 
-    text += f"RECOMMENDED: {data.get('recommended_strategy', '').upper()}\n"
-    text += data.get("recommendation_reason", "")
-    return [TextContent(type="text", text=text)]
+    rec = data.get('recommended_strategy', '').replace('_', ' ').title()
+    text += f"\n\nRecommended: {rec}. {data.get('recommendation_reason', '')}"
+    return [TextContent(type="text", text=text.strip())]
 
 
 async def handle_what_if_deal(arguments: dict) -> list[TextContent]:
@@ -141,16 +122,17 @@ async def handle_what_if_deal(arguments: dict) -> list[TextContent]:
     response.raise_for_status()
     data = response.json()
 
-    text = "WHAT-IF SCENARIO\n"
+    overrides = []
     if arguments.get("arv_override"):
-        text += f"Custom ARV: ${arguments['arv_override']:,.0f}\n"
+        overrides.append(f"ARV ${arguments['arv_override']:,.0f}")
     if arguments.get("monthly_rent_override"):
-        text += f"Custom Rent: ${arguments['monthly_rent_override']:,.0f}/mo\n"
+        overrides.append(f"rent ${arguments['monthly_rent_override']:,.0f}/mo")
     if arguments.get("rehab_tier"):
-        text += f"Rehab Tier: {arguments['rehab_tier']}\n"
-    text += "\n"
+        overrides.append(f"{arguments['rehab_tier']} rehab")
+
+    text = f"What-if scenario with {', '.join(overrides)}:\n\n" if overrides else "What-if scenario:\n\n"
     text += data.get("voice_summary", "")
-    return [TextContent(type="text", text=text)]
+    return [TextContent(type="text", text=text.strip())]
 
 
 # ── Tool Registration ──

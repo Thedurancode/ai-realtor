@@ -25,21 +25,19 @@ async def handle_create_offer(arguments: dict) -> list[TextContent]:
     response.raise_for_status()
     offer = response.json()
 
-    text = f"OFFER CREATED (ID: {offer['id']})\n"
-    text += f"  Property: #{offer['property_id']}\n"
-    text += f"  Price: ${offer['offer_price']:,.0f}\n"
-    text += f"  Status: {offer['status']}\n"
-    text += f"  Financing: {offer.get('financing_type', 'cash')}\n"
+    terms = [f"${offer['offer_price']:,.0f}", offer.get('financing_type', 'cash')]
     if offer.get("closing_days"):
-        text += f"  Close in: {offer['closing_days']} days\n"
-    if offer.get("contingencies"):
-        text += f"  Contingencies: {', '.join(offer['contingencies'])}\n"
+        terms.append(f"{offer['closing_days']}-day close")
     if offer.get("earnest_money"):
-        text += f"  Earnest money: ${offer['earnest_money']:,.0f}\n"
+        terms.append(f"${offer['earnest_money']:,.0f} earnest")
+    if offer.get("contingencies"):
+        terms.append(f"{len(offer['contingencies'])} contingencies")
+
+    text = f"Offer #{offer['id']} created on property #{offer['property_id']}: {', '.join(terms)}."
     if offer.get("mao_base"):
-        text += f"  MAO reference: ${offer['mao_base']:,.0f} (low: ${offer.get('mao_low', 0):,.0f}, high: ${offer.get('mao_high', 0):,.0f})\n"
+        text += f" MAO range: ${offer.get('mao_low', 0):,.0f}-${offer.get('mao_high', 0):,.0f}."
     if offer.get("expires_at_formatted"):
-        text += f"  Expires: {offer['expires_at_formatted']}\n"
+        text += f" Expires {offer['expires_at_formatted']}."
     return [TextContent(type="text", text=text)]
 
 
@@ -72,14 +70,11 @@ async def handle_counter_offer(arguments: dict) -> list[TextContent]:
     response.raise_for_status()
     offer = response.json()
 
-    text = f"COUNTER-OFFER CREATED (ID: {offer['id']})\n"
-    text += f"  New price: ${offer['offer_price']:,.0f}\n"
-    text += f"  Countering offer #{offer.get('parent_offer_id')}\n"
-    text += f"  Status: {offer['status']}\n"
+    text = f"Counter-offer #{offer['id']} sent at ${offer['offer_price']:,.0f} (countering offer #{offer.get('parent_offer_id')})."
     if offer.get("closing_days"):
-        text += f"  Close in: {offer['closing_days']} days\n"
+        text += f" {offer['closing_days']}-day close."
     if offer.get("expires_at_formatted"):
-        text += f"  Expires: {offer['expires_at_formatted']}\n"
+        text += f" Expires {offer['expires_at_formatted']}."
     return [TextContent(type="text", text=text)]
 
 
@@ -104,11 +99,7 @@ async def handle_accept_offer(arguments: dict) -> list[TextContent]:
     response.raise_for_status()
     offer = response.json()
 
-    text = f"OFFER ACCEPTED! (ID: {offer['id']})\n"
-    text += f"  Price: ${offer['offer_price']:,.0f}\n"
-    text += f"  Property status changed to PENDING\n"
-    text += f"  Competing offers auto-rejected\n"
-    text += f"  Purchase agreement contracts queued for attachment\n"
+    text = f"Offer #{offer['id']} accepted at ${offer['offer_price']:,.0f}. Property is now pending, competing offers auto-rejected, and purchase agreement contracts are queued."
     return [TextContent(type="text", text=text)]
 
 
@@ -132,9 +123,7 @@ async def handle_reject_offer(arguments: dict) -> list[TextContent]:
     response.raise_for_status()
     offer = response.json()
 
-    text = f"OFFER REJECTED (ID: {offer['id']})\n"
-    text += f"  Price was: ${offer['offer_price']:,.0f}\n"
-    text += f"  Status: {offer['status']}\n"
+    text = f"Offer #{offer['id']} rejected (was ${offer['offer_price']:,.0f})."
     return [TextContent(type="text", text=text)]
 
 
@@ -158,8 +147,7 @@ async def handle_withdraw_offer(arguments: dict) -> list[TextContent]:
     response.raise_for_status()
     offer = response.json()
 
-    text = f"OFFER WITHDRAWN (ID: {offer['id']})\n"
-    text += f"  Price was: ${offer['offer_price']:,.0f}\n"
+    text = f"Offer #{offer['id']} withdrawn (was ${offer['offer_price']:,.0f})."
     return [TextContent(type="text", text=text)]
 
 
@@ -181,15 +169,11 @@ async def handle_list_offers(arguments: dict) -> list[TextContent]:
     if not offers:
         return [TextContent(type="text", text="No offers found.")]
 
-    text = f"OFFERS ({len(offers)} total)\n\n"
+    text = f"You have {len(offers)} offer{'s' if len(offers) != 1 else ''}.\n\n"
     for o in offers[:15]:
-        text += f"  #{o['id']} | ${o['offer_price']:,.0f} | {o['status']}"
-        if o.get("financing_type"):
-            text += f" | {o['financing_type']}"
-        if o.get("submitted_at_formatted"):
-            text += f" | {o['submitted_at_formatted']}"
-        text += "\n"
-    return [TextContent(type="text", text=text)]
+        direction = "ours" if o.get("is_our_offer") else "received"
+        text += f"#{o['id']} ${o['offer_price']:,.0f} ({o['status']}, {o.get('financing_type', 'cash')}, {direction})\n"
+    return [TextContent(type="text", text=text.strip())]
 
 
 async def handle_get_offer_details(arguments: dict) -> list[TextContent]:
@@ -205,14 +189,14 @@ async def handle_get_offer_details(arguments: dict) -> list[TextContent]:
     summary = response.json()
 
     text = summary.get("voice_summary", "No offer data available.")
-    text += "\n\n"
-    for o in summary.get("offers", [])[:10]:
-        direction = "OUR OFFER" if o.get("is_our_offer") else "RECEIVED"
-        text += f"  #{o['id']} | ${o['offer_price']:,.0f} | {o['status']} | {direction}"
-        if o.get("parent_offer_id"):
-            text += f" (counter to #{o['parent_offer_id']})"
-        text += "\n"
-    return [TextContent(type="text", text=text)]
+    offers_list = summary.get("offers", [])
+    if offers_list:
+        text += "\n\n"
+        for o in offers_list[:10]:
+            direction = "ours" if o.get("is_our_offer") else "received"
+            counter = f" (counter to #{o['parent_offer_id']})" if o.get("parent_offer_id") else ""
+            text += f"#{o['id']} ${o['offer_price']:,.0f} — {o['status']}, {direction}{counter}\n"
+    return [TextContent(type="text", text=text.strip())]
 
 
 async def handle_calculate_mao(arguments: dict) -> list[TextContent]:
@@ -228,20 +212,22 @@ async def handle_calculate_mao(arguments: dict) -> list[TextContent]:
     mao = response.json()
 
     text = mao.get("voice_summary", "")
-    text += "\n\n"
-    text += f"Strategy: {mao.get('strategy', 'wholesale')}\n"
+    details = []
     if mao.get("list_price"):
-        text += f"List price: ${mao['list_price']:,.0f}\n"
+        details.append(f"list ${mao['list_price']:,.0f}")
     if mao.get("zestimate"):
-        text += f"Zestimate: ${mao['zestimate']:,.0f}\n"
+        details.append(f"Zestimate ${mao['zestimate']:,.0f}")
     arv = mao.get("arv")
     if arv and arv.get("base"):
-        text += f"ARV: ${arv['base']:,.0f} (low: ${arv.get('low', 0):,.0f}, high: ${arv.get('high', 0):,.0f})\n"
+        details.append(f"ARV ${arv['base']:,.0f}")
     offer_rec = mao.get("offer_recommendation")
     if offer_rec and offer_rec.get("base"):
-        text += f"MAX OFFER: ${offer_rec['base']:,.0f} (range: ${offer_rec.get('low', 0):,.0f}-${offer_rec.get('high', 0):,.0f})\n"
-    text += f"\n{mao.get('explanation', '')}"
-    return [TextContent(type="text", text=text)]
+        details.append(f"max offer ${offer_rec['base']:,.0f} (range ${offer_rec.get('low', 0):,.0f}-${offer_rec.get('high', 0):,.0f})")
+    if details:
+        text += f"\n\n{mao.get('strategy', 'wholesale').title()} strategy: {', '.join(details)}."
+    if mao.get('explanation'):
+        text += f"\n{mao['explanation']}"
+    return [TextContent(type="text", text=text.strip())]
 
 
 # ── Tool Registration ──
@@ -293,27 +279,19 @@ async def handle_draft_offer_letter(arguments: dict) -> list[TextContent]:
         response.raise_for_status()
         data = response.json()
 
-    # Format output
-    text = "OFFER LETTER DRAFTED\n"
-    text += f"  Contract ID: {data['contract_id']} (DRAFT — ready for DocuSeal)\n\n"
+    text = data.get('voice_summary', f"Offer letter drafted (contract #{data['contract_id']}, ready for DocuSeal).")
 
-    text += "VOICE SUMMARY:\n"
-    text += f"  {data.get('voice_summary', 'N/A')}\n\n"
-
-    text += "NEGOTIATION STRATEGY:\n"
-    text += f"  {data.get('negotiation_strategy', 'N/A')}\n\n"
+    if data.get('negotiation_strategy'):
+        text += f"\n\nNegotiation strategy: {data['negotiation_strategy']}"
 
     points = data.get("talking_points", [])
     if points:
-        text += "TALKING POINTS:\n"
-        for i, pt in enumerate(points, 1):
-            text += f"  {i}. {pt}\n"
-        text += "\n"
+        text += "\n\nTalking points: " + "; ".join(points[:5]) + "."
 
-    text += "FULL LETTER:\n"
-    text += data.get("letter_text", "N/A")
+    if data.get("letter_text"):
+        text += f"\n\nFull letter:\n{data['letter_text']}"
 
-    return [TextContent(type="text", text=text)]
+    return [TextContent(type="text", text=text.strip())]
 
 
 register_tool(Tool(

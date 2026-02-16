@@ -90,13 +90,9 @@ async def handle_get_campaign_status(arguments: dict) -> list[TextContent]:
     exhausted = stats.get("exhausted", 0)
     success_rate = stats.get("success_rate", 0)
 
-    text = f"Campaign #{campaign_id} Analytics:\n"
-    text += f"Total targets: {total}\n"
-    text += f"Completed: {completed} | Pending: {pending} | In Progress: {in_progress}\n"
-    text += f"Failed: {failed} | Exhausted: {exhausted}\n"
-    text += f"Success rate: {success_rate:.0%}\n"
+    text = f"Campaign #{campaign_id}: {completed}/{total} completed ({success_rate:.0%} success rate). Pending: {pending}, in progress: {in_progress}, failed: {failed}, exhausted: {exhausted}."
     if stats.get("avg_attempts"):
-        text += f"Avg attempts per target: {stats['avg_attempts']:.1f}"
+        text += f" Average {stats['avg_attempts']:.1f} attempts per target."
     return [TextContent(type="text", text=text)]
 
 
@@ -112,14 +108,13 @@ async def handle_list_voice_campaigns(arguments: dict) -> list[TextContent]:
     if not campaigns:
         return [TextContent(type="text", text="No campaigns found.")]
 
-    text = f"Found {len(campaigns)} campaign(s):\n\n"
+    text = f"You have {len(campaigns)} campaign(s).\n\n"
     for c in campaigns:
-        text += f"#{c['id']} {c['name']} ({c['status']})\n"
-        text += f"   Purpose: {c['call_purpose']}"
+        line = f"#{c['id']} {c['name']} [{c['status']}] — {c['call_purpose']}"
         if c.get("property_id"):
-            text += f" | Property: #{c['property_id']}"
-        text += "\n"
-    return [TextContent(type="text", text=text)]
+            line += f", property #{c['property_id']}"
+        text += line + "\n"
+    return [TextContent(type="text", text=text.strip())]
 
 
 # ── Tool Registration ──

@@ -49,13 +49,12 @@ async def handle_list_bulk_operations(arguments: dict) -> list[TextContent]:
     data = response.json()
 
     ops = data.get("operations", [])
-    text = f"AVAILABLE BULK OPERATIONS ({len(ops)}):\n\n"
+    text = f"{len(ops)} bulk operations available.\n\n"
     for op in ops:
-        text += f"  {op['name']} — {op['description']}\n"
+        params = ""
         if op.get("params"):
-            for k, v in op["params"].items():
-                text += f"    param: {k} — {v}\n"
-        text += "\n"
+            params = f" (params: {', '.join(op['params'].keys())})"
+        text += f"{op['name']} — {op['description']}{params}\n"
 
     return [TextContent(type="text", text=text.strip())]
 

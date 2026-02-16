@@ -21,15 +21,12 @@ async def handle_score_property(arguments: dict) -> list[TextContent]:
     voice = data.get("voice_summary", "")
     dims = data.get("dimensions", {})
 
-    text = f"{voice}\n\nSCORE BREAKDOWN — Property #{property_id}\n{'=' * 40}\n"
-    text += f"Overall: {data['score']}/100 (Grade {data['grade']})\n\n"
-
+    text = voice
+    dim_parts = []
     for dim_name, dim_data in dims.items():
-        text += f"  {dim_name.upper()} ({dim_data['weight']*100:.0f}% weight): {dim_data['score']}/100\n"
-        for key, val in dim_data.items():
-            if key not in ("score", "weight") and isinstance(val, (int, float)):
-                text += f"    - {key}: {val}\n"
-        text += "\n"
+        dim_parts.append(f"{dim_name} {dim_data['score']}/100 ({dim_data['weight']*100:.0f}%)")
+    if dim_parts:
+        text += f"\n\nBreakdown: {', '.join(dim_parts)}."
 
     return [TextContent(type="text", text=text.strip())]
 
@@ -47,17 +44,17 @@ async def handle_get_score_breakdown(arguments: dict) -> list[TextContent]:
     if data.get("error"):
         return [TextContent(type="text", text=data["error"])]
 
-    text = f"SCORE — Property #{property_id} ({data.get('address', '')})\n{'=' * 40}\n"
-    text += f"Score: {data['score']}/100 | Grade: {data['grade']}\n\n"
+    addr = data.get('address', f'property #{property_id}')
+    text = f"{addr} — {data['score']}/100, Grade {data['grade']}."
 
     breakdown = data.get("breakdown", {})
     if isinstance(breakdown, dict):
         dims = breakdown.get("dimensions", {})
         if dims:
-            for dim_name, dim_data in dims.items():
-                text += f"  {dim_name.upper()}: {dim_data.get('score', 'N/A')}/100 (weight {dim_data.get('weight', 0)*100:.0f}%)\n"
+            dim_parts = [f"{name} {d.get('score', 'N/A')}/100 ({d.get('weight', 0)*100:.0f}%)" for name, d in dims.items()]
+            text += f" Breakdown: {', '.join(dim_parts)}."
 
-    return [TextContent(type="text", text=text.strip())]
+    return [TextContent(type="text", text=text)]
 
 
 async def handle_bulk_score(arguments: dict) -> list[TextContent]:
@@ -73,26 +70,22 @@ async def handle_bulk_score(arguments: dict) -> list[TextContent]:
     data = response.json()
 
     voice = data.get("voice_summary", "Bulk scoring complete.")
-    text = f"{voice}\n\nBULK SCORE RESULTS\n{'=' * 40}\n"
-    text += f"Total: {data.get('total', 0)} | Average: {data.get('average_score', 0)}\n\n"
-
     dist = data.get("grade_distribution", {})
-    if dist:
-        text += "Grade Distribution:\n"
-        for grade, count in dist.items():
-            if count > 0:
-                text += f"  {grade}: {count}\n"
-        text += "\n"
+    dist_parts = [f"{grade}: {count}" for grade, count in dist.items() if count > 0]
+    text = f"{voice}"
+    if dist_parts:
+        text += f" Grades: {', '.join(dist_parts)}."
 
     results = data.get("results", [])
+    text += "\n\n"
     for r in results[:10]:
         if "score" in r:
-            text += f"  #{r['property_id']} {r.get('address', '')}: {r['score']} ({r['grade']})\n"
+            text += f"#{r['property_id']} {r.get('address', '')} — {r['score']}/100 ({r['grade']})\n"
         elif "error" in r:
-            text += f"  #{r['property_id']}: ERROR - {r['error']}\n"
+            text += f"#{r['property_id']}: error — {r['error']}\n"
 
     if len(results) > 10:
-        text += f"\n  ... and {len(results) - 10} more\n"
+        text += f"... and {len(results) - 10} more.\n"
 
     return [TextContent(type="text", text=text.strip())]
 
@@ -110,13 +103,10 @@ async def handle_get_top_properties(arguments: dict) -> list[TextContent]:
     if not data:
         return [TextContent(type="text", text="No scored properties found. Score some properties first.")]
 
-    text = f"TOP {len(data)} PROPERTIES BY SCORE\n{'=' * 40}\n\n"
+    text = f"Top {len(data)} properties by score.\n\n"
     for i, prop in enumerate(data, 1):
         price_str = f"${prop['price']:,.0f}" if prop.get("price") else "N/A"
-        text += (
-            f"{i}. #{prop['property_id']} {prop.get('address', '')} ({prop.get('city', '')})\n"
-            f"   Score: {prop['score']}/100 | Grade: {prop['grade']} | Price: {price_str}\n\n"
-        )
+        text += f"{i}. #{prop['property_id']} {prop.get('address', '')} — {prop['score']}/100 Grade {prop['grade']}, {price_str}\n"
 
     return [TextContent(type="text", text=text.strip())]
 

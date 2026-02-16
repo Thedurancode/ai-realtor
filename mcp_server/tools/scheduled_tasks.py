@@ -57,16 +57,14 @@ async def handle_list_scheduled_tasks(arguments: dict) -> list[TextContent]:
     if not tasks:
         return [TextContent(type="text", text="No scheduled tasks found.")]
 
-    text = f"Found {len(tasks)} scheduled task(s):\n\n"
+    text = f"You have {len(tasks)} scheduled task(s).\n\n"
     for t in tasks:
-        status_icon = {"pending": "⏳", "running": "▶️", "completed": "✅", "cancelled": "❌", "failed": "⚠️"}.get(t["status"], "•")
-        text += f"{status_icon} #{t['id']}: {t['title']} — {t['status']}\n"
-        text += f"   Scheduled: {t['scheduled_at']}\n"
+        line = f"#{t['id']} {t['title']} — {t['status']}, scheduled {t['scheduled_at']}"
         if t.get("property_id"):
-            text += f"   Property: #{t['property_id']}\n"
+            line += f", property #{t['property_id']}"
         if t.get("repeat_interval_hours"):
-            text += f"   Repeats every {t['repeat_interval_hours']}h\n"
-        text += "\n"
+            line += f", repeats every {t['repeat_interval_hours']}h"
+        text += line + "\n"
 
     return [TextContent(type="text", text=text.strip())]
 

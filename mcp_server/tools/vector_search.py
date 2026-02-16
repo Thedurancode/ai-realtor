@@ -90,18 +90,16 @@ async def handle_search_research(arguments: dict) -> list[TextContent]:
     text += "\n\n"
     dossiers = data.get("dossiers", [])
     if dossiers:
-        text += "=== DOSSIERS ===\n"
+        text += "Dossiers:\n"
         for i, d in enumerate(dossiers, 1):
-            text += f"{i}. Research #{d['research_property_id']} ({d.get('similarity', 0):.0%} match)\n"
-            text += f"   {d.get('snippet', '')}\n\n"
+            text += f"  {i}. Research #{d['research_property_id']} ({d.get('similarity', 0):.0%} match) — {d.get('snippet', '')}\n"
+        text += "\n"
     evidence = data.get("evidence", [])
     if evidence:
-        text += "=== EVIDENCE ===\n"
+        text += "Evidence:\n"
         for i, e in enumerate(evidence, 1):
-            text += f"{i}. [{e.get('category', '')}] {e['claim']} ({e.get('similarity', 0):.0%} match)\n"
-            if e.get("source_url"):
-                text += f"   Source: {e['source_url']}\n"
-    return [TextContent(type="text", text=text)]
+            text += f"  {i}. [{e.get('category', '')}] {e['claim']} ({e.get('similarity', 0):.0%} match)\n"
+    return [TextContent(type="text", text=text.strip())]
 
 
 # ── Tool Registration ──

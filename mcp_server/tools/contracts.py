@@ -181,14 +181,10 @@ async def handle_check_contract_status(arguments: dict) -> list[TextContent]:
     address_query = arguments.get("address_query")
     result = await check_contract_status(contract_id=contract_id, address_query=address_query)
     contract_id_display = result.get('id', contract_id or 'unknown')
-    status_text = f"Contract #{contract_id_display} Status: {result.get('status', 'unknown').upper()}\n\n"
+    status_text = f"Contract #{contract_id_display}: {result.get('status', 'unknown')}."
     if "submitters" in result and result["submitters"]:
-        status_text += "Signers:\n"
-        for submitter in result["submitters"]:
-            name = submitter.get("name", "Unknown")
-            role = submitter.get("role", "Unknown")
-            status = submitter.get("status", "pending")
-            status_text += f"  - {name} ({role}): {status}\n"
+        signer_parts = [f"{s.get('name', 'Unknown')} ({s.get('role', '?')}): {s.get('status', 'pending')}" for s in result["submitters"]]
+        status_text += f" Signers: {', '.join(signer_parts)}."
     return [TextContent(type="text", text=status_text)]
 
 
@@ -197,17 +193,11 @@ async def handle_list_contracts(arguments: dict) -> list[TextContent]:
     address_query = arguments.get("address_query")
     result = await list_contracts(property_id=property_id, address_query=address_query)
     if isinstance(result, list) and len(result) > 0:
-        summary = f"Found {len(result)} contract(s)"
-        if address_query:
-            summary += f" for address '{address_query}'"
-        summary += ":\n\n"
+        addr_label = f" for {address_query}" if address_query else ""
+        summary = f"Found {len(result)} contract(s){addr_label}.\n\n"
         for contract in result:
-            summary += f"{contract['name']} (ID: {contract['id']})\n"
-            summary += f"   Status: {contract.get('status', 'unknown')}\n"
-            if contract.get('property_id'):
-                summary += f"   Property ID: {contract['property_id']}\n"
-            summary += f"   Created: {contract.get('created_at', 'N/A')}\n\n"
-        return [TextContent(type="text", text=summary)]
+            summary += f"#{contract['id']} {contract['name']} — {contract.get('status', 'unknown')}\n"
+        return [TextContent(type="text", text=summary.strip())]
     else:
         return [TextContent(type="text", text=f"No contracts found{' for address: ' + address_query if address_query else ''}.")]
 
@@ -215,37 +205,31 @@ async def handle_list_contracts(arguments: dict) -> list[TextContent]:
 async def handle_list_contracts_voice(arguments: dict) -> list[TextContent]:
     address_query = arguments["address_query"]
     result = await list_contracts_voice(address_query=address_query)
-    voice_text = f"VOICE RESPONSE:\n{result['voice_response']}\n\nDETAILS:\nCount: {result['count']}\nAddress: {result.get('address', address_query)}\n\n"
+    voice_text = result['voice_response']
     if result['contracts']:
-        voice_text += "CONTRACTS:\n"
-        for contract in result['contracts']:
-            voice_text += f"  - {contract['name']} ({contract['status']})\n"
+        contract_parts = [f"{c['name']} ({c['status']})" for c in result['contracts']]
+        voice_text += f" Contracts: {', '.join(contract_parts)}."
     return [TextContent(type="text", text=voice_text)]
 
 
 async def handle_check_contract_status_voice(arguments: dict) -> list[TextContent]:
     address_query = arguments["address_query"]
     result = await check_contract_status_voice(address_query=address_query)
-    voice_text = f"VOICE RESPONSE:\n{result['voice_response']}\n\nDETAILS:\nContract ID: {result['contract_id']}\nStatus: {result['status']}\n"
-    return [TextContent(type="text", text=voice_text)]
+    return [TextContent(type="text", text=result['voice_response'])]
 
 
 async def handle_get_signing_status(arguments: dict) -> list[TextContent]:
     property_id = resolve_property_id(arguments)
     result = await get_signing_status(property_id=property_id)
-    signing_text = f"SIGNING STATUS\n\nProperty: {result.get('property_address', 'Unknown')}\n{result.get('voice_summary', '')}\n\n"
-    signing_text += f"TOTALS: {result.get('signed', 0)}/{result.get('total_signers', 0)} signed\n\n"
+    signing_text = result.get('voice_summary', f"Signing status for {result.get('property_address', 'Unknown')}: {result.get('signed', 0)}/{result.get('total_signers', 0)} signed.")
     for contract in result.get('contracts', []):
-        signing_text += f"{contract['contract_name']} ({contract['contract_status']})\n"
-        for signer in contract.get('signers', []):
-            signing_text += f"  {signer['name']} ({signer['role']}) - {signer['status']}\n"
-        if not contract.get('signers'):
-            signing_text += f"  (no signers assigned yet)\n"
-        signing_text += "\n"
+        signer_parts = [f"{s['name']} ({s['role']}): {s['status']}" for s in contract.get('signers', [])]
+        signer_str = f" — {', '.join(signer_parts)}" if signer_parts else " — no signers assigned"
+        signing_text += f"\n{contract['contract_name']} ({contract['contract_status']}){signer_str}."
     if result.get('pending_names'):
-        signing_text += f"Still waiting on: {', '.join(result['pending_names'])}\n"
+        signing_text += f"\nWaiting on: {', '.join(result['pending_names'])}."
     elif result.get('all_signed'):
-        signing_text += f"All signers have completed!\n"
+        signing_text += "\nAll signers have completed!"
     return [TextContent(type="text", text=signing_text)]
 
 
@@ -254,24 +238,21 @@ async def handle_check_property_contract_readiness(arguments: dict) -> list[Text
     address_query = arguments.get("address_query")
     result = await check_property_contract_readiness(property_id=property_id, address_query=address_query)
     is_ready = result.get('is_ready_to_close', False)
-    report = f"CONTRACT READINESS REPORT\n\nProperty: {result.get('property_address', 'Unknown')}\nReady to Close: {'YES' if is_ready else 'NO'}\n\n"
-    report += f"STATUS:\n  Total Required: {result.get('total_required', 0)}\n  Completed: {result.get('completed', 0)}\n  In Progress: {result.get('in_progress', 0)}\n  Missing: {result.get('missing', 0)}\n"
+    addr = result.get('property_address', 'Unknown')
+    report = f"{addr}: {'ready to close' if is_ready else 'not ready to close'}. {result.get('completed', 0)}/{result.get('total_required', 0)} required contracts completed, {result.get('in_progress', 0)} in progress, {result.get('missing', 0)} missing."
     if result.get('missing_templates'):
-        report += f"\nMISSING CONTRACTS:\n"
-        for template in result['missing_templates']:
-            report += f"  - {template['name']}\n"
+        missing_names = [t['name'] for t in result['missing_templates']]
+        report += f" Missing: {', '.join(missing_names)}."
     if result.get('incomplete_contracts'):
-        report += f"\nIN PROGRESS:\n"
-        for contract in result['incomplete_contracts']:
-            report += f"  - {contract['name']} ({contract['status']})\n"
+        in_progress_names = [f"{c['name']} ({c['status']})" for c in result['incomplete_contracts']]
+        report += f" In progress: {', '.join(in_progress_names)}."
     return [TextContent(type="text", text=report)]
 
 
 async def handle_check_property_contract_readiness_voice(arguments: dict) -> list[TextContent]:
     address_query = arguments["address_query"]
     result = await check_property_contract_readiness_voice(address_query=address_query)
-    voice_text = f"VOICE RESPONSE:\n{result['voice_response']}\n\nSUMMARY:\n  Property: {result.get('property_address', 'Unknown')}\n  Ready to Close: {'YES' if result['is_ready_to_close'] else 'NO'}\n  Required Contracts: {result['total_required']}\n  Completed: {result['completed']}\n  In Progress: {result['in_progress']}\n  Missing: {result['missing']}\n"
-    return [TextContent(type="text", text=voice_text)]
+    return [TextContent(type="text", text=result['voice_response'])]
 
 
 # ── Tool Registration ──

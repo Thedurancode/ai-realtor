@@ -45,40 +45,28 @@ async def handle_get_comps_dashboard(arguments: dict) -> list[TextContent]:
     voice = data.get("voice_summary", "No comp data.")
     text = f"{voice}\n\n"
 
-    # Subject
-    subject = data.get("subject", {})
-    text += f"Subject: {subject.get('address', 'N/A')}\n"
-    text += f"  List Price: ${subject.get('price', 0):,.0f}"
-    if subject.get("zestimate"):
-        text += f" | Zestimate: ${subject['zestimate']:,.0f}"
-    text += f"\n  {subject.get('beds', '?')}bd/{subject.get('baths', '?')}ba, {subject.get('sqft', '?')} sqft\n\n"
-
     # Sales comps
     sales = data.get("comp_sales", [])
     if sales:
-        text += f"COMPARABLE SALES ({len(sales)}):\n"
+        text += f"Sale comps ({len(sales)}):\n"
         for i, s in enumerate(sales[:10], 1):
             text += _format_comp_sale(i, s) + "\n"
         text += "\n"
 
-    # Market metrics
+    # Market metrics inline
     metrics = data.get("market_metrics", {})
     if metrics.get("comp_count"):
-        text += "MARKET METRICS:\n"
-        text += f"  Median Price: ${metrics.get('median_sale_price', 0):,.0f}\n"
-        text += f"  Avg Price/sqft: ${metrics.get('avg_price_per_sqft', 0):,.0f}\n"
-        if metrics.get("price_range"):
-            text += f"  Range: ${metrics['price_range']['min']:,.0f} - ${metrics['price_range']['max']:,.0f}\n"
+        m_parts = [f"median ${metrics.get('median_sale_price', 0):,.0f}", f"avg ${metrics.get('avg_price_per_sqft', 0):,.0f}/sqft"]
         if metrics.get("price_trend") and metrics["price_trend"] != "insufficient_data":
-            text += f"  Trend: {metrics['price_trend']} ({metrics.get('trend_pct', 0):+.1f}%)\n"
+            m_parts.append(f"trend {metrics['price_trend']} ({metrics.get('trend_pct', 0):+.1f}%)")
         if metrics.get("subject_vs_market"):
-            text += f"  vs Market: {metrics['subject_vs_market'].replace('_', ' ')} ({metrics.get('subject_difference_pct', 0):+.1f}%)\n"
-        text += "\n"
+            m_parts.append(f"vs market: {metrics['subject_vs_market'].replace('_', ' ')} ({metrics.get('subject_difference_pct', 0):+.1f}%)")
+        text += f"Market: {', '.join(m_parts)}.\n\n"
 
     # Rentals
     rentals = data.get("comp_rentals", [])
     if rentals:
-        text += f"COMPARABLE RENTALS ({len(rentals)}):\n"
+        text += f"Rental comps ({len(rentals)}):\n"
         for i, r in enumerate(rentals[:5], 1):
             text += _format_comp_rental(i, r) + "\n"
         text += "\n"
@@ -86,16 +74,16 @@ async def handle_get_comps_dashboard(arguments: dict) -> list[TextContent]:
     # Internal portfolio
     internal = data.get("internal_portfolio_comps", [])
     if internal:
-        text += f"PORTFOLIO COMPS ({len(internal)}):\n"
+        text += f"Portfolio comps ({len(internal)}):\n"
         for c in internal[:5]:
             price = f"${c['price']:,.0f}" if c.get("price") else "N/A"
-            text += f"  Property #{c['property_id']} {c['address']} — {price} ({c.get('status', 'N/A')})\n"
+            text += f"  #{c['property_id']} {c['address']} — {price} ({c.get('status', 'N/A')})\n"
         text += "\n"
 
     # Recommendation
     rec = data.get("pricing_recommendation", "")
     if rec:
-        text += f"RECOMMENDATION: {rec}\n"
+        text += f"Recommendation: {rec}\n"
 
     return [TextContent(type="text", text=text.strip())]
 

@@ -21,28 +21,26 @@ async def handle_execute_workflow(arguments: dict) -> list[TextContent]:
     workflow_name = result.get("workflow", arguments["workflow"])
     status = result.get("status", "unknown")
 
-    text = f"Workflow '{workflow_name}' - {status}\n\n"
-
     goal_result = result.get("result", {})
 
-    # Show checkpoints
+    # Lead with final summary if available
+    summary = goal_result.get("final_summary", "")
+    text = f"Workflow '{workflow_name}' — {status}."
+    if summary:
+        text += f" {summary}"
+
+    # Concise step results
     checkpoints = goal_result.get("checkpoints", [])
     if checkpoints:
-        text += "Steps completed:\n"
+        step_parts = []
         for cp in checkpoints:
-            icon = "+" if cp.get("status") == "completed" else "!" if cp.get("status") == "failed" else "?"
-            text += f"  [{icon}] {cp.get('title', cp.get('action', ''))}: {cp.get('message', '')}\n"
-        text += "\n"
+            s = cp.get("status", "")
+            icon = "+" if s == "completed" else "!" if s == "failed" else "?"
+            step_parts.append(f"[{icon}] {cp.get('title', cp.get('action', ''))}")
+        text += f"\n\nSteps: {', '.join(step_parts)}."
 
-    # Show final summary
-    summary = goal_result.get("final_summary", "")
-    if summary:
-        text += f"{summary}\n"
-
-    # Show if blocked
     if goal_result.get("needs_confirmation"):
-        text += "\nThis workflow requires confirmation for a high-risk step. "
-        text += "Re-run with confirm_high_risk=true to proceed."
+        text += " This workflow requires confirmation for a high-risk step — re-run with confirm_high_risk=true to proceed."
 
     return [TextContent(type="text", text=text)]
 
@@ -55,11 +53,10 @@ async def handle_list_workflows(arguments: dict) -> list[TextContent]:
     if not templates:
         return [TextContent(type="text", text="No workflow templates available.")]
 
-    text = f"{len(templates)} workflow template(s) available:\n\n"
+    text = f"{len(templates)} workflows available.\n\n"
     for t in templates:
-        text += f"  {t['name']}: {t['description']}\n"
-        text += f"    Trigger phrases: {', '.join(t['trigger_phrases'][:3])}\n\n"
-    return [TextContent(type="text", text=text)]
+        text += f"{t['name']} — {t['description']} (say: \"{t['trigger_phrases'][0]}\")\n"
+    return [TextContent(type="text", text=text.strip())]
 
 
 register_tool(

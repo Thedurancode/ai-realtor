@@ -20,17 +20,8 @@ async def handle_send_property_report(arguments: dict) -> list[TextContent]:
     report_type = arguments.get("report_type", "property_overview")
     result = await send_property_report(property_id=property_id, report_type=report_type)
 
-    text = f"REPORT SENT SUCCESSFULLY\n\n"
-    text += f"Report: {result.get('report_type', report_type).replace('_', ' ').title()}\n"
-    text += f"Property: {result.get('property_address', 'N/A')}\n"
-    text += f"File: {result.get('filename', 'N/A')}\n"
-    text += f"Sent to: {result.get('message', 'agent email')}\n\n"
-
-    available = result.get("available_report_types", [])
-    if available:
-        text += "Available report types:\n"
-        for rt in available:
-            text += f"  - {rt['type']}: {rt['name']}\n"
+    rtype = result.get('report_type', report_type).replace('_', ' ').title()
+    text = f"{rtype} report sent for {result.get('property_address', 'N/A')}. File: {result.get('filename', 'N/A')}. {result.get('message', 'Sent to agent email')}."
 
     return [TextContent(type="text", text=text)]
 

@@ -70,47 +70,45 @@ async def smart_send_contract(address_query, contract_name, order="preserved", m
 async def handle_attach_required_contracts(arguments: dict) -> list[TextContent]:
     result = await attach_required_contracts(property_id=arguments.get("property_id"), address_query=arguments.get("address_query"))
     attached_count = result.get('contracts_attached', 0)
-    text = f"CONTRACTS AUTO-ATTACHED\n\nProperty: {result.get('property_address', 'Unknown')}\nContracts Attached: {attached_count}\n\n"
+    addr = result.get('property_address', 'the property')
     if attached_count > 0:
-        text += "ATTACHED CONTRACTS:\n"
-        for contract in result.get('contracts', []):
-            text += f"  - {contract['name']} ({contract['status']})\n"
+        names = [c['name'] for c in result.get('contracts', [])]
+        text = f"Attached {attached_count} contract{'s' if attached_count != 1 else ''} to {addr}: {', '.join(names)}."
     else:
-        text += "No new contracts attached (all applicable contracts already exist)\n"
+        text = f"No new contracts needed for {addr} — all applicable contracts already exist."
     return [TextContent(type="text", text=text)]
 
 
 async def handle_ai_suggest_contracts(arguments: dict) -> list[TextContent]:
     result = await ai_suggest_contracts_for_property(property_id=arguments.get("property_id"), address_query=arguments.get("address_query"))
-    text = f"AI CONTRACT SUGGESTIONS\n\nProperty: {result.get('property_address', 'Unknown')}\nTotal Suggested: {result.get('total_suggested', 0)}\n\n"
+    addr = result.get('property_address', 'the property')
+    total = result.get('total_suggested', 0)
     required = result.get('required_contracts', [])
-    if required:
-        text += f"REQUIRED CONTRACTS ({len(required)}):\n"
-        for c in required:
-            text += f"  - {c['name']}\n    Reason: {c.get('reason', 'N/A')}\n\n"
     optional = result.get('optional_contracts', [])
+
+    text = f"AI suggests {total} contract{'s' if total != 1 else ''} for {addr}."
+    if required:
+        req_parts = [f"{c['name']} ({c.get('reason', '')})" for c in required]
+        text += f"\n\nRequired ({len(required)}): {'; '.join(req_parts)}."
     if optional:
-        text += f"OPTIONAL CONTRACTS ({len(optional)}):\n"
-        for c in optional:
-            text += f"  - {c['name']}\n    Reason: {c.get('reason', 'N/A')}\n\n"
+        opt_names = [c['name'] for c in optional]
+        text += f"\nOptional ({len(optional)}): {', '.join(opt_names)}."
     if result.get('summary'):
-        text += f"AI ANALYSIS:\n{result['summary']}\n"
-    return [TextContent(type="text", text=text)]
+        text += f"\n\n{result['summary']}"
+    return [TextContent(type="text", text=text.strip())]
 
 
 async def handle_apply_ai_contract_suggestions(arguments: dict) -> list[TextContent]:
     only_required = arguments.get("only_required", True)
     result = await apply_ai_contract_suggestions(property_id=arguments.get("property_id"), address_query=arguments.get("address_query"), only_required=only_required)
     created_count = result.get('contracts_created', 0)
-    text = f"AI SUGGESTIONS APPLIED\n\nProperty: {result.get('property_address', 'Unknown')}\nContracts Created: {created_count}\nMode: {'Required only' if only_required else 'Required + Optional'}\n\n"
+    addr = result.get('property_address', 'the property')
+    mode = "required only" if only_required else "required + optional"
     if created_count > 0:
-        text += "CREATED CONTRACTS:\n"
-        for c in result.get('contracts', []):
-            text += f"  - {c['name']} (ID: {c['id']})\n"
-            if c.get('requirement_reason'):
-                text += f"    AI Reason: {c['requirement_reason']}\n"
+        names = [c['name'] for c in result.get('contracts', [])]
+        text = f"Applied AI suggestions for {addr}: created {created_count} contract{'s' if created_count != 1 else ''} ({mode}) — {', '.join(names)}."
     else:
-        text += "No new contracts created (all suggested contracts already exist)\n"
+        text = f"No new contracts needed for {addr} — all AI-suggested contracts already exist."
     return [TextContent(type="text", text=text)]
 
 
@@ -120,27 +118,24 @@ async def handle_mark_contract_required(arguments: dict) -> list[TextContent]:
     reason = arguments.get("reason")
     required_by_date = arguments.get("required_by_date")
     result = await mark_contract_required(contract_id=contract_id, is_required=is_required, reason=reason, required_by_date=required_by_date)
-    status = "REQUIRED" if is_required else "OPTIONAL"
-    text = f"MANUAL OVERRIDE APPLIED\n\nContract ID: {contract_id}\nContract: {result.get('contract_name', 'Unknown')}\nStatus: {status}\n"
+    status_word = "required" if is_required else "optional"
+    name = result.get('contract_name', 'Unknown')
+    text = f"Contract #{contract_id} ({name}) marked as {status_word}."
     if reason:
-        text += f"Reason: {reason}\n"
+        text += f" Reason: {reason}."
     if required_by_date:
-        text += f"Required By: {required_by_date}\n"
-    text += f"\nProperty: {result.get('property_address', 'Unknown')}\nSource: MANUAL (user override)\n"
+        text += f" Due by {required_by_date}."
     return [TextContent(type="text", text=text)]
 
 
 async def handle_smart_send_contract(arguments: dict) -> list[TextContent]:
     result = await smart_send_contract(address_query=arguments["address_query"], contract_name=arguments["contract_name"], order=arguments.get("order", "preserved"), message=arguments.get("message"), create_if_missing=arguments.get("create_if_missing", True))
-    text = f"SMART SEND COMPLETE\n\nContract: {result['contract_name']}\nProperty: {result['property_address']}\n\n{result['voice_confirmation']}\n\n"
+    text = result.get('voice_confirmation', f"{result['contract_name']} sent for {result['property_address']}.")
     if result.get('submitters'):
-        text += f"SIGNERS ({len(result['submitters'])}):\n"
-        for s in result['submitters']:
-            text += f"  - {s['name']} ({s['role']}) - {s['email']}\n"
+        signer_parts = [f"{s['name']} ({s['role']})" for s in result['submitters']]
+        text += f" Sent to: {', '.join(signer_parts)}."
     if result.get('missing_roles'):
-        text += f"\nMISSING ROLES: {', '.join(result['missing_roles'])}\n"
-    if result.get('docuseal_url'):
-        text += f"\nDocuSeal URL: {result['docuseal_url']}\n"
+        text += f" Missing signers: {', '.join(result['missing_roles'])}."
     return [TextContent(type="text", text=text)]
 
 

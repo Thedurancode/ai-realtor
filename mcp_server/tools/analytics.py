@@ -32,13 +32,28 @@ async def handle_get_portfolio_summary(arguments: dict) -> list[TextContent]:
     data = response.json()
 
     voice = data.get("voice_summary", "No data available.")
-    text = f"{voice}\n\n"
-    text += _format_dict_section("Pipeline", data.get("pipeline", {}))
-    text += _format_dict_section("Portfolio Value", data.get("portfolio_value", {}))
-    text += _format_dict_section("Contracts", data.get("contracts", {}))
-    text += _format_dict_section("Activity", data.get("activity", {}))
-    text += _format_dict_section("Deal Scores", data.get("deal_scores", {}))
-    text += _format_dict_section("Enrichment Coverage", data.get("enrichment_coverage", {}))
+    text = voice
+
+    # Inline key metrics
+    pv = data.get("portfolio_value", {})
+    if pv.get("total_properties"):
+        text += f"\n\nPortfolio: {pv['total_properties']} properties, total ${pv.get('total_price', 0):,.0f}, avg ${pv.get('avg_price', 0):,.0f}."
+        if pv.get("total_zestimate"):
+            text += f" Total Zestimate: ${pv['total_zestimate']:,.0f}."
+
+    pipeline = data.get("pipeline", {})
+    if pipeline.get("by_status"):
+        status_parts = [f"{s}: {c}" for s, c in pipeline["by_status"].items() if c > 0]
+        if status_parts:
+            text += f"\nPipeline: {', '.join(status_parts)}."
+
+    ds = data.get("deal_scores", {})
+    if ds.get("avg_score"):
+        text += f"\nDeal scores: avg {ds['avg_score']}."
+
+    ec = data.get("enrichment_coverage", {})
+    if ec:
+        text += f"\nEnrichment: {ec.get('zillow_pct', 0):.0f}% Zillow, {ec.get('skip_trace_pct', 0):.0f}% skip traced."
 
     return [TextContent(type="text", text=text.strip())]
 
@@ -50,8 +65,17 @@ async def handle_get_pipeline_summary(arguments: dict) -> list[TextContent]:
     data = response.json()
 
     voice = data.get("voice_summary", "No data.")
-    text = f"{voice}\n\n"
-    text += _format_dict_section("Pipeline Details", data.get("pipeline", {}))
+    text = voice
+
+    pipeline = data.get("pipeline", {})
+    if pipeline.get("by_status"):
+        status_parts = [f"{s}: {c}" for s, c in pipeline["by_status"].items() if c > 0]
+        if status_parts:
+            text += f"\n\nBy status: {', '.join(status_parts)}."
+    if pipeline.get("by_type"):
+        type_parts = [f"{t}: {c}" for t, c in pipeline["by_type"].items() if c > 0]
+        if type_parts:
+            text += f" By type: {', '.join(type_parts)}."
 
     return [TextContent(type="text", text=text.strip())]
 
@@ -63,8 +87,15 @@ async def handle_get_contract_summary(arguments: dict) -> list[TextContent]:
     data = response.json()
 
     voice = data.get("voice_summary", "No data.")
-    text = f"{voice}\n\n"
-    text += _format_dict_section("Contract Details", data.get("contracts", {}))
+    text = voice
+
+    contracts = data.get("contracts", {})
+    if contracts.get("by_status"):
+        status_parts = [f"{s}: {c}" for s, c in contracts["by_status"].items() if c > 0]
+        if status_parts:
+            text += f"\n\nBy status: {', '.join(status_parts)}."
+    if contracts.get("unsigned_required"):
+        text += f" {contracts['unsigned_required']} unsigned required contracts."
 
     return [TextContent(type="text", text=text.strip())]
 

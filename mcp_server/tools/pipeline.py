@@ -17,13 +17,11 @@ async def handle_get_pipeline_status(arguments: dict) -> list[TextContent]:
     if not transitions:
         return [TextContent(type="text", text="No recent pipeline auto-transitions. All properties are stable.")]
 
-    text = f"Pipeline automation: {total} recent transition(s):\n\n"
+    text = f"Pipeline automation: {total} recent transition(s).\n\n"
     for t in transitions:
-        text += f"  Property #{t['property_id']}: {t['title']}\n"
-        text += f"    {t['message']}\n"
-        text += f"    Time: {t.get('created_at', 'unknown')}\n\n"
+        text += f"Property #{t['property_id']}: {t['title']} — {t['message']} ({t.get('created_at', 'unknown')})\n"
 
-    return [TextContent(type="text", text=text)]
+    return [TextContent(type="text", text=text.strip())]
 
 
 async def handle_trigger_pipeline_check(arguments: dict) -> list[TextContent]:
@@ -39,12 +37,11 @@ async def handle_trigger_pipeline_check(arguments: dict) -> list[TextContent]:
     if transitioned == 0:
         return [TextContent(type="text", text=f"Pipeline check complete. Checked {checked} properties — no transitions needed.")]
 
-    text = f"Pipeline check complete. Checked {checked} properties, {transitioned} transitioned:\n\n"
+    text = f"Pipeline check complete. Checked {checked} properties, {transitioned} transitioned.\n\n"
     for t in transitions:
-        text += f"  Property #{t['property_id']} ({t['address']}): {t['from_status']} → {t['to_status']}\n"
-        text += f"    Reason: {t['reason']}\n\n"
+        text += f"Property #{t['property_id']} ({t['address']}): {t['from_status']} to {t['to_status']} — {t['reason']}\n"
 
-    return [TextContent(type="text", text=text)]
+    return [TextContent(type="text", text=text.strip())]
 
 
 register_tool(

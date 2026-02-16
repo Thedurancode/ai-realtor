@@ -36,14 +36,14 @@ async def handle_get_activity_timeline(arguments: dict) -> list[TextContent]:
     if not events:
         return [TextContent(type="text", text=voice)]
 
-    text = f"{voice}\n\nACTIVITY TIMELINE ({total} events)\n{'=' * 40}\n\n"
+    text = f"{voice}\n\n"
     for ev in events:
         ts = _format_timestamp(ev["timestamp"])
-        prop = f" [Property #{ev['property_id']}]" if ev.get("property_id") else ""
-        text += f"{ts}{prop}\n  {ev['title']}\n  {ev['description']}\n\n"
+        prop = f" [#{ev['property_id']}]" if ev.get("property_id") else ""
+        text += f"{ts}{prop} {ev['title']} — {ev['description']}\n"
 
     if total > len(events):
-        text += f"... and {total - len(events)} more events\n"
+        text += f"\n... and {total - len(events)} more events."
 
     return [TextContent(type="text", text=text.strip())]
 
@@ -65,10 +65,10 @@ async def handle_get_property_timeline(arguments: dict) -> list[TextContent]:
     if not events:
         return [TextContent(type="text", text=f"No activity found for property {property_id}.")]
 
-    text = f"{voice}\n\nPROPERTY #{property_id} TIMELINE\n{'=' * 40}\n\n"
+    text = f"{voice}\n\n"
     for ev in events:
         ts = _format_timestamp(ev["timestamp"])
-        text += f"{ts} - {ev['title']}\n  {ev['description']}\n\n"
+        text += f"{ts} — {ev['title']}: {ev['description']}\n"
 
     return [TextContent(type="text", text=text.strip())]
 
@@ -87,17 +87,14 @@ async def handle_get_recent_activity(arguments: dict) -> list[TextContent]:
     voice = data.get("voice_summary", "No recent activity.")
     events = data.get("events", [])
 
-    scope = f"for property {arguments['property_id']}" if arguments.get("property_id") else "across your portfolio"
-    text = f"RECENT ACTIVITY (last {hours}h) {scope}\n{'=' * 40}\n\n"
-
     if not events:
-        text += "No activity in this time period."
-        return [TextContent(type="text", text=text)]
+        scope = f"for property {arguments['property_id']}" if arguments.get("property_id") else ""
+        return [TextContent(type="text", text=f"No activity in the last {hours} hours {scope}.".strip())]
 
-    text += f"{voice}\n\n"
+    text = f"{voice}\n\n"
     for ev in events[:25]:
         ts = _format_timestamp(ev["timestamp"])
-        text += f"{ts} - {ev['title']}\n"
+        text += f"{ts} — {ev['title']}\n"
 
     return [TextContent(type="text", text=text.strip())]
 

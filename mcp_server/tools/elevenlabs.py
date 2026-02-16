@@ -15,13 +15,8 @@ async def handle_elevenlabs_setup(arguments: dict) -> list[TextContent]:
     agent_info = result.get("agent", {})
     mcp_info = result.get("mcp_server", {})
 
-    output = f"ELEVENLABS VOICE AGENT SET UP\n\n"
-    output += f"Agent ID: {agent_info.get('agent_id', 'N/A')}\n"
-    output += f"LLM: {agent_info.get('llm', 'N/A')}\n"
-    output += f"MCP Server: {mcp_info.get('url', 'N/A')}\n"
-    output += f"Status: {agent_info.get('status', 'N/A')}\n\n"
-    output += f"Widget HTML:\n{result.get('widget_html', 'N/A')}\n"
-    output += f"\nThe agent now has access to all property management tools via MCP."
+    output = f"ElevenLabs voice agent set up. Agent ID: {agent_info.get('agent_id', 'N/A')}, LLM: {agent_info.get('llm', 'N/A')}, status: {agent_info.get('status', 'N/A')}."
+    output += f" MCP server: {mcp_info.get('url', 'N/A')}. The agent now has access to all property management tools via MCP."
     return [TextContent(type="text", text=output)]
 
 
@@ -34,11 +29,7 @@ async def handle_elevenlabs_call(arguments: dict) -> list[TextContent]:
     response.raise_for_status()
     result = response.json()
 
-    output = f"ELEVENLABS CALL INITIATED\n\n"
-    output += f"Call ID: {result.get('call_id', 'N/A')}\n"
-    output += f"To: {result.get('to_number', 'N/A')}\n"
-    output += f"Status: {result.get('status', 'N/A')}\n"
-    output += f"Agent: {result.get('agent_id', 'N/A')}\n"
+    output = f"ElevenLabs call initiated to {result.get('to_number', 'N/A')}. Call ID: {result.get('call_id', 'N/A')}, status: {result.get('status', 'N/A')}."
     return [TextContent(type="text", text=output)]
 
 
@@ -50,18 +41,7 @@ async def handle_elevenlabs_status(arguments: dict) -> list[TextContent]:
     if result.get("error"):
         return [TextContent(type="text", text=f"Warning: {result['error']}")]
 
-    output = f"ELEVENLABS AGENT STATUS\n\n"
-    output += f"Agent ID: {result.get('agent_id', 'N/A')}\n"
-    output += f"Name: {result.get('name', 'N/A')}\n"
-    output += f"Status: {result.get('status', 'N/A')}\n"
-    output += f"MCP Server: {result.get('mcp_server_id', 'N/A')}\n"
-    output += f"MCP URL: {result.get('mcp_sse_url', 'N/A')}\n"
-
-    widget_response = api_get("/elevenlabs/widget")
-    if widget_response.ok:
-        widget = widget_response.json()
-        output += f"\nWidget HTML:\n{widget.get('embed_html', 'N/A')}\n"
-
+    output = f"ElevenLabs agent \"{result.get('name', 'N/A')}\" — status: {result.get('status', 'N/A')}. Agent ID: {result.get('agent_id', 'N/A')}, MCP URL: {result.get('mcp_sse_url', 'N/A')}."
     return [TextContent(type="text", text=output)]
 
 

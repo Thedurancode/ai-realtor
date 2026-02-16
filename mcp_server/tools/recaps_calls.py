@@ -103,16 +103,10 @@ async def handle_generate_property_recap(arguments: dict) -> list[TextContent]:
     trigger = arguments.get("trigger", "manual")
     result = await generate_property_recap(property_id=property_id, trigger=trigger)
 
-    recap_text = f"AI PROPERTY RECAP GENERATED\n\n"
-    recap_text += f"Property: {result['property_address']}\n"
-    recap_text += f"Version: {result['version']}\n"
-    recap_text += f"Trigger: {result.get('last_trigger', 'unknown')}\n\n"
-    recap_text += f"DETAILED SUMMARY:\n{result['recap_text']}\n\n"
-    recap_text += f"VOICE SUMMARY (for calls):\n{result['voice_summary']}\n\n"
-    if result.get('recap_context', {}).get('ai_summary', {}).get('key_facts'):
-        recap_text += f"KEY FACTS:\n"
-        for fact in result['recap_context']['ai_summary']['key_facts']:
-            recap_text += f"  - {fact}\n"
+    recap_text = f"Recap generated for {result['property_address']} (v{result['version']}).\n\n{result['voice_summary']}"
+    key_facts = result.get('recap_context', {}).get('ai_summary', {}).get('key_facts', [])
+    if key_facts:
+        recap_text += f"\n\nKey facts: {'; '.join(key_facts)}."
     return [TextContent(type="text", text=recap_text)]
 
 
@@ -120,18 +114,11 @@ async def handle_get_property_recap(arguments: dict) -> list[TextContent]:
     property_id = resolve_property_id(arguments)
     result = await get_property_recap(property_id=property_id)
 
-    recap_text = f"EXISTING PROPERTY RECAP\n\n"
-    recap_text += f"Property: {result['property_address']}\n"
-    recap_text += f"Version: {result['version']}\n"
-    recap_text += f"Last Updated: {result.get('last_trigger', 'unknown')}\n\n"
-    recap_text += f"SUMMARY:\n{result['voice_summary']}\n\n"
-    if result.get('recap_context', {}).get('readiness'):
-        readiness = result['recap_context']['readiness']
-        recap_text += f"CONTRACT STATUS:\n"
-        recap_text += f"  Ready to Close: {'YES' if readiness['is_ready_to_close'] else 'NO'}\n"
-        recap_text += f"  Completed: {readiness['completed']}/{readiness['total_required']}\n"
-        recap_text += f"  In Progress: {readiness['in_progress']}\n"
-        recap_text += f"  Missing: {readiness['missing']}\n"
+    recap_text = f"Recap for {result['property_address']} (v{result['version']}, updated via {result.get('last_trigger', 'unknown')}).\n\n{result['voice_summary']}"
+    readiness = result.get('recap_context', {}).get('readiness')
+    if readiness:
+        ready = "ready to close" if readiness['is_ready_to_close'] else "not ready to close"
+        recap_text += f"\n\nContracts: {readiness['completed']}/{readiness['total_required']} completed, {readiness['in_progress']} in progress, {readiness['missing']} missing — {ready}."
     return [TextContent(type="text", text=recap_text)]
 
 
@@ -141,27 +128,7 @@ async def handle_make_property_phone_call(arguments: dict) -> list[TextContent]:
     call_purpose = arguments.get("call_purpose", "property_update")
     result = await make_property_phone_call(property_id=property_id, phone_number=phone_number, call_purpose=call_purpose)
 
-    call_text = f"PHONE CALL INITIATED\n\n"
-    call_text += f"Property: {result['property_address']}\n"
-    call_text += f"Phone Number: {result['phone_number']}\n"
-    call_text += f"Call Purpose: {result['call_purpose']}\n"
-    call_text += f"Call ID: {result['call_id']}\n"
-    call_text += f"Status: {result['status']}\n\n"
-    call_text += f"{result['message']}\n\n"
-    call_text += f"The AI assistant will:\n"
-    if call_purpose == "property_update":
-        call_text += "  - Provide comprehensive property update\n"
-        call_text += "  - Answer questions about the property\n"
-        call_text += "  - Offer to send more info via email\n"
-    elif call_purpose == "contract_reminder":
-        call_text += "  - Remind about pending contracts\n"
-        call_text += "  - Explain what needs attention\n"
-        call_text += "  - Offer to resend contract links\n"
-    elif call_purpose == "closing_ready":
-        call_text += "  - Celebrate that property is ready to close\n"
-        call_text += "  - Confirm all contracts are complete\n"
-        call_text += "  - Discuss next steps\n"
-    call_text += f"\nUse /call/{result['call_id']}/status to check call status\n"
+    call_text = f"Call initiated to {result['phone_number']} about {result['property_address']} ({call_purpose.replace('_', ' ')}). Call ID: {result['call_id']}, status: {result['status']}."
     return [TextContent(type="text", text=call_text)]
 
 
@@ -172,21 +139,9 @@ async def handle_call_contact_about_contract(arguments: dict) -> list[TextConten
     custom_message = arguments.get("custom_message")
     result = await call_contact_about_contract(property_id=property_id, contact_id=contact_id, contract_id=contract_id, custom_message=custom_message)
 
-    call_text = f"CALLING CONTACT ABOUT CONTRACT\n\n"
-    call_text += f"Property: {result['property_address']}\n"
-    call_text += f"Contact: {result['contact_name']}\n"
-    call_text += f"Contract: {result['contract_name']}\n"
-    call_text += f"Phone: {result['phone_number']}\n"
-    call_text += f"Call ID: {result['call_id']}\n\n"
+    call_text = f"Calling {result['contact_name']} at {result['phone_number']} about the {result['contract_name']} for {result['property_address']}. Call ID: {result['call_id']}."
     if custom_message:
-        call_text += f"Custom Message:\n{custom_message}\n\n"
-    call_text += f"{result['message']}\n\n"
-    call_text += f"The AI will:\n"
-    call_text += f"  - Greet {result['contact_name']} by name\n"
-    call_text += f"  - Remind about the {result['contract_name']}\n"
-    call_text += f"  - Explain what's needed (signature, review, etc.)\n"
-    call_text += f"  - Answer questions about the contract\n"
-    call_text += f"  - Offer to resend contract link\n"
+        call_text += f" Custom message: {custom_message}"
     return [TextContent(type="text", text=call_text)]
 
 
@@ -195,24 +150,9 @@ async def handle_call_property_owner_skip_trace(arguments: dict) -> list[TextCon
     custom_message = arguments.get("custom_message")
     result = await call_property_owner_skip_trace(property_id=property_id, custom_message=custom_message)
 
-    call_text = f"SKIP TRACE OUTREACH CALL INITIATED\n\n"
-    call_text += f"Property: {result['property_address']}\n"
-    call_text += f"Owner: {result['owner_name']}\n"
-    call_text += f"Phone: {result['phone_number']}\n"
-    call_text += f"Call ID: {result['call_id']}\n"
-    call_text += f"Call Type: Cold Call / Lead Generation\n\n"
+    call_text = f"Cold calling {result['owner_name']} at {result['phone_number']} about {result['property_address']}. Call ID: {result['call_id']}."
     if custom_message:
-        call_text += f"Custom Message:\n{custom_message}\n\n"
-    call_text += f"{result['message']}\n\n"
-    call_text += f"COLD CALL - AI will:\n"
-    call_text += f"  - Introduce as real estate professional\n"
-    call_text += f"  - Ask if {result['owner_name']} has considered selling\n"
-    call_text += f"  - Discuss current favorable market conditions\n"
-    call_text += f"  - Offer no-obligation market analysis\n"
-    call_text += f"  - Answer questions about selling process\n"
-    call_text += f"  - Be respectful and not pushy\n"
-    call_text += f"  - Keep call under 2-3 minutes unless they engage\n\n"
-    call_text += f"This is for lead generation/skip trace outreach\n"
+        call_text += f" Custom message: {custom_message}"
     return [TextContent(type="text", text=call_text)]
 
 

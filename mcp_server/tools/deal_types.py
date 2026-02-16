@@ -72,27 +72,24 @@ async def handle_set_deal_type(arguments: dict) -> list[TextContent]:
     clear_previous = arguments.get("clear_previous", False)
     result = await set_deal_type(property_id=property_id, deal_type_name=deal_type_name, clear_previous=clear_previous)
 
-    deal_text = f"DEAL TYPE SET\n\n"
-    deal_text += f"Property: {result.get('property_address', 'Unknown')}\n"
-    deal_text += f"Deal Type: {result.get('deal_type', deal_type_name)}\n\n"
+    addr = result.get('property_address', 'the property')
+    dt = result.get('deal_type', deal_type_name).replace('_', ' ').title()
+    contracts_attached = result.get('contracts_attached', 0)
+    todos_created = result.get('todos_created', 0)
+
+    deal_text = f"Set {addr} as a {dt} deal."
     if result.get('contracts_removed', 0) > 0:
-        deal_text += f"Removed {result['contracts_removed']} old contract(s): {', '.join(result.get('contracts_removed_names', []))}\n"
-    if result.get('todos_removed', 0) > 0:
-        deal_text += f"Removed {result['todos_removed']} old todo(s): {', '.join(result.get('todos_removed_titles', []))}\n"
-    if result.get('contracts_removed', 0) > 0 or result.get('todos_removed', 0) > 0:
-        deal_text += "\n"
-    deal_text += f"Contracts Attached: {result.get('contracts_attached', 0)}\n"
-    for name_c in result.get('contract_names', []):
-        deal_text += f"  - {name_c}\n"
-    deal_text += f"\nChecklist Items Created: {result.get('todos_created', 0)}\n"
-    for title in result.get('todo_titles', []):
-        deal_text += f"  - {title}\n"
+        deal_text += f" Removed {result['contracts_removed']} old contracts."
+    if contracts_attached > 0:
+        names = ', '.join(result.get('contract_names', []))
+        deal_text += f" Attached {contracts_attached} contracts: {names}."
+    if todos_created > 0:
+        deal_text += f" Created {todos_created} checklist items."
     missing = result.get('missing_contacts', [])
     if missing:
-        deal_text += f"\nMissing Required Contacts: {', '.join(missing)}\n"
-        deal_text += "Add these contacts to proceed with the deal.\n"
+        deal_text += f" Missing contacts: {', '.join(missing)} — add these to proceed."
     else:
-        deal_text += f"\nAll required contacts are present.\n"
+        deal_text += " All required contacts are present."
     return [TextContent(type="text", text=deal_text)]
 
 
@@ -100,79 +97,66 @@ async def handle_get_deal_status(arguments: dict) -> list[TextContent]:
     property_id = resolve_property_id(arguments)
     result = await get_deal_status(property_id=property_id)
 
-    status_text = f"DEAL STATUS\n\n"
-    status_text += f"Property: {result.get('property_address', 'Unknown')}\n"
+    addr = result.get('property_address', 'This property')
     deal_type_display = result.get('deal_type')
     if not deal_type_display:
-        status_text += "No deal type set for this property.\n"
-        return [TextContent(type="text", text=status_text)]
+        return [TextContent(type="text", text=f"No deal type set for {addr}.")]
 
-    status_text += f"Deal Type: {deal_type_display}\n\n"
     contracts = result.get('contracts', {})
-    status_text += f"CONTRACTS: {contracts.get('completed', 0)}/{contracts.get('total', 0)} completed\n"
-    for n in contracts.get('pending_names', []):
-        status_text += f"  Pending: {n}\n"
-    for n in contracts.get('completed_names', []):
-        status_text += f"  Done: {n}\n"
     checklist = result.get('checklist', {})
-    status_text += f"\nCHECKLIST: {checklist.get('completed', 0)}/{checklist.get('total', 0)} completed\n"
-    for item in checklist.get('pending_items', []):
-        status_text += f"  Pending: {item['title']} ({item['priority']})\n"
     contacts_info = result.get('contacts', {})
     missing = contacts_info.get('missing_roles', [])
+
+    text = f"{addr} — {deal_type_display} deal."
+    text += f" Contracts: {contracts.get('completed', 0)}/{contracts.get('total', 0)} done."
+    pending = contracts.get('pending_names', [])
+    if pending:
+        text += f" Pending: {', '.join(pending)}."
+    text += f" Checklist: {checklist.get('completed', 0)}/{checklist.get('total', 0)} done."
     if missing:
-        status_text += f"\nMissing Contacts: {', '.join(missing)}\n"
+        text += f" Missing contacts: {', '.join(missing)}."
+    if result.get('ready_to_close'):
+        text += " READY TO CLOSE!"
     else:
-        status_text += f"\nAll required contacts present\n"
-    status_text += f"\n{'READY TO CLOSE!' if result.get('ready_to_close') else 'Not ready to close yet.'}\n"
-    return [TextContent(type="text", text=status_text)]
+        text += " Not ready to close yet."
+    return [TextContent(type="text", text=text)]
 
 
 async def handle_list_deal_types(arguments: dict) -> list[TextContent]:
     result = await list_deal_types_api()
 
-    types_text = f"AVAILABLE DEAL TYPES ({len(result)})\n\n"
+    text = f"{len(result)} deal types available:\n\n"
     for dt in result:
-        types_text += f"{dt['display_name']} ({dt['name']})\n"
-        if dt.get('description'):
-            types_text += f"   {dt['description']}\n"
+        parts = []
         if dt.get('contract_templates'):
-            types_text += f"   Contracts: {', '.join(dt['contract_templates'])}\n"
+            parts.append(f"{len(dt['contract_templates'])} contracts")
         if dt.get('required_contact_roles'):
-            types_text += f"   Required Contacts: {', '.join(dt['required_contact_roles'])}\n"
-        checklist = dt.get('checklist', [])
-        if checklist:
-            types_text += f"   Checklist: {len(checklist)} items\n"
-        types_text += "\n"
-    return [TextContent(type="text", text=types_text)]
+            parts.append(f"needs {', '.join(dt['required_contact_roles'])}")
+        if dt.get('checklist'):
+            parts.append(f"{len(dt['checklist'])} checklist items")
+        detail = f" — {', '.join(parts)}" if parts else ""
+        text += f"{dt['display_name']}{detail}\n"
+    return [TextContent(type="text", text=text.strip())]
 
 
 async def handle_get_deal_type_config(arguments: dict) -> list[TextContent]:
     dt_name = arguments["name"]
     result = await get_deal_type_config(dt_name)
 
-    config_text = f"DEAL TYPE CONFIG: {result['display_name']}\n\n"
+    text = f"{result['display_name']}"
     if result.get('description'):
-        config_text += f"{result['description']}\n\n"
-    config_text += f"Name: {result['name']}\n"
-    config_text += f"Built-in: {'Yes' if result.get('is_builtin') else 'No'}\n"
-    config_text += f"Active: {'Yes' if result.get('is_active') else 'No'}\n\n"
+        text += f": {result['description']}"
+    text += "."
     if result.get('contract_templates'):
-        config_text += f"Contracts ({len(result['contract_templates'])}):\n"
-        for ct in result['contract_templates']:
-            config_text += f"  - {ct}\n"
+        text += f"\nContracts: {', '.join(result['contract_templates'])}."
     if result.get('required_contact_roles'):
-        config_text += f"\nRequired Contacts: {', '.join(result['required_contact_roles'])}\n"
+        text += f"\nRequired contacts: {', '.join(result['required_contact_roles'])}."
     if result.get('checklist'):
-        config_text += f"\nChecklist ({len(result['checklist'])} items):\n"
-        for item in result['checklist']:
-            priority = item.get('priority', 'medium')
-            config_text += f"  - {item['title']} ({priority})\n"
-            if item.get('description'):
-                config_text += f"    {item['description']}\n"
+        items = [item['title'] for item in result['checklist']]
+        text += f"\nChecklist ({len(items)} items): {', '.join(items)}."
     if result.get('compliance_tags'):
-        config_text += f"\nCompliance Tags: {', '.join(result['compliance_tags'])}\n"
-    return [TextContent(type="text", text=config_text)]
+        text += f"\nCompliance: {', '.join(result['compliance_tags'])}."
+    return [TextContent(type="text", text=text)]
 
 
 async def handle_create_deal_type_config(arguments: dict) -> list[TextContent]:
@@ -188,16 +172,16 @@ async def handle_create_deal_type_config(arguments: dict) -> list[TextContent]:
 
     result = await create_deal_type_config(data)
 
-    create_text = f"DEAL TYPE CREATED: {result['display_name']}\n\n"
-    create_text += f"Name: {result['name']}\n"
+    parts = []
     if result.get('contract_templates'):
-        create_text += f"Contracts: {', '.join(result['contract_templates'])}\n"
+        parts.append(f"{len(result['contract_templates'])} contracts")
     if result.get('required_contact_roles'):
-        create_text += f"Required Contacts: {', '.join(result['required_contact_roles'])}\n"
+        parts.append(f"needs {', '.join(result['required_contact_roles'])}")
     if result.get('checklist'):
-        create_text += f"Checklist: {len(result['checklist'])} items\n"
-    create_text += f"\nYou can now use 'set_deal_type' to apply it to a property.\n"
-    return [TextContent(type="text", text=create_text)]
+        parts.append(f"{len(result['checklist'])} checklist items")
+    detail = f" with {', '.join(parts)}" if parts else ""
+    text = f"Deal type '{result['display_name']}' created{detail}. Use set_deal_type to apply it to a property."
+    return [TextContent(type="text", text=text)]
 
 
 async def handle_update_deal_type_config(arguments: dict) -> list[TextContent]:
@@ -205,17 +189,8 @@ async def handle_update_deal_type_config(arguments: dict) -> list[TextContent]:
     update_data = {k: v for k, v in arguments.items() if k != "name" and v is not None}
     result = await update_deal_type_config(dt_name, update_data)
 
-    update_text = f"DEAL TYPE UPDATED: {result['display_name']}\n\n"
-    update_text += f"Name: {result['name']}\n"
-    if result.get('contract_templates'):
-        update_text += f"Contracts: {', '.join(result['contract_templates'])}\n"
-    if result.get('required_contact_roles'):
-        update_text += f"Required Contacts: {', '.join(result['required_contact_roles'])}\n"
-    if result.get('checklist'):
-        update_text += f"Checklist: {len(result['checklist'])} items\n"
-    update_text += f"\nNote: Changes apply to future deal type applications only.\n"
-    update_text += f"To update an existing property, re-apply with set_deal_type (clear_previous=true).\n"
-    return [TextContent(type="text", text=update_text)]
+    text = f"Deal type '{result['display_name']}' updated. Changes apply to future applications only — re-apply with set_deal_type and clear_previous=true to update existing properties."
+    return [TextContent(type="text", text=text)]
 
 
 async def handle_delete_deal_type_config(arguments: dict) -> list[TextContent]:
@@ -244,37 +219,30 @@ async def handle_preview_deal_type(arguments: dict) -> list[TextContent]:
     would_create_todos = result.get('would_create_todos', [])
     would_skip_todos = result.get('would_skip_todos', [])
     if would_create_todos:
-        preview_text += f"\nWould CREATE {len(would_create_todos)} checklist item(s):\n"
-        for t in would_create_todos:
-            preview_text += f"  + {t.get('title', t)}\n"
+        todo_names = [t.get('title', str(t)) for t in would_create_todos]
+        preview_text += f" Would create {len(would_create_todos)} checklist items: {', '.join(todo_names)}."
     if would_skip_todos:
-        preview_text += f"Would SKIP {len(would_skip_todos)} (already exist):\n"
-        for t in would_skip_todos:
-            preview_text += f"  - {t.get('title', t)}\n"
+        preview_text += f" {len(would_skip_todos)} checklist items already exist."
     missing_roles = result.get('missing_contact_roles', [])
     present_roles = result.get('present_contact_roles', [])
     if missing_roles:
-        preview_text += f"\nMissing contacts: {', '.join(missing_roles)}\n"
+        preview_text += f" Missing contacts: {', '.join(missing_roles)}."
     if present_roles:
-        preview_text += f"Present contacts: {', '.join(present_roles)}\n"
-    preview_text += f"\nThis is a dry run — nothing was changed.\n"
+        preview_text += f" Present contacts: {', '.join(present_roles)}."
+    preview_text += " This is a dry run — nothing was changed."
     return [TextContent(type="text", text=preview_text)]
 
 
 async def handle_test_webhook_configuration(arguments: dict) -> list[TextContent]:
     result = await test_webhook_configuration()
 
-    webhook_text = f"WEBHOOK CONFIGURATION STATUS\n\n"
-    webhook_text += f"Webhook URL: {result['webhook_url']}\n"
-    webhook_text += f"Secret Configured: {'YES' if result['webhook_secret_configured'] else 'NO'}\n\n"
-    webhook_text += f"SUPPORTED EVENTS:\n"
-    for event in result['supported_events']:
-        webhook_text += f"  - {event}\n"
-    webhook_text += f"\nSETUP INSTRUCTIONS:\n"
-    for step_num, instruction in result['instructions'].items():
-        webhook_text += f"  {step_num}. {instruction}\n"
-    if not result['webhook_secret_configured']:
-        webhook_text += f"\nWARNING: Webhook secret not configured! Set DOCUSEAL_WEBHOOK_SECRET environment variable for security.\n"
+    secret_ok = result['webhook_secret_configured']
+    webhook_text = f"Webhook URL: {result['webhook_url']}. Secret: {'configured' if secret_ok else 'NOT configured'}."
+    webhook_text += f" Supported events: {', '.join(result['supported_events'])}."
+    steps = [f"{k}. {v}" for k, v in result['instructions'].items()]
+    webhook_text += f" Setup: {' '.join(steps)}"
+    if not secret_ok:
+        webhook_text += " WARNING: Set DOCUSEAL_WEBHOOK_SECRET for security."
     return [TextContent(type="text", text=webhook_text)]
 
 

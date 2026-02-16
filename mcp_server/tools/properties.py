@@ -111,112 +111,120 @@ async def handle_list_properties(arguments: dict) -> list[TextContent]:
     )
 
     if not result:
-        text = f"No {status} properties found." if status else "No properties found."
+        filters = []
+        if status:
+            filters.append(status)
+        if city:
+            filters.append(f"in {city}")
+        if property_type:
+            filters.append(property_type)
+        filter_str = " ".join(filters) if filters else ""
+        text = f"No {filter_str} properties found." if filter_str else "No properties in the database yet."
     else:
-        text = f"Found {len(result)} property(ies):\n\n"
+        count = len(result)
+        text = f"You have {count} {'property' if count == 1 else 'properties'}.\n\n"
         for p in result:
-            price_str = f"${p['price']:,.0f}" if p.get('price') else "price not set"
-            text += f"Property {p['id']}: {p.get('address', 'N/A')}, {p.get('city', '')}, {p.get('state', '')}\n"
-            text += f"  Price: {price_str}"
+            price_str = f"${p['price']:,.0f}" if p.get('price') else "no price set"
+            addr = p.get('address', 'Unknown')
+            city_st = f"{p.get('city', '')}, {p.get('state', '')}".strip(', ')
+            details = []
             if p.get('bedrooms') or p.get('bathrooms'):
-                text += f" | {p.get('bedrooms', '?')} bed / {p.get('bathrooms', '?')} bath"
+                bed = f"{p['bedrooms']}-bed" if p.get('bedrooms') else ""
+                bath = f"{p['bathrooms']}-bath" if p.get('bathrooms') else ""
+                details.append(f"{bed} {bath}".strip())
             if p.get('square_footage'):
-                text += f" | {p['square_footage']:,.0f} sqft"
-            text += f"\n  Status: {p.get('status', 'available')}"
+                details.append(f"{p['square_footage']:,.0f} sqft")
+            detail_str = ", ".join(details)
+            text += f"#{p['id']} {addr}, {city_st} — {price_str}"
+            if detail_str:
+                text += f" ({detail_str})"
+            text += f" [{p.get('status', 'available')}]"
             if p.get('deal_score') is not None:
-                text += f" | Deal Score: {p['deal_score']:.0f}/100 (Grade {p.get('score_grade', '?')})"
-            if p.get('pipeline_status'):
-                text += f" | Pipeline: {p['pipeline_status']}"
-            text += "\n\n"
+                text += f" Grade {p.get('score_grade', '?')}"
+            text += "\n"
 
-    return [TextContent(type="text", text=text)]
+    return [TextContent(type="text", text=text.strip())]
 
 
 async def handle_get_property(arguments: dict) -> list[TextContent]:
     property_id = resolve_property_id(arguments)
     result = await get_property(property_id)
 
-    price_str = f"${result['price']:,.0f}" if result.get('price') else "price not set"
-    text = f"Property {result['id']}: {result.get('address', 'N/A')}, {result.get('city', '')}, {result.get('state', '')} {result.get('zip_code', '')}\n\n"
-    text += f"Price: {price_str}\n"
-    if result.get('bedrooms'):
-        text += f"Bedrooms: {result['bedrooms']}\n"
-    if result.get('bathrooms'):
-        text += f"Bathrooms: {result['bathrooms']}\n"
-    if result.get('square_footage'):
-        text += f"Square footage: {result['square_footage']:,.0f}\n"
-    text += f"Status: {result.get('status', 'available')}\n"
+    addr = result.get('address', 'Unknown')
+    city_st = f"{result.get('city', '')}, {result.get('state', '')} {result.get('zip_code', '')}".strip()
+    price_str = f"${result['price']:,.0f}" if result.get('price') else "no price set"
+
+    # Build conversational overview
+    details = []
+    if result.get('bedrooms') or result.get('bathrooms'):
+        bed = f"{result['bedrooms']}-bedroom" if result.get('bedrooms') else ""
+        bath = f"{result['bathrooms']}-bath" if result.get('bathrooms') else ""
+        details.append(f"{bed} {bath}".strip())
     if result.get('property_type'):
-        text += f"Type: {result['property_type']}\n"
+        details.append(result['property_type'])
+    if result.get('square_footage'):
+        details.append(f"{result['square_footage']:,.0f} sqft")
+    detail_str = ", ".join(details)
+
+    text = f"Property #{result['id']}: {addr}, {city_st} — {price_str}"
+    if detail_str:
+        text += f" ({detail_str})"
+    text += f". Status: {result.get('status', 'available')}."
 
     if result.get('deal_score') is not None:
-        text += f"\nDEAL SCORE: {result['deal_score']:.0f}/100 (Grade {result.get('score_grade', '?')})\n"
+        text += f"\n\nDeal score: {result['deal_score']:.0f}/100, Grade {result.get('score_grade', '?')}."
         breakdown = result.get('score_breakdown', {})
         if breakdown:
-            for component, score in breakdown.items():
-                label = component.replace('_', ' ').title()
-                text += f"  {label}: {score:.0f}/100\n"
+            parts = [f"{k.replace('_', ' ').title()} {v:.0f}" for k, v in breakdown.items()]
+            text += f" Breakdown: {', '.join(parts)}."
     if result.get('pipeline_status'):
-        text += f"Pipeline: {result['pipeline_status']}\n"
+        text += f" Pipeline: {result['pipeline_status']}."
 
     enrichment = result.get('zillow_enrichment')
     if enrichment:
-        text += "\nZILLOW DATA:\n"
+        z_parts = []
         if enrichment.get('zestimate'):
-            text += f"Zestimate: ${enrichment['zestimate']:,.0f}\n"
+            z_parts.append(f"Zestimate ${enrichment['zestimate']:,.0f}")
         if enrichment.get('rent_zestimate'):
-            text += f"Rent estimate: ${enrichment['rent_zestimate']:,.0f}/month\n"
+            z_parts.append(f"rent estimate ${enrichment['rent_zestimate']:,.0f}/mo")
         if enrichment.get('year_built'):
-            text += f"Year built: {enrichment['year_built']}\n"
+            z_parts.append(f"built {enrichment['year_built']}")
         if enrichment.get('home_type'):
-            text += f"Home type: {enrichment['home_type']}\n"
+            z_parts.append(enrichment['home_type'])
         if enrichment.get('living_area'):
-            text += f"Living area: {enrichment['living_area']:,.0f} sqft\n"
+            z_parts.append(f"{enrichment['living_area']:,.0f} sqft living area")
         if enrichment.get('lot_size'):
             units = enrichment.get('lot_area_units', 'sqft')
-            text += f"Lot size: {enrichment['lot_size']:,.1f} {units}\n"
-        if enrichment.get('property_tax_rate'):
-            text += f"Property tax rate: {enrichment['property_tax_rate']}%\n"
+            z_parts.append(f"lot {enrichment['lot_size']:,.1f} {units}")
+        text += "\n\nZillow data: " + (", ".join(z_parts) + "." if z_parts else "enriched.")
         if enrichment.get('annual_tax_amount'):
-            text += f"Annual taxes: ${enrichment['annual_tax_amount']:,.0f}\n"
+            text += f" Annual taxes: ${enrichment['annual_tax_amount']:,.0f}."
         if enrichment.get('description'):
-            text += f"Description: {enrichment['description']}\n"
+            text += f"\n{enrichment['description']}"
         photos = enrichment.get('photos', [])
         if photos:
-            text += f"Photos: {len(photos)} available\n"
+            text += f"\n{len(photos)} photos available."
         schools = enrichment.get('schools', [])
         if schools:
-            text += f"\nNearby schools:\n"
-            for s in schools[:3]:
-                rating = f" (rating: {s['rating']}/10)" if s.get('rating') else ""
-                text += f"  - {s.get('name', 'Unknown')}{rating}\n"
-        tax_history = enrichment.get('tax_history', [])
-        if tax_history:
-            text += f"\nTax history ({len(tax_history)} years):\n"
-            for t in tax_history[:3]:
-                text += f"  - {t.get('year', '?')}: ${t.get('value', 0):,.0f} (tax: ${t.get('tax', 0):,.0f})\n"
+            school_parts = [f"{s.get('name', 'Unknown')} ({s['rating']}/10)" if s.get('rating') else s.get('name', 'Unknown') for s in schools[:3]]
+            text += f"\nNearby schools: {', '.join(school_parts)}."
 
     skip_traces = result.get('skip_traces', [])
     if skip_traces:
         trace = skip_traces[0]
-        text += "\nOWNER INFO (Skip Trace):\n"
+        owner_parts = []
         if trace.get('owner_name'):
-            text += f"Owner: {trace['owner_name']}\n"
+            owner_parts.append(f"Owner: {trace['owner_name']}")
         phones = trace.get('phone_numbers', [])
         if phones:
-            text += f"Phone numbers: {', '.join(phones)}\n"
+            owner_parts.append(f"phone {', '.join(phones)}")
         emails = trace.get('emails', [])
         if emails:
-            text += f"Emails: {', '.join(emails)}\n"
-        if trace.get('mailing_address'):
-            mailing = trace['mailing_address']
-            if trace.get('mailing_city'):
-                mailing += f", {trace['mailing_city']}"
-            if trace.get('mailing_state'):
-                mailing += f", {trace['mailing_state']}"
-            text += f"Mailing address: {mailing}\n"
+            owner_parts.append(f"email {', '.join(emails)}")
+        if owner_parts:
+            text += f"\n\nSkip trace: {'. '.join(owner_parts)}."
 
-    return [TextContent(type="text", text=text)]
+    return [TextContent(type="text", text=text.strip())]
 
 
 async def handle_create_property(arguments: dict) -> list[TextContent]:
@@ -231,16 +239,16 @@ async def handle_create_property(arguments: dict) -> list[TextContent]:
     city = data.get("city", "")
     state = data.get("state", "")
     price = data.get("price", arguments.get("price"))
-    price_str = f"${price:,.0f}" if price else ""
+    price_str = f"${price:,.0f}" if price else "no price"
 
-    text = f"Property created successfully.\n\n"
-    text += f"Property {prop_id}: {address}, {city}, {state}\n"
-    text += f"Price: {price_str}\n"
+    details = []
     if arguments.get('bedrooms'):
-        text += f"Bedrooms: {arguments['bedrooms']}\n"
+        details.append(f"{arguments['bedrooms']}-bed")
     if arguments.get('bathrooms'):
-        text += f"Bathrooms: {arguments['bathrooms']}\n"
-    text += f"Status: available\n"
+        details.append(f"{arguments['bathrooms']}-bath")
+    detail_str = f" ({', '.join(details)})" if details else ""
+
+    text = f"Property #{prop_id} created: {address}, {city}, {state} at {price_str}{detail_str}. Status is available — ready for enrichment and next steps."
     return [TextContent(type="text", text=text)]
 
 
@@ -260,24 +268,26 @@ async def handle_update_property(arguments: dict) -> list[TextContent]:
 
     prop_id = result.get('id', property_id or '?')
     address = result.get('address', 'N/A')
-    city = result.get('city', '')
-    state = result.get('state', '')
-    text = f"Property {prop_id} updated successfully.\n\n"
-    text += f"Property {prop_id}: {address}, {city}, {state}\n"
+    city_st = f"{result.get('city', '')}, {result.get('state', '')}".strip(', ')
+
+    changes = []
     if result.get('price'):
-        text += f"Price: ${result['price']:,.0f}\n"
+        changes.append(f"price ${result['price']:,.0f}")
     if result.get('status'):
-        text += f"Status: {result['status']}\n"
+        changes.append(f"status {result['status']}")
     if result.get('bedrooms'):
-        text += f"Bedrooms: {result['bedrooms']}\n"
+        changes.append(f"{result['bedrooms']} beds")
     if result.get('bathrooms'):
-        text += f"Bathrooms: {result['bathrooms']}\n"
+        changes.append(f"{result['bathrooms']} baths")
     if result.get('square_footage'):
-        text += f"Square footage: {result['square_footage']:,.0f}\n"
+        changes.append(f"{result['square_footage']:,.0f} sqft")
     if result.get('property_type'):
-        text += f"Type: {result['property_type']}\n"
+        changes.append(f"type {result['property_type']}")
     if result.get('deal_type'):
-        text += f"Deal type: {result['deal_type']}\n"
+        changes.append(f"deal type {result['deal_type']}")
+
+    change_str = ", ".join(changes) if changes else "updated"
+    text = f"Property #{prop_id} ({address}, {city_st}) updated: {change_str}."
     return [TextContent(type="text", text=text)]
 
 
@@ -287,50 +297,41 @@ async def handle_enrich_property(arguments: dict) -> list[TextContent]:
 
     enrichment = result.get("data", result.get("enrichment", result))
     address = enrichment.get("property_address", f"property {property_id}")
-    text = f"Property {address} enriched with Zillow data.\n\n"
 
+    highlights = []
     if enrichment.get('zestimate'):
-        text += f"Zestimate: ${enrichment['zestimate']:,.0f}\n"
+        highlights.append(f"Zestimate is ${enrichment['zestimate']:,.0f}")
     if enrichment.get('rent_zestimate'):
-        text += f"Rent estimate: ${enrichment['rent_zestimate']:,.0f}/month\n"
+        highlights.append(f"rent estimate ${enrichment['rent_zestimate']:,.0f}/month")
     if enrichment.get('year_built'):
-        text += f"Year built: {enrichment['year_built']}\n"
+        highlights.append(f"built in {enrichment['year_built']}")
     if enrichment.get('home_type'):
-        text += f"Home type: {enrichment['home_type']}\n"
+        highlights.append(enrichment['home_type'])
     if enrichment.get('living_area'):
-        text += f"Living area: {enrichment['living_area']:,.0f} sqft\n"
-    if enrichment.get('lot_size'):
-        text += f"Lot size: {enrichment['lot_size']:,.1f}\n"
+        highlights.append(f"{enrichment['living_area']:,.0f} sqft")
     if enrichment.get('photo_count'):
-        text += f"Photos: {enrichment['photo_count']} available\n"
-    if enrichment.get('zillow_url'):
-        text += f"Zillow: {enrichment['zillow_url']}\n"
+        highlights.append(f"{enrichment['photo_count']} photos")
+
+    text = f"Enrichment complete for {address}. "
+    if highlights:
+        text += ", ".join(highlights) + "."
 
     try:
         full = await get_property(property_id)
         full_enrich = full.get('zillow_enrichment', {})
         if full_enrich:
-            if full_enrich.get('description'):
-                text += f"\nDescription: {full_enrich['description']}\n"
-            if full_enrich.get('property_tax_rate'):
-                text += f"Property tax rate: {full_enrich['property_tax_rate']}%\n"
             if full_enrich.get('annual_tax_amount'):
-                text += f"Annual taxes: ${full_enrich['annual_tax_amount']:,.0f}\n"
+                text += f" Annual taxes: ${full_enrich['annual_tax_amount']:,.0f}."
+            if full_enrich.get('description'):
+                text += f"\n\n{full_enrich['description']}"
             schools = full_enrich.get('schools', [])
             if schools:
-                text += f"\nNearby schools:\n"
-                for s in schools[:3]:
-                    rating = f" (rating: {s['rating']}/10)" if s.get('rating') else ""
-                    text += f"  - {s.get('name', 'Unknown')}{rating}\n"
-            tax_history = full_enrich.get('tax_history', [])
-            if tax_history:
-                text += f"\nTax history:\n"
-                for t in tax_history[:3]:
-                    text += f"  - {t.get('year', '?')}: ${t.get('value', 0):,.0f} (tax: ${t.get('tax', 0):,.0f})\n"
+                school_parts = [f"{s.get('name', 'Unknown')} ({s['rating']}/10)" if s.get('rating') else s.get('name', 'Unknown') for s in schools[:3]]
+                text += f"\n\nNearby schools: {', '.join(school_parts)}."
     except Exception:
         pass
 
-    return [TextContent(type="text", text=text)]
+    return [TextContent(type="text", text=text.strip())]
 
 
 # ── Tool Registration ──
