@@ -3,12 +3,11 @@ Compliance Engine - Evaluates properties against compliance rules
 
 This service runs compliance checks on properties and generates violations.
 """
-import os
 import json
+import os
 import time
 from typing import List, Optional, Dict
 from datetime import datetime
-from anthropic import Anthropic
 from sqlalchemy.orm import Session
 
 from app.models.property import Property
@@ -21,6 +20,7 @@ from app.models.compliance_rule import (
     Severity,
     RuleType
 )
+from app.services.llm_service import llm_service
 
 
 class ComplianceEngine:
@@ -28,13 +28,6 @@ class ComplianceEngine:
     AI-powered compliance checking engine.
     Uses Claude to interpret complex rules and property data.
     """
-
-    def __init__(self):
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if api_key:
-            self.client = Anthropic(api_key=api_key)
-        else:
-            self.client = None
 
     async def run_compliance_check(
         self,
@@ -358,7 +351,7 @@ class ComplianceEngine:
         This is the most powerful feature - AI interprets natural language rules.
         """
 
-        if not self.client:
+        if not os.getenv("ANTHROPIC_API_KEY"):
             # If no AI client, create a needs_review violation
             return ComplianceViolation(
                 rule_id=rule.id,
@@ -423,14 +416,7 @@ Respond in JSON format:
 }}"""
 
         try:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1000,
-                messages=[{"role": "user", "content": prompt}]
-            )
-
-            # Parse response
-            response_text = response.content[0].text
+            response_text = llm_service.generate(prompt, max_tokens=1000)
 
             # Extract JSON
             json_start = response_text.find('{')

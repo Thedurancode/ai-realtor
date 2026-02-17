@@ -1,22 +1,16 @@
 """
 Compliance Knowledge Service - Manage compliance rules knowledge base
 """
-import os
 import json
+import os
 import re
 from typing import Dict, Optional
-from anthropic import Anthropic
+
+from app.services.llm_service import llm_service
 
 
 class ComplianceKnowledgeService:
     """Service for managing compliance knowledge base"""
-
-    def __init__(self):
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if api_key:
-            self.client = Anthropic(api_key=api_key)
-        else:
-            self.client = None
 
     def validate_rule(self, rule_data: dict) -> Optional[str]:
         """
@@ -92,7 +86,7 @@ class ComplianceKnowledgeService:
         Use Claude to generate a structured rule from natural language description
         """
 
-        if not self.client:
+        if not os.getenv("ANTHROPIC_API_KEY"):
             raise Exception("ANTHROPIC_API_KEY not configured. Cannot use AI features.")
 
         prompt = f"""You are a real estate compliance expert creating structured compliance rules.
@@ -136,14 +130,7 @@ Example:
     "tags": ["earthquake", "disclosure", "natural_hazard"]
 }}"""
 
-        response = self.client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        # Extract JSON from response
-        response_text = response.content[0].text
+        response_text = llm_service.generate(prompt, max_tokens=2000)
 
         # Try to parse JSON from response
         try:

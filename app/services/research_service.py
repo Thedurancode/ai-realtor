@@ -8,8 +8,6 @@ from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
 from datetime import datetime
 import httpx
-import os
-from anthropic import Anthropic
 
 from app.models.property import Property
 from app.models.research import Research, ResearchStatus, ResearchType
@@ -17,6 +15,7 @@ from app.services.zillow_enrichment import zillow_enrichment_service
 from app.services.contract_ai_service import contract_ai_service
 from app.services.contract_auto_attach import contract_auto_attach_service
 from app.services.compliance_engine import ComplianceEngine
+from app.services.llm_service import llm_service
 
 
 class ResearchService:
@@ -24,7 +23,6 @@ class ResearchService:
 
     def __init__(self):
         self.compliance_engine = ComplianceEngine()
-        self.anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     async def perform_research(
         self,
@@ -481,7 +479,7 @@ Property Context:
             })
 
             # Call Anthropic API
-            response = self.anthropic_client.messages.create(
+            response = llm_service.create(
                 model=params.get("model", "claude-sonnet-4-20250514"),
                 max_tokens=params.get("max_tokens", 4096),
                 temperature=params.get("temperature", 1.0),

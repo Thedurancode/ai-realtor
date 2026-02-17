@@ -2075,8 +2075,7 @@ class AgenticResearchService:
             neighborhood_data[k] for k in neighborhood_data
         ):
             try:
-                import anthropic
-                client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+                from app.services.llm_service import llm_service as _llm
 
                 snippets_text = ""
                 for category, items in neighborhood_data.items():
@@ -2085,19 +2084,15 @@ class AgenticResearchService:
                         for item in items[:3]:
                             snippets_text += f"- {item['title']}: {item['snippet']}\n"
 
-                msg = client.messages.create(
-                    model="claude-sonnet-4-5-20250929",
-                    max_tokens=600,
-                    messages=[{
-                        "role": "user",
-                        "content": f"""You are a real estate investment analyst. Based on these neighborhood data snippets for {location}, write a concise neighborhood analysis (150-250 words). Cover: safety, schools, demographics, market trends, and overall investment outlook. Be specific with any numbers or ratings found. If data is sparse, note what's missing.
+                ai_summary = _llm.generate(
+                    f"""You are a real estate investment analyst. Based on these neighborhood data snippets for {location}, write a concise neighborhood analysis (150-250 words). Cover: safety, schools, demographics, market trends, and overall investment outlook. Be specific with any numbers or ratings found. If data is sparse, note what's missing.
 
 {snippets_text}
 
 Write the analysis as prose paragraphs, not bullet points. Focus on what matters for a real estate investor.""",
-                    }],
+                    model="claude-sonnet-4-5-20250929",
+                    max_tokens=600,
                 )
-                ai_summary = msg.content[0].text
                 cost_usd = 0.01  # Approximate Sonnet cost
             except Exception as e:
                 ai_summary = None
@@ -3398,15 +3393,10 @@ Write the analysis as prose paragraphs, not bullet points. Focus on what matters
         ai_narrative = None
         if settings.anthropic_api_key:
             try:
-                import anthropic
-                client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+                from app.services.llm_service import llm_service as _llm
 
-                msg = client.messages.create(
-                    model="claude-sonnet-4-5-20250929",
-                    max_tokens=1500,
-                    messages=[{
-                        "role": "user",
-                        "content": f"""You are a senior real estate investment analyst writing an investment memo. Based on the data below, write a comprehensive property dossier in markdown format.
+                ai_narrative = _llm.generate(
+                    f"""You are a senior real estate investment analyst writing an investment memo. Based on the data below, write a comprehensive property dossier in markdown format.
 
 STRATEGY: {strategy}
 
@@ -3423,9 +3413,9 @@ Write the dossier with these sections:
 8. **Recommendation** (clear buy/pass/investigate-further with specific next steps)
 
 Be specific with numbers. If data is missing, say so clearly and explain the impact. Write for an experienced investor who needs actionable intelligence, not fluff.""",
-                    }],
+                    model="claude-sonnet-4-5-20250929",
+                    max_tokens=1500,
                 )
-                ai_narrative = msg.content[0].text
                 cost_usd = 0.02  # Approximate Sonnet cost for 1500 tokens
             except Exception as e:
                 logging.warning(f"Claude dossier generation failed: {e}")

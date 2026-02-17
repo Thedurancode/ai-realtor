@@ -11,7 +11,6 @@ import os
 import re
 from datetime import datetime, timezone
 
-from anthropic import Anthropic
 from sqlalchemy.orm import Session
 
 from app.models.contract import Contract, ContractStatus, RequirementSource
@@ -22,13 +21,12 @@ from app.models.skip_trace import SkipTrace
 from app.models.zillow_enrichment import ZillowEnrichment
 from app.services import offer_service
 from app.services.docuseal import docuseal_client
+from app.services.llm_service import llm_service
 
 logger = logging.getLogger(__name__)
 
 
 class OfferDrafterService:
-    def __init__(self):
-        self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     async def draft_from_offer(self, db: Session, offer_id: int) -> dict:
         """Draft an offer letter from an existing Offer record."""
@@ -289,13 +287,7 @@ Generate a JSON object with these five fields:
 
 Return ONLY valid JSON, no markdown fences."""
 
-        response = self.client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=3000,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        text = response.content[0].text
+        text = llm_service.generate(prompt, max_tokens=3000)
         json_match = re.search(r'\{.*\}', text, re.DOTALL)
         if json_match:
             result = json.loads(json_match.group())

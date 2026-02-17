@@ -2,22 +2,18 @@
 
 import json
 import logging
-import os
 from datetime import datetime, timezone
 
-from anthropic import Anthropic
 from sqlalchemy.orm import Session
 
 from app.models.notification import Notification, NotificationType, NotificationPriority
+from app.services.llm_service import llm_service
 
 logger = logging.getLogger(__name__)
 
 
 class DailyDigestService:
     """Generate AI-powered daily briefings from insights + analytics + notifications."""
-
-    def __init__(self):
-        self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     async def generate_digest(self, db: Session) -> dict:
         """Gather data and generate AI briefing."""
@@ -87,13 +83,9 @@ Respond in JSON format:
 }}"""
 
         try:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-5-20250514",
-                max_tokens=1500,
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-            text = response.content[0].text.strip()
+            text = llm_service.generate(
+                prompt, model="claude-sonnet-4-5-20250514", max_tokens=1500
+            ).strip()
             # Strip markdown code fences if present
             if text.startswith("```"):
                 text = text.split("\n", 1)[1]

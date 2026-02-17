@@ -3,13 +3,12 @@ AI Agent Executor
 
 Executes autonomous AI agents with tool calling and multi-step reasoning.
 """
-import os
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from anthropic import Anthropic
 from anthropic.types import Message, TextBlock, ToolUseBlock
 
 from app.services.agent_tools import AgentTools
+from app.services.llm_service import llm_service
 
 
 class AgentExecutor:
@@ -25,7 +24,6 @@ class AgentExecutor:
 
     def __init__(self, db: Session):
         self.db = db
-        self.anthropic = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         self.agent_tools = AgentTools(db)
         self.max_iterations = 10  # Prevent infinite loops
 
@@ -80,7 +78,7 @@ class AgentExecutor:
             iterations += 1
 
             # Call Claude with tool schemas
-            response = self.anthropic.messages.create(
+            response = llm_service.create(
                 model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,

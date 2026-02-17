@@ -3,21 +3,17 @@ Contract AI Service
 
 AI-powered contract suggestion and analysis using Claude.
 """
-import os
 from typing import List, Dict
 from sqlalchemy.orm import Session
-from anthropic import Anthropic
 
 from app.models.property import Property
 from app.models.contract_template import ContractTemplate
 from app.models.contract import Contract, RequirementSource
+from app.services.llm_service import llm_service
 
 
 class ContractAIService:
     """AI service for contract suggestions and analysis"""
-
-    def __init__(self):
-        self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     async def suggest_required_contracts(
         self,
@@ -86,19 +82,7 @@ Return your analysis as JSON in this exact format:
 Be thorough and consider all applicable regulations for {property.state} state."""
 
         # Call Claude
-        response = self.client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        )
-
-        # Parse response
-        response_text = response.content[0].text
+        response_text = llm_service.generate(prompt, max_tokens=2000)
 
         # Extract JSON from response
         import json

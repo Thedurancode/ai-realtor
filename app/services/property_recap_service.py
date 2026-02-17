@@ -4,11 +4,9 @@ Property Recap Service
 Generates and maintains AI-powered property summaries that automatically
 update when property data changes. Used for phone calls and voice interactions.
 """
-import os
 import logging
 from typing import Optional
 from sqlalchemy.orm import Session
-from anthropic import Anthropic
 import json
 
 logger = logging.getLogger(__name__)
@@ -21,13 +19,11 @@ from app.models.contact import Contact
 from app.models.property_note import PropertyNote
 from app.services.contract_auto_attach import contract_auto_attach_service
 from app.services.deal_type_service import get_deal_type_summary
+from app.services.llm_service import llm_service
 
 
 class PropertyRecapService:
     """Generate and manage AI property recaps"""
-
-    def __init__(self):
-        self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     async def generate_recap(
         self,
@@ -275,14 +271,7 @@ Return as JSON:
 }}"""
 
         # Call Claude
-        response = self.client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        # Parse response
-        response_text = response.content[0].text
+        response_text = llm_service.generate(prompt, max_tokens=2000)
 
         # Extract JSON
         import re

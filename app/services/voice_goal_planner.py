@@ -14,10 +14,7 @@ from app.services.contract_auto_attach import contract_auto_attach_service
 from app.services.memory_graph import MemoryRef, memory_graph_service
 from app.services.property_recap_service import property_recap_service
 
-try:
-    from anthropic import Anthropic
-except Exception:  # pragma: no cover - optional dependency in some runtimes
-    Anthropic = None  # type: ignore
+from app.services.llm_service import llm_service
 
 # Lazy imports for new action services to avoid circular imports at module load.
 def _get_zillow_service():
@@ -95,10 +92,7 @@ class VoiceGoalPlannerService:
     }
 
     def __init__(self):
-        self.anthropic_client = None
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if api_key and Anthropic is not None:
-            self.anthropic_client = Anthropic(api_key=api_key)
+        pass
 
     def build_plan(
         self,
@@ -306,7 +300,7 @@ class VoiceGoalPlannerService:
         memory_summary: dict[str, Any] | None,
         execution_mode: str,
     ) -> list[GoalPlanStep] | None:
-        if not self.anthropic_client:
+        if not os.getenv("ANTHROPIC_API_KEY"):
             return None
 
         memory_state = memory_summary.get("session_state", {}) if memory_summary else {}
@@ -321,7 +315,7 @@ class VoiceGoalPlannerService:
         )
 
         try:
-            response = self.anthropic_client.messages.create(
+            response = llm_service.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=800,
                 messages=[{"role": "user", "content": prompt}],
