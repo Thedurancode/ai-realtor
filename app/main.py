@@ -18,7 +18,7 @@ import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 # Paths that don't require API key authentication
 PUBLIC_PATHS = frozenset(("/", "/docs", "/redoc", "/openapi.json"))
-PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/")
+PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register")
 
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
@@ -46,11 +46,37 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
         return await call_next(request)
 
+from fastapi.openapi.utils import get_openapi
+
 app = FastAPI(
     title="Real Estate API",
     description="API for real estate agents to manage properties (voice-optimized)",
     version="1.0.0",
 )
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    openapi_schema["components"]["securitySchemes"] = {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "x-api-key",
+        }
+    }
+    openapi_schema["security"] = [{"ApiKeyAuth": []}]
+    app.openapi_schema = openapi_schema
+    return openapi_schema
+
+
+app.openapi = custom_openapi
 
 # Rate limiter
 app.state.limiter = limiter

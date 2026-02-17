@@ -1,11 +1,45 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.agent import Agent
-from app.schemas.agent import AgentCreate, AgentUpdate, AgentResponse
+from app.auth import generate_api_key, hash_api_key
+from app.schemas.agent import AgentCreate, AgentUpdate, AgentResponse, AgentRegister, AgentRegisterResponse
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+
+
+@router.post("/register", response_model=AgentRegisterResponse, status_code=201)
+def register_agent(agent: AgentRegister, db: Session = Depends(get_db)):
+    """Public registration endpoint. Creates an agent and returns an API key."""
+    existing = db.query(Agent).filter(Agent.email == agent.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    api_key = generate_api_key()
+    new_agent = Agent(
+        name=agent.name,
+        email=agent.email,
+        phone=agent.phone or None,
+        license_number=agent.license_number or None,
+        api_key_hash=hash_api_key(api_key),
+    )
+    db.add(new_agent)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="License number already in use")
+    db.refresh(new_agent)
+
+    return AgentRegisterResponse(
+        id=new_agent.id,
+        name=new_agent.name,
+        email=new_agent.email,
+        api_key=api_key,
+        created_at=new_agent.created_at,
+    )
 
 
 @router.post("/", response_model=AgentResponse, status_code=201)

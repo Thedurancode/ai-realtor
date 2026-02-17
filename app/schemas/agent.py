@@ -20,6 +20,24 @@ class AgentUpdate(BaseModel):
     license_number: str | None = None
 
 
+class AgentRegister(BaseModel):
+    email: EmailStr
+    name: str
+    phone: str | None = None
+    license_number: str | None = None
+
+
+class AgentRegisterResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    api_key: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class AgentResponse(AgentBase):
     id: int
     created_at: datetime
