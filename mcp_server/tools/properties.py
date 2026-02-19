@@ -138,7 +138,7 @@ async def handle_list_properties(arguments: dict) -> list[TextContent]:
             text += f"#{p['id']} {addr}, {city_st} — {price_str}"
             if detail_str:
                 text += f" ({detail_str})"
-            text += f" [{p.get('status', 'available')}]"
+            text += f" [{p.get('status', 'new_property')}]"
             if p.get('deal_score') is not None:
                 text += f" Grade {p.get('score_grade', '?')}"
             text += "\n"
@@ -169,7 +169,7 @@ async def handle_get_property(arguments: dict) -> list[TextContent]:
     text = f"Property #{result['id']}: {addr}, {city_st} — {price_str}"
     if detail_str:
         text += f" ({detail_str})"
-    text += f". Status: {result.get('status', 'available')}."
+    text += f". Status: {result.get('status', 'new_property')}."
 
     if result.get('deal_score') is not None:
         text += f"\n\nDeal score: {result['deal_score']:.0f}/100, Grade {result.get('score_grade', '?')}."
@@ -248,7 +248,7 @@ async def handle_create_property(arguments: dict) -> list[TextContent]:
         details.append(f"{arguments['bathrooms']}-bath")
     detail_str = f" ({', '.join(details)})" if details else ""
 
-    text = f"Property #{prop_id} created: {address}, {city}, {state} at {price_str}{detail_str}. Status is available — ready for enrichment and next steps."
+    text = f"Property #{prop_id} created: {address}, {city}, {state} at {price_str}{detail_str}. Status is new property — ready for enrichment and next steps."
     return [TextContent(type="text", text=text)]
 
 
@@ -337,7 +337,7 @@ async def handle_enrich_property(arguments: dict) -> list[TextContent]:
 # ── Tool Registration ──
 
 register_tool(
-    Tool(name="list_properties", description="List all properties in the database. Filter by status, property type, city, price range, or bedrooms. Voice examples: 'show me all condos', 'list houses under 500k in Miami', 'show available land'.", inputSchema={"type": "object", "properties": {"limit": {"type": "number", "description": "Maximum number of properties to return (default: 10)", "default": 10}, "status": {"type": "string", "description": "Filter by property status", "enum": ["available", "pending", "sold", "rented", "off_market"]}, "property_type": {"type": "string", "description": "Filter by property type", "enum": ["house", "condo", "townhouse", "apartment", "land", "commercial", "multi_family"]}, "city": {"type": "string", "description": "Filter by city name (partial match)"}, "min_price": {"type": "number", "description": "Minimum price filter"}, "max_price": {"type": "number", "description": "Maximum price filter"}, "bedrooms": {"type": "number", "description": "Minimum number of bedrooms"}}}),
+    Tool(name="list_properties", description="List all properties in the database. Filter by status, property type, city, price range, or bedrooms. Voice examples: 'show me all condos', 'list houses under 500k in Miami', 'show available land'.", inputSchema={"type": "object", "properties": {"limit": {"type": "number", "description": "Maximum number of properties to return (default: 10)", "default": 10}, "status": {"type": "string", "description": "Filter by property status", "enum": ["new_property", "enriched", "researched", "waiting_for_contracts", "complete"]}, "property_type": {"type": "string", "description": "Filter by property type", "enum": ["house", "condo", "townhouse", "apartment", "land", "commercial", "multi_family"]}, "city": {"type": "string", "description": "Filter by city name (partial match)"}, "min_price": {"type": "number", "description": "Minimum price filter"}, "max_price": {"type": "number", "description": "Maximum price filter"}, "bedrooms": {"type": "number", "description": "Minimum number of bedrooms"}}}),
     handle_list_properties
 )
 
@@ -357,7 +357,7 @@ register_tool(
 )
 
 register_tool(
-    Tool(name="update_property", description="Update a property's details such as price, status, bedrooms, bathrooms, square footage, property type, or deal type. Can use address or property ID. Example: 'Update the price on 123 Main Street to $900,000' or 'Change the Avondale property status to sold'.", inputSchema={"type": "object", "properties": {"property_id": {"type": "number", "description": "The ID of the property to update (optional if address is provided)"}, "address": {"type": "string", "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Avondale property')"}, "price": {"type": "number", "description": "New price in dollars"}, "status": {"type": "string", "description": "New status", "enum": ["available", "pending", "sold", "rented", "off_market"]}, "bedrooms": {"type": "number", "description": "Number of bedrooms"}, "bathrooms": {"type": "number", "description": "Number of bathrooms"}, "square_feet": {"type": "number", "description": "Square footage"}, "property_type": {"type": "string", "description": "Property type", "enum": ["house", "condo", "townhouse", "apartment", "land", "commercial", "multi_family"]}, "deal_type": {"type": "string", "description": "Deal type", "enum": ["traditional", "wholesale", "creative_finance", "subject_to", "novation", "lease_option"]}}}),
+    Tool(name="update_property", description="Update a property's details such as price, status, bedrooms, bathrooms, square footage, property type, or deal type. Can use address or property ID. Example: 'Update the price on 123 Main Street to $900,000' or 'Change the Avondale property status to complete'.", inputSchema={"type": "object", "properties": {"property_id": {"type": "number", "description": "The ID of the property to update (optional if address is provided)"}, "address": {"type": "string", "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Avondale property')"}, "price": {"type": "number", "description": "New price in dollars"}, "status": {"type": "string", "description": "New status", "enum": ["new_property", "enriched", "researched", "waiting_for_contracts", "complete"]}, "bedrooms": {"type": "number", "description": "Number of bedrooms"}, "bathrooms": {"type": "number", "description": "Number of bathrooms"}, "square_feet": {"type": "number", "description": "Square footage"}, "property_type": {"type": "string", "description": "Property type", "enum": ["house", "condo", "townhouse", "apartment", "land", "commercial", "multi_family"]}, "deal_type": {"type": "string", "description": "Deal type", "enum": ["traditional", "wholesale", "creative_finance", "subject_to", "novation", "lease_option"]}}}),
     handle_update_property
 )
 

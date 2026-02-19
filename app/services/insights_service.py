@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.contract import Contract, ContractStatus
 from app.models.conversation_history import ConversationHistory
-from app.models.property import Property
+from app.models.property import Property, PropertyStatus
 from app.models.skip_trace import SkipTrace
 from app.models.zillow_enrichment import ZillowEnrichment
 
@@ -48,30 +48,53 @@ class InsightsService:
     # ── Alert rules ──
 
     def _stale_properties(self, db: Session, property_id: Optional[int]) -> list[dict]:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=self.STALE_DAYS)
-        query = db.query(Property).filter(Property.status.in_(["available", "pending"]))
+        from app.services.heartbeat_service import STAGE_STALE_THRESHOLDS
+
+        query = db.query(Property).filter(Property.status != PropertyStatus.COMPLETE)
         if property_id:
             query = query.filter(Property.id == property_id)
 
+        properties = query.all()
+        if not properties:
+            return []
+
+        # Batch load last activities to avoid N+1
+        prop_ids = [p.id for p in properties]
+        last_activities = self._batch_last_activities(db, prop_ids)
+
+        now = datetime.now(timezone.utc)
         alerts = []
-        for prop in query.all():
-            last_activity = (
-                db.query(func.max(ConversationHistory.created_at))
-                .filter(ConversationHistory.property_id == prop.id)
-                .scalar()
-            )
-            last_touch = last_activity or prop.created_at
+        for prop in properties:
+            threshold = STAGE_STALE_THRESHOLDS.get(prop.status, self.STALE_DAYS)
+            cutoff = now - timedelta(days=threshold)
+
+            last_touch = last_activities.get(prop.id) or prop.created_at
             if last_touch and last_touch.replace(tzinfo=timezone.utc) < cutoff:
-                days = (datetime.now(timezone.utc) - last_touch.replace(tzinfo=timezone.utc)).days
+                days = (now - last_touch.replace(tzinfo=timezone.utc)).days
+                stage_label = prop.status.value.replace("_", " ").title() if prop.status else "Unknown"
                 alerts.append({
                     "type": "stale_property",
-                    "priority": "high" if days > 14 else "medium",
+                    "priority": "high" if days > threshold * 2 else "medium",
                     "property_id": prop.id,
                     "property_address": prop.address,
-                    "message": f"No activity in {days} days",
-                    "suggested_action": "Follow up or update status",
+                    "message": f"Stuck in '{stage_label}' for {days} days (threshold: {threshold})",
+                    "suggested_action": "Check heartbeat for next steps",
                 })
         return alerts
+
+    def _batch_last_activities(self, db: Session, prop_ids: list[int]) -> dict[int, datetime]:
+        if not prop_ids:
+            return {}
+        rows = (
+            db.query(
+                ConversationHistory.property_id,
+                func.max(ConversationHistory.created_at).label("last_at"),
+            )
+            .filter(ConversationHistory.property_id.in_(prop_ids))
+            .group_by(ConversationHistory.property_id)
+            .all()
+        )
+        return {r.property_id: r.last_at for r in rows}
 
     def _contract_deadlines(self, db: Session, property_id: Optional[int]) -> list[dict]:
         now = datetime.now(timezone.utc)
@@ -200,7 +223,7 @@ class InsightsService:
                 "property_id": p.id,
                 "property_address": p.address,
                 "message": f"Deal score {p.deal_score:.0f} ({p.score_grade}) but no contracts started",
-                "suggested_action": "Attach contracts and move to pending",
+                "suggested_action": "Attach contracts to advance pipeline",
             }
             for p in query.all()
         ]

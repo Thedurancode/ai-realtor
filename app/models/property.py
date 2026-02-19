@@ -7,11 +7,11 @@ from app.database import Base
 
 
 class PropertyStatus(str, enum.Enum):
-    AVAILABLE = "available"
-    PENDING = "pending"
-    SOLD = "sold"
-    RENTED = "rented"
-    OFF_MARKET = "off_market"
+    NEW_PROPERTY = "new_property"
+    ENRICHED = "enriched"
+    RESEARCHED = "researched"
+    WAITING_FOR_CONTRACTS = "waiting_for_contracts"
+    COMPLETE = "complete"
 
 
 class PropertyType(str, enum.Enum):
@@ -51,7 +51,7 @@ class Property(Base):
     lot_size = Column(Float, nullable=True)
     year_built = Column(Integer, nullable=True)
     property_type = Column(Enum(PropertyType), default=PropertyType.HOUSE)
-    status = Column(Enum(PropertyStatus), default=PropertyStatus.AVAILABLE)
+    status = Column(Enum(PropertyStatus), default=PropertyStatus.NEW_PROPERTY)
     deal_type = Column(Enum(DealType), nullable=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
     # Deal scoring

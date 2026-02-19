@@ -223,17 +223,17 @@ class NotificationService:
     ):
         """Send property status change notification"""
         status_icons = {
-            "available": "🟢",
-            "pending": "🟡",
-            "sold": "🔴",
-            "rented": "🔵",
-            "off_market": "⚫"
+            "new_property": "🟢",
+            "enriched": "🟡",
+            "researched": "🔵",
+            "waiting_for_contracts": "🟠",
+            "complete": "🔴",
         }
 
         title = f"{status_icons.get(new_status, '🏠')} Status Change: {property_address}"
         message = f"Status changed from '{old_status}' to '{new_status}'"
 
-        priority = NotificationPriority.HIGH if new_status in ["sold", "pending"] else NotificationPriority.MEDIUM
+        priority = NotificationPriority.HIGH if new_status in ["complete", "waiting_for_contracts"] else NotificationPriority.MEDIUM
 
         notification = self.create_notification(
             db=db,

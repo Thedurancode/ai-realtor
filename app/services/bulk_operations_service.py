@@ -55,7 +55,7 @@ _OPERATION_META = [
     {
         "name": "update_status",
         "description": "Update property status in bulk",
-        "params": {"status": "Target status (available, pending, sold, rented, off_market)"},
+        "params": {"status": "Target status (new_property, enriched, researched, waiting_for_contracts, complete)"},
     },
     {
         "name": "check_compliance",

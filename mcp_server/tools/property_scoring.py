@@ -169,7 +169,7 @@ register_tool(
                     "type": "object",
                     "description": "Optional filters: {status, city}",
                     "properties": {
-                        "status": {"type": "string", "enum": ["available", "pending", "sold", "rented", "off_market"]},
+                        "status": {"type": "string", "enum": ["new_property", "enriched", "researched", "waiting_for_contracts", "complete"]},
                         "city": {"type": "string"},
                     },
                 },

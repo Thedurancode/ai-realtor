@@ -16,15 +16,17 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineAutomationService:
-    """Auto-advance property status based on enrichment, contracts, and activity."""
+    """Auto-advance property status through the pipeline stages.
 
-    STALE_DAYS = 30
+    Pipeline: NEW_PROPERTY → ENRICHED → RESEARCHED → WAITING_FOR_CONTRACTS → COMPLETE
+    """
+
     MANUAL_GRACE_HOURS = 24
 
     def run_pipeline_check(self, db: Session) -> dict:
-        """Check all properties for auto-transitions."""
+        """Check all non-complete properties for auto-transitions."""
         properties = db.query(Property).filter(
-            Property.status.in_([PropertyStatus.AVAILABLE, PropertyStatus.PENDING])
+            Property.status != PropertyStatus.COMPLETE
         ).all()
 
         transitions = []
@@ -35,20 +37,22 @@ class PipelineAutomationService:
             new_status = None
             reason = ""
 
-            if prop.status == PropertyStatus.AVAILABLE:
-                if self._check_available_to_pending(db, prop):
-                    new_status = PropertyStatus.PENDING
-                    reason = "Enrichment + skip trace + contract(s) attached"
-                elif self._check_stale(db, prop):
-                    new_status = PropertyStatus.OFF_MARKET
-                    reason = f"No activity in {self.STALE_DAYS}+ days"
-            elif prop.status == PropertyStatus.PENDING:
-                if self._check_pending_to_sold(db, prop):
-                    new_status = PropertyStatus.SOLD
+            if prop.status == PropertyStatus.NEW_PROPERTY:
+                if self._check_new_to_enriched(db, prop):
+                    new_status = PropertyStatus.ENRICHED
+                    reason = "Zillow enrichment data available"
+            elif prop.status == PropertyStatus.ENRICHED:
+                if self._check_enriched_to_researched(db, prop):
+                    new_status = PropertyStatus.RESEARCHED
+                    reason = "Skip trace completed"
+            elif prop.status == PropertyStatus.RESEARCHED:
+                if self._check_researched_to_waiting(db, prop):
+                    new_status = PropertyStatus.WAITING_FOR_CONTRACTS
+                    reason = "Contract(s) attached"
+            elif prop.status == PropertyStatus.WAITING_FOR_CONTRACTS:
+                if self._check_waiting_to_complete(db, prop):
+                    new_status = PropertyStatus.COMPLETE
                     reason = "All required contracts completed"
-                elif self._check_stale(db, prop):
-                    new_status = PropertyStatus.OFF_MARKET
-                    reason = f"No activity in {self.STALE_DAYS}+ days"
 
             if new_status:
                 self._transition(db, prop, new_status, reason)
@@ -88,24 +92,26 @@ class PipelineAutomationService:
             return True
         return False
 
-    def _check_available_to_pending(self, db: Session, prop: Property) -> bool:
-        """AVAILABLE → PENDING: has enrichment + skip trace + at least 1 contract."""
-        has_enrichment = db.query(ZillowEnrichment).filter(
+    def _check_new_to_enriched(self, db: Session, prop: Property) -> bool:
+        """NEW_PROPERTY → ENRICHED: ZillowEnrichment exists."""
+        return db.query(ZillowEnrichment).filter(
             ZillowEnrichment.property_id == prop.id
         ).first() is not None
 
-        has_skip_trace = db.query(SkipTrace).filter(
+    def _check_enriched_to_researched(self, db: Session, prop: Property) -> bool:
+        """ENRICHED → RESEARCHED: SkipTrace exists."""
+        return db.query(SkipTrace).filter(
             SkipTrace.property_id == prop.id
         ).first() is not None
 
-        has_contract = db.query(Contract).filter(
+    def _check_researched_to_waiting(self, db: Session, prop: Property) -> bool:
+        """RESEARCHED → WAITING_FOR_CONTRACTS: at least 1 contract attached."""
+        return db.query(Contract).filter(
             Contract.property_id == prop.id
         ).first() is not None
 
-        return has_enrichment and has_skip_trace and has_contract
-
-    def _check_pending_to_sold(self, db: Session, prop: Property) -> bool:
-        """PENDING → SOLD: ALL required contracts have status COMPLETED."""
+    def _check_waiting_to_complete(self, db: Session, prop: Property) -> bool:
+        """WAITING_FOR_CONTRACTS → COMPLETE: ALL required contracts COMPLETED."""
         required_contracts = db.query(Contract).filter(
             Contract.property_id == prop.id,
             Contract.is_required.is_(True),
@@ -115,23 +121,6 @@ class PipelineAutomationService:
             return False
 
         return all(c.status == ContractStatus.COMPLETED for c in required_contracts)
-
-    def _check_stale(self, db: Session, prop: Property) -> bool:
-        """Check if property has no activity in STALE_DAYS."""
-        from sqlalchemy import func
-        cutoff = datetime.now(timezone.utc) - timedelta(days=self.STALE_DAYS)
-
-        last_activity = (
-            db.query(func.max(ConversationHistory.created_at))
-            .filter(ConversationHistory.property_id == prop.id)
-            .scalar()
-        )
-        last_touch = last_activity or prop.created_at
-        if last_touch is None:
-            return False
-        if last_touch.tzinfo is None:
-            last_touch = last_touch.replace(tzinfo=timezone.utc)
-        return last_touch < cutoff
 
     def _transition(self, db: Session, prop: Property, new_status: PropertyStatus, reason: str):
         """Update status, create notification, log to conversation_history."""

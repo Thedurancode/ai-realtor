@@ -138,10 +138,10 @@ def accept_offer(db: Session, offer_id: int) -> Offer:
     offer.status = OfferStatus.ACCEPTED
     offer.responded_at = now
 
-    # Side effect 1: Property → pending
+    # Side effect 1: Property → waiting_for_contracts
     prop = db.query(Property).filter(Property.id == offer.property_id).first()
-    if prop and prop.status == PropertyStatus.AVAILABLE:
-        prop.status = PropertyStatus.PENDING
+    if prop and prop.status != PropertyStatus.COMPLETE:
+        prop.status = PropertyStatus.WAITING_FOR_CONTRACTS
 
     # Side effect 2: Auto-reject other active offers on same property
     other_offers = (

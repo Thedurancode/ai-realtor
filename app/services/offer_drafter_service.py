@@ -287,7 +287,7 @@ Generate a JSON object with these five fields:
 
 Return ONLY valid JSON, no markdown fences."""
 
-        text = llm_service.generate(prompt, max_tokens=3000)
+        text = await llm_service.agenerate(prompt, max_tokens=3000)
         json_match = re.search(r'\{.*\}', text, re.DOTALL)
         if json_match:
             result = json.loads(json_match.group())

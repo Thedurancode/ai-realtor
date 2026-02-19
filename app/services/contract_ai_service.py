@@ -82,7 +82,7 @@ Return your analysis as JSON in this exact format:
 Be thorough and consider all applicable regulations for {property.state} state."""
 
         # Call Claude
-        response_text = llm_service.generate(prompt, max_tokens=2000)
+        response_text = await llm_service.agenerate(prompt, max_tokens=2000)
 
         # Extract JSON from response
         import json

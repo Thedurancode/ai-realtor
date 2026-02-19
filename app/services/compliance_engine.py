@@ -416,7 +416,7 @@ Respond in JSON format:
 }}"""
 
         try:
-            response_text = llm_service.generate(prompt, max_tokens=1000)
+            response_text = await llm_service.agenerate(prompt, max_tokens=1000)
 
             # Extract JSON
             json_start = response_text.find('{')

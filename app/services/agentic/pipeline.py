@@ -1328,8 +1328,6 @@ class AgenticResearchService:
                 continue
 
             rental_signal = None
-            if candidate.status == PropertyStatus.RENTED:
-                rental_signal = candidate.price
 
             zillow = (
                 db.query(ZillowEnrichment)
@@ -2084,7 +2082,7 @@ class AgenticResearchService:
                         for item in items[:3]:
                             snippets_text += f"- {item['title']}: {item['snippet']}\n"
 
-                ai_summary = _llm.generate(
+                ai_summary = await _llm.agenerate(
                     f"""You are a real estate investment analyst. Based on these neighborhood data snippets for {location}, write a concise neighborhood analysis (150-250 words). Cover: safety, schools, demographics, market trends, and overall investment outlook. Be specific with any numbers or ratings found. If data is sparse, note what's missing.
 
 {snippets_text}
@@ -3395,7 +3393,7 @@ Write the analysis as prose paragraphs, not bullet points. Focus on what matters
             try:
                 from app.services.llm_service import llm_service as _llm
 
-                ai_narrative = _llm.generate(
+                ai_narrative = await _llm.agenerate(
                     f"""You are a senior real estate investment analyst writing an investment memo. Based on the data below, write a comprehensive property dossier in markdown format.
 
 STRATEGY: {strategy}

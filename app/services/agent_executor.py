@@ -78,7 +78,7 @@ class AgentExecutor:
             iterations += 1
 
             # Call Claude with tool schemas
-            response = llm_service.create(
+            response = await llm_service.acreate(
                 model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,

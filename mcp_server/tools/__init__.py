@@ -27,3 +27,4 @@ from . import bulk  # noqa: F401
 from . import activity_timeline  # noqa: F401
 from . import property_scoring  # noqa: F401
 from . import market_watchlist  # noqa: F401
+from . import heartbeat  # noqa: F401

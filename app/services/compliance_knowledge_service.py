@@ -130,7 +130,7 @@ Example:
     "tags": ["earthquake", "disclosure", "natural_hazard"]
 }}"""
 
-        response_text = llm_service.generate(prompt, max_tokens=2000)
+        response_text = await llm_service.agenerate(prompt, max_tokens=2000)
 
         # Try to parse JSON from response
         try:

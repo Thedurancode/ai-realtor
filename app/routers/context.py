@@ -115,7 +115,7 @@ async def create_property_with_context(
         bedrooms=request.bedrooms,
         bathrooms=request.bathrooms,
         agent_id=request.agent_id,
-        status="available",
+        status="new_property",
         property_type="house"
     )
     db.add(new_property)

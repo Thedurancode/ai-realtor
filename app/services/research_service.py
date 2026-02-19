@@ -479,7 +479,7 @@ Property Context:
             })
 
             # Call Anthropic API
-            response = llm_service.create(
+            response = await llm_service.acreate(
                 model=params.get("model", "claude-sonnet-4-20250514"),
                 max_tokens=params.get("max_tokens", 4096),
                 temperature=params.get("temperature", 1.0),

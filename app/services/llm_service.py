@@ -1,11 +1,12 @@
 """Centralized LLM service — singleton Anthropic client with usage tracking."""
 
+import asyncio
 import logging
 import os
 import time
 import threading
 
-from anthropic import Anthropic
+from anthropic import Anthropic, AsyncAnthropic
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,9 @@ class LLMService:
 
     def __init__(self):
         self._client: Anthropic | None = None
+        self._async_client: AsyncAnthropic | None = None
         self._lock = threading.Lock()
+        self._async_lock: asyncio.Lock | None = None
         self.total_calls = 0
         self.total_input_tokens = 0
         self.total_output_tokens = 0
@@ -29,6 +32,18 @@ class LLMService:
                 if self._client is None:
                     self._client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         return self._client
+
+    async def _get_async_client(self) -> AsyncAnthropic:
+        if self._async_client is not None:
+            return self._async_client
+        if self._async_lock is None:
+            self._async_lock = asyncio.Lock()
+        async with self._async_lock:
+            if self._async_client is None:
+                self._async_client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        return self._async_client
+
+    # ── Sync API (kept for non-async callers) ──
 
     def generate(
         self,
@@ -63,6 +78,48 @@ class LLMService:
 
         start = time.time()
         response = self.client.messages.create(**kwargs)
+        duration = time.time() - start
+
+        self._track(response, kwargs["model"], duration)
+        return response
+
+    # ── Async API ──
+
+    async def agenerate(
+        self,
+        prompt: str,
+        *,
+        model: str = DEFAULT_MODEL,
+        max_tokens: int = 2000,
+        system: str | None = None,
+        temperature: float | None = None,
+    ) -> str:
+        """Async text generation — returns the first text block as a string."""
+        client = await self._get_async_client()
+        kwargs: dict = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system is not None:
+            kwargs["system"] = system
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+
+        start = time.time()
+        response = await client.messages.create(**kwargs)
+        duration = time.time() - start
+
+        self._track(response, model, duration)
+        return response.content[0].text
+
+    async def acreate(self, **kwargs):
+        """Async full messages.create() pass-through — returns the Message object."""
+        client = await self._get_async_client()
+        kwargs.setdefault("model", DEFAULT_MODEL)
+
+        start = time.time()
+        response = await client.messages.create(**kwargs)
         duration = time.time() - start
 
         self._track(response, kwargs["model"], duration)

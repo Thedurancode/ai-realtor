@@ -226,9 +226,9 @@ class AnalyticsService:
 
         parts = [f"You have {total} properties worth ${value['total_price']:,.0f} total."]
 
-        pending = pipeline.get("by_status", {}).get("pending", 0)
-        if pending:
-            parts.append(f"{pending} pending.")
+        waiting = pipeline.get("by_status", {}).get("waiting_for_contracts", 0)
+        if waiting:
+            parts.append(f"{waiting} waiting for contracts.")
 
         unsigned = contracts.get("unsigned_required", 0)
         if unsigned:

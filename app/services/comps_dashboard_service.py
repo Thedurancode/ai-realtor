@@ -256,7 +256,7 @@ class CompsDashboardService:
                 Property.id != prop.id,
                 Property.city == prop.city,
                 Property.state == prop.state,
-                Property.status.in_([PropertyStatus.AVAILABLE, PropertyStatus.PENDING, PropertyStatus.SOLD]),
+                Property.status.in_([PropertyStatus.NEW_PROPERTY, PropertyStatus.ENRICHED, PropertyStatus.RESEARCHED, PropertyStatus.WAITING_FOR_CONTRACTS, PropertyStatus.COMPLETE]),
             )
             .limit(50)
             .all()

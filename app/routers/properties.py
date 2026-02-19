@@ -162,6 +162,7 @@ def list_properties(
     city: str | None = None,
     bedrooms: int | None = None,
     agent_id: int | None = None,
+    include_heartbeat: bool = Query(True, description="Include heartbeat data"),
     db: Session = Depends(get_db),
 ):
     query = (
@@ -188,12 +189,31 @@ def list_properties(
         query = query.filter(Property.agent_id == agent_id)
 
     properties = query.offset(skip).limit(limit).all()
-    return properties
+
+    if not include_heartbeat or not properties:
+        return properties
+
+    from app.services.heartbeat_service import heartbeat_service
+    try:
+        heartbeats = heartbeat_service.get_heartbeats_batch(db, properties)
+    except Exception:
+        heartbeats = {}
+
+    results = []
+    for prop in properties:
+        resp = PropertyResponse.model_validate(prop)
+        resp.heartbeat = heartbeats.get(prop.id)
+        results.append(resp)
+    return results
 
 
 @router.get("/{property_id}", response_model=PropertyResponse)
-def get_property(property_id: int, db: Session = Depends(get_db)):
-    property = (
+def get_property(
+    property_id: int,
+    include_heartbeat: bool = Query(True, description="Include heartbeat data"),
+    db: Session = Depends(get_db),
+):
+    prop = (
         db.query(Property)
         .options(
             joinedload(Property.zillow_enrichment),
@@ -202,9 +222,30 @@ def get_property(property_id: int, db: Session = Depends(get_db)):
         .filter(Property.id == property_id)
         .first()
     )
-    if not property:
+    if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
-    return property
+
+    if not include_heartbeat:
+        return prop
+
+    from app.services.heartbeat_service import heartbeat_service
+    resp = PropertyResponse.model_validate(prop)
+    try:
+        resp.heartbeat = heartbeat_service.get_heartbeat(db, property_id)
+    except Exception:
+        pass
+    return resp
+
+
+@router.get("/{property_id}/heartbeat")
+def get_property_heartbeat(property_id: int, db: Session = Depends(get_db)):
+    """Get the pipeline heartbeat for a property."""
+    prop = db.query(Property).filter(Property.id == property_id).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    from app.services.heartbeat_service import heartbeat_service
+    return heartbeat_service.get_heartbeat(db, property_id)
 
 
 @router.patch("/{property_id}", response_model=PropertyResponse)

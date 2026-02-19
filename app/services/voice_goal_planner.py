@@ -94,14 +94,14 @@ class VoiceGoalPlannerService:
     def __init__(self):
         pass
 
-    def build_plan(
+    async def build_plan(
         self,
         goal: str,
         memory_summary: dict[str, Any] | None = None,
         execution_mode: str = "safe",
     ) -> tuple[list[GoalPlanStep], bool]:
         """Return (plan, used_llm_planner)."""
-        llm_plan = self._build_llm_plan(goal=goal, memory_summary=memory_summary, execution_mode=execution_mode)
+        llm_plan = await self._build_llm_plan(goal=goal, memory_summary=memory_summary, execution_mode=execution_mode)
         if llm_plan:
             return llm_plan, True
         return self._build_heuristic_plan(goal=goal, execution_mode=execution_mode), False
@@ -294,7 +294,7 @@ class VoiceGoalPlannerService:
             GoalPlanStep(4, "summarize_next_actions", "Summarize Next Actions", "Provide recommended next actions."),
         ]
 
-    def _build_llm_plan(
+    async def _build_llm_plan(
         self,
         goal: str,
         memory_summary: dict[str, Any] | None,
@@ -315,7 +315,7 @@ class VoiceGoalPlannerService:
         )
 
         try:
-            response = llm_service.create(
+            response = await llm_service.acreate(
                 model="claude-sonnet-4-20250514",
                 max_tokens=800,
                 messages=[{"role": "user", "content": prompt}],
@@ -397,7 +397,7 @@ class VoiceGoalPlannerService:
         dry_run: bool = False,
     ) -> dict[str, Any]:
         memory_summary = memory_graph_service.get_session_summary(db, session_id=session_id)
-        plan, used_llm_planner = self.build_plan(
+        plan, used_llm_planner = await self.build_plan(
             goal=goal,
             memory_summary=memory_summary,
             execution_mode=execution_mode,
@@ -1434,7 +1434,7 @@ class VoiceGoalPlannerService:
 
         # Infer filters from goal text
         filters: dict[str, Any] = {}
-        for status_val in ["available", "pending", "sold", "rented", "off_market"]:
+        for status_val in ["new_property", "enriched", "researched", "waiting_for_contracts", "complete"]:
             if status_val.replace("_", " ") in goal:
                 filters["status"] = status_val
                 break
@@ -1444,7 +1444,7 @@ class VoiceGoalPlannerService:
         if "force" in goal:
             params["force"] = True
         if operation == "update_status":
-            for s in ["available", "pending", "sold", "rented", "off_market"]:
+            for s in ["new_property", "enriched", "researched", "waiting_for_contracts", "complete"]:
                 if f"to {s.replace('_', ' ')}" in goal:
                     params["status"] = s
                     break

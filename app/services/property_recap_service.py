@@ -271,7 +271,7 @@ Return as JSON:
 }}"""
 
         # Call Claude
-        response_text = llm_service.generate(prompt, max_tokens=2000)
+        response_text = await llm_service.agenerate(prompt, max_tokens=2000)
 
         # Extract JSON
         import re

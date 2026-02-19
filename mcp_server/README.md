@@ -18,7 +18,7 @@ List all properties in the database.
 
 **Parameters:**
 - `limit` (optional): Maximum number of properties to return (default: 10)
-- `status` (optional): Filter by status - "available", "pending", "sold", "rented", "off_market"
+- `status` (optional): Filter by status - "new_property", "enriched", "researched", "waiting_for_contracts", "complete"
 
 **Example:**
 ```

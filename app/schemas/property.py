@@ -5,6 +5,32 @@ from typing import Optional, List, Dict, Any
 from app.models.property import PropertyStatus, PropertyType, DealType
 
 
+class ChecklistItem(BaseModel):
+    key: str
+    label: str
+    done: bool
+    detail: str | None = None
+
+
+class HeartbeatResponse(BaseModel):
+    property_id: int
+    address: str
+    stage: str
+    stage_label: str
+    stage_index: int
+    total_stages: int
+    checklist: List[ChecklistItem]
+    health: str
+    health_reason: str | None = None
+    days_in_stage: float
+    stale_threshold_days: int
+    days_since_activity: float
+    next_action: str
+    deal_score: float | None = None
+    score_grade: str | None = None
+    voice_summary: str
+
+
 class PropertyBase(BaseModel):
     title: str
     description: str | None = None
@@ -19,7 +45,7 @@ class PropertyBase(BaseModel):
     lot_size: float | None = None
     year_built: int | None = None
     property_type: PropertyType = PropertyType.HOUSE
-    status: PropertyStatus = PropertyStatus.AVAILABLE
+    status: PropertyStatus = PropertyStatus.NEW_PROPERTY
     deal_type: DealType | None = None
 
 
@@ -41,7 +67,7 @@ class PropertyCreateFromVoice(BaseModel):
     lot_size: float | None = None
     year_built: int | None = None
     property_type: PropertyType = PropertyType.HOUSE
-    status: PropertyStatus = PropertyStatus.AVAILABLE
+    status: PropertyStatus = PropertyStatus.NEW_PROPERTY
     deal_type: DealType | None = None
 
 
@@ -139,6 +165,9 @@ class PropertyResponse(PropertyBase):
     score_grade: Optional[str] = None
     score_breakdown: Optional[dict] = None
     pipeline_status: Optional[str] = None
+
+    # Heartbeat
+    heartbeat: Optional[HeartbeatResponse] = None
 
     class Config:
         from_attributes = True

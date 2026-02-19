@@ -165,7 +165,7 @@ class FollowUpQueueService:
     def _get_candidate_properties(self, db: Session) -> list[Property]:
         return (
             db.query(Property)
-            .filter(Property.status.in_([PropertyStatus.AVAILABLE, PropertyStatus.PENDING]))
+            .filter(Property.status != PropertyStatus.COMPLETE)
             .all()
         )
 
@@ -363,9 +363,9 @@ class FollowUpQueueService:
                 suggested_action = "Call the property owner"
 
         # Bonus: missing key contacts
-        if prop.status == PropertyStatus.PENDING and prop.id in missing_contacts:
+        if prop.status == PropertyStatus.WAITING_FOR_CONTRACTS and prop.id in missing_contacts:
             score += self.BONUS_MISSING_CONTACTS
-            reasons.append("No buyer contact for PENDING property")
+            reasons.append("No buyer contact for property waiting for contracts")
             if not suggested_action:
                 suggested_action = "Add a buyer contact"
 

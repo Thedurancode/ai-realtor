@@ -89,7 +89,7 @@ register_tool(
                     "description": "Dynamic property filters (city, status, property_type, min_price, max_price, bedrooms)",
                     "properties": {
                         "city": {"type": "string"},
-                        "status": {"type": "string", "enum": ["available", "pending", "sold", "rented", "off_market"]},
+                        "status": {"type": "string", "enum": ["new_property", "enriched", "researched", "waiting_for_contracts", "complete"]},
                         "property_type": {"type": "string"},
                         "min_price": {"type": "number"},
                         "max_price": {"type": "number"},

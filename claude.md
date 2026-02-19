@@ -22,7 +22,7 @@ AI Realtor is an intelligent real estate management platform that combines prope
 
 **Property data structure:**
 - Basic info: address, city, state, ZIP, price, bedrooms, bathrooms, square footage
-- Status tracking: available, pending, sold, rented, off_market
+- Status tracking: new_property, enriched, researched, waiting_for_contracts, complete
 - Deal scoring with grade (A-F) and pipeline status
 - Agent assignment and session tracking
 - Automatic activity logging
@@ -39,7 +39,7 @@ AI Realtor is an intelligent real estate management platform that combines prope
 - `list_properties` - Voice: "Show me all condos under 500k in Miami"
 - `get_property` - Voice: "Get details for property 5" or "Get the Hillsborough property"
 - `delete_property` - Voice: "Delete property 3"
-- `update_property` - Voice: "Update property 5 status to pending"
+- `update_property` - Voice: "Update property 5 status to complete"
 
 ---
 
@@ -545,9 +545,10 @@ Properties automatically move through your pipeline:
 
 | From | To | Condition |
 |---|---|---|
-| AVAILABLE | PENDING | Has enrichment + skip trace + at least 1 contract |
-| PENDING | SOLD | All required contracts COMPLETED |
-| AVAILABLE/PENDING | OFF_MARKET | No activity in 30+ days |
+| NEW_PROPERTY | ENRICHED | Zillow enrichment data available |
+| ENRICHED | RESEARCHED | Skip trace completed |
+| RESEARCHED | WAITING_FOR_CONTRACTS | At least 1 contract attached |
+| WAITING_FOR_CONTRACTS | COMPLETE | All required contracts COMPLETED |
 
 **Safety features:**
 - 24-hour grace period after manual status changes
@@ -802,7 +803,41 @@ POST   /watchlists/check/{property_id}  - Manual check against all watchlists
 
 ---
 
-## MCP Tools — Complete List (105 tools)
+### 31. Property Heartbeat
+
+**At-a-glance pipeline stage, checklist, and health status for every property**
+
+Each property gets a computed heartbeat showing:
+- **Pipeline stage**: Which of the 5 stages it's in (with progress index)
+- **Checklist**: 4 items tracking enrichment, skip trace, contracts attached, contracts completed
+- **Health status**: healthy (progressing), stale (stuck too long), or blocked (can't advance)
+- **Next action**: What to do next to advance the pipeline
+- **Voice summary**: 1-2 sentence summary for text-to-speech
+
+**Per-stage stale thresholds:**
+| Stage | Threshold |
+|-------|-----------|
+| New Property | 3 days |
+| Enriched | 5 days |
+| Researched | 7 days |
+| Waiting for Contracts | 10 days |
+| Complete | never |
+
+Heartbeat is auto-included in all property responses (`GET /properties/` and `GET /properties/{id}`). Opt out with `?include_heartbeat=false`.
+
+**API Endpoints:**
+```
+GET /properties/{id}/heartbeat  - Dedicated heartbeat endpoint
+GET /properties/{id}            - Includes heartbeat by default
+GET /properties/                - Includes heartbeat for all properties (batch-optimized)
+```
+
+**MCP Tools:**
+- `get_property_heartbeat` - Voice: "What's the heartbeat on property 5?", "How is property 3 doing?", "Is property 5 stuck?"
+
+---
+
+## MCP Tools — Complete List (106 tools)
 
 **Property Tools (7):**
 `list_properties`, `get_property`, `create_property`, `update_property`, `delete_property`, `enrich_property`, `skip_trace_property`
@@ -870,10 +905,13 @@ POST   /watchlists/check/{property_id}  - Manual check against all watchlists
 **Market Watchlist Tools (5):**
 `create_watchlist`, `list_watchlists`, `toggle_watchlist`, `delete_watchlist`, `check_watchlist_matches`
 
+**Heartbeat Tools (1):**
+`get_property_heartbeat`
+
 **Webhook Tools (1):**
 `test_webhook_configuration`
 
-**Total: 105 MCP tools** for complete voice control of the entire platform.
+**Total: 106 MCP tools** for complete voice control of the entire platform.
 
 ---
 
@@ -884,7 +922,7 @@ POST   /watchlists/check/{property_id}  - Manual check against all watchlists
 "Create a property at 123 Main St, New York for $850,000 with 2 bedrooms"
 "Show me all condos under 500k in Miami"
 "Show me houses with 3+ bedrooms"
-"Update property 5 status to pending"
+"Update property 5 status to complete"
 
 # Data Enrichment
 "Enrich property 5 with Zillow data"
@@ -992,6 +1030,12 @@ POST   /watchlists/check/{property_id}  - Manual check against all watchlists
 "Pause watchlist 1"
 "Delete watchlist 3"
 "Does property 5 match any watchlists?"
+
+# Property Heartbeat
+"What's the heartbeat on property 5?"
+"How is property 3 doing?"
+"Is property 5 stuck?"
+"Check the pulse on the Hillsborough property"
 ```
 
 ---
@@ -1201,6 +1245,15 @@ fly postgres connect -a ai-realtor-db               # DB console
 
 ## Recent Updates (Feb 2026)
 
+- **Property Pipeline Overhaul:**
+  - New 5-stage pipeline: NEW_PROPERTY → ENRICHED → RESEARCHED → WAITING_FOR_CONTRACTS → COMPLETE
+  - Auto-advance based on enrichment, skip trace, contracts, and contract completion
+  - Per-stage stale thresholds (3/5/7/10 days) replace flat 7-day threshold
+- **Property Heartbeat:**
+  - At-a-glance pipeline stage, 4-item checklist, health status (healthy/stale/blocked), and next action
+  - Auto-included in all property responses (opt-out with `?include_heartbeat=false`)
+  - Batch-optimized for list endpoints (2 extra queries regardless of property count)
+  - Dedicated endpoint `GET /properties/{id}/heartbeat` + MCP tool (106 total)
 - **Property Scoring Engine:**
   - 4-dimension scoring (Market 30%, Financial 25%, Readiness 25%, Engagement 20%) with 15+ signals from 9 data sources
   - Weight re-normalization when data is missing, A-F grade scale
@@ -1210,7 +1263,7 @@ fly postgres connect -a ai-realtor-db               # DB console
   - Insights service with 6 alert rules (stale properties, contract deadlines, unsigned contracts, missing enrichment/skip trace, high deal score)
   - Scheduled tasks system with background runner, reminders, follow-ups, recurring tasks
   - Cross-property analytics with 6 metric categories (pipeline, value, contracts, activity, deal scores, enrichment coverage)
-  - Pipeline automation — auto-advance property status (AVAILABLE→PENDING→SOLD, →OFF_MARKET) with 24h manual grace period
+  - Pipeline automation — auto-advance property status (NEW_PROPERTY→ENRICHED→RESEARCHED→WAITING_FOR_CONTRACTS→COMPLETE) with 24h manual grace period
   - Daily digest — AI-generated morning briefing at 8 AM combining insights + analytics + notifications
 - **Operational Intelligence Layer:**
   - Smart Follow-Up Queue — AI-scored priority queue with 7 weighted signals, snooze, and best-contact finder (3 MCP tools)
@@ -1233,7 +1286,7 @@ fly postgres connect -a ai-realtor-db               # DB console
 - Deal Calculator and Offer Management (18 MCP tools)
 - Research and Semantic Search (7 MCP tools)
 - ElevenLabs voice integration
-- MCP tools expanded from 20 to **105 total**
+- MCP tools expanded from 20 to **106 total**
 
 ---
 
