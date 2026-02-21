@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum, JSON
+from sqlalchemy import Column, Index, Integer, String, Float, DateTime, ForeignKey, Enum, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -36,6 +36,14 @@ class DealType(str, enum.Enum):
 
 class Property(Base):
     __tablename__ = "properties"
+    __table_args__ = (
+        Index("ix_properties_agent_id", "agent_id"),
+        Index("ix_properties_status", "status"),
+        Index("ix_properties_pipeline_status", "pipeline_status"),
+        Index("ix_properties_agent_status", "agent_id", "status"),
+        Index("ix_properties_created_at", "created_at"),
+        Index("ix_properties_state_city", "state", "city"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)

@@ -42,6 +42,8 @@ def list_templates(
     category: Optional[str] = None,
     requirement: Optional[ContractRequirement] = None,
     is_active: Optional[bool] = None,
+    limit: int = 100,
+    offset: int = 0,
     db: Session = Depends(get_db)
 ):
     """
@@ -53,6 +55,7 @@ def list_templates(
     - requirement: Filter by requirement (required, recommended, optional)
     - is_active: Filter by active status
     """
+    limit = min(limit, 200)
     query = db.query(ContractTemplate)
 
     if state:
@@ -73,7 +76,7 @@ def list_templates(
     templates = query.order_by(
         ContractTemplate.priority.desc(),
         ContractTemplate.name
-    ).all()
+    ).offset(offset).limit(limit).all()
 
     return templates
 

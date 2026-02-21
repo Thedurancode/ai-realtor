@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Text, Boolean
+from sqlalchemy import Column, Index, Integer, String, DateTime, ForeignKey, Enum, Text, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -26,6 +26,12 @@ class RequirementSource(str, enum.Enum):
 
 class Contract(Base):
     __tablename__ = "contracts"
+    __table_args__ = (
+        Index("ix_contracts_property_id", "property_id"),
+        Index("ix_contracts_status", "status"),
+        Index("ix_contracts_property_status", "property_id", "status"),
+        Index("ix_contracts_created_at", "created_at"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)

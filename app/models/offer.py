@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -30,6 +30,10 @@ class FinancingType(str, enum.Enum):
 
 class Offer(Base):
     __tablename__ = "offers"
+    __table_args__ = (
+        Index("ix_offers_status", "status"),
+        Index("ix_offers_property_status", "property_id", "status"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False, index=True)

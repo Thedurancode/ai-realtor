@@ -58,15 +58,18 @@ def get_ws_manager():
 @router.get("/", response_model=list[ContractResponse])
 def list_all_contracts(
     status: ContractStatus | None = None,
+    limit: int = 50,
+    offset: int = 0,
     db: Session = Depends(get_db),
 ):
     """List all contracts with optional status filter."""
+    limit = min(limit, 200)
     contracts_query = db.query(Contract)
 
     if status:
         contracts_query = contracts_query.filter(Contract.status == status)
 
-    contracts = contracts_query.order_by(Contract.created_at.desc()).all()
+    contracts = contracts_query.order_by(Contract.created_at.desc()).offset(offset).limit(limit).all()
     return contracts
 
 
@@ -106,9 +109,12 @@ def create_contract(contract: ContractCreate, db: Session = Depends(get_db)):
 def list_contracts_for_property(
     property_id: int,
     status: ContractStatus | None = None,
+    limit: int = 50,
+    offset: int = 0,
     db: Session = Depends(get_db),
 ):
     """List all contracts for a property with optional status filter."""
+    limit = min(limit, 200)
     property = db.query(Property).filter(Property.id == property_id).first()
     if not property:
         raise HTTPException(status_code=404, detail="Property not found")
@@ -118,7 +124,7 @@ def list_contracts_for_property(
     if status:
         contracts_query = contracts_query.filter(Contract.status == status)
 
-    contracts = contracts_query.order_by(Contract.created_at.desc()).all()
+    contracts = contracts_query.order_by(Contract.created_at.desc()).offset(offset).limit(limit).all()
     return contracts
 
 
@@ -126,9 +132,12 @@ def list_contracts_for_property(
 def list_contracts_for_contact(
     contact_id: int,
     status: ContractStatus | None = None,
+    limit: int = 50,
+    offset: int = 0,
     db: Session = Depends(get_db),
 ):
     """List all contracts for a specific contact."""
+    limit = min(limit, 200)
     contact = db.query(Contact).filter(Contact.id == contact_id).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
@@ -138,7 +147,7 @@ def list_contracts_for_contact(
     if status:
         contracts_query = contracts_query.filter(Contract.status == status)
 
-    contracts = contracts_query.order_by(Contract.created_at.desc()).all()
+    contracts = contracts_query.order_by(Contract.created_at.desc()).offset(offset).limit(limit).all()
     return contracts
 
 

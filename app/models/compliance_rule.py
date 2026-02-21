@@ -2,7 +2,7 @@
 Compliance Rule Models - Knowledge base for state/local real estate regulations
 """
 from enum import Enum
-from sqlalchemy import Column, Integer, String, Text, Boolean, Float, Date, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Index, Integer, String, Text, Boolean, Float, Date, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -151,6 +151,9 @@ class ComplianceRule(Base):
 class ComplianceCheck(Base):
     """Record of compliance checks run on properties"""
     __tablename__ = "compliance_checks"
+    __table_args__ = (
+        Index("ix_compliance_checks_property_id", "property_id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)
