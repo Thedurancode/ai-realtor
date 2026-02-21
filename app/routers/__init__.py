@@ -38,5 +38,13 @@ from app.routers.bulk import router as bulk_router
 from app.routers.activity_timeline import router as activity_timeline_router
 from app.routers.property_scoring import router as property_scoring_router
 from app.routers.market_watchlist import router as market_watchlist_router
+from app.routers.showings import router as showings_router
+from app.routers.clients import router as clients_router
+from app.routers.transactions import router as transactions_router
+from app.routers.property_media import router as property_media_router
+from app.routers.commissions import router as commissions_router
+from app.routers.cma import router as cma_router
+from app.routers.messages import router as messages_router
+from app.routers.listings import router as listings_router
 
-__all__ = ["agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router", "deal_types_router", "research_router", "research_templates_router", "ai_agents_router", "elevenlabs_router", "agentic_research_router", "exa_research_router", "voice_campaigns_router", "offers_router", "search_router", "deal_calculator_router", "workflows_router", "property_notes_router", "insights_router", "scheduled_tasks_router", "analytics_router", "pipeline_router", "daily_digest_router", "follow_ups_router", "comps_router", "bulk_router", "activity_timeline_router", "property_scoring_router", "market_watchlist_router"]
+__all__ = ["agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router", "deal_types_router", "research_router", "research_templates_router", "ai_agents_router", "elevenlabs_router", "agentic_research_router", "exa_research_router", "voice_campaigns_router", "offers_router", "search_router", "deal_calculator_router", "workflows_router", "property_notes_router", "insights_router", "scheduled_tasks_router", "analytics_router", "pipeline_router", "daily_digest_router", "follow_ups_router", "comps_router", "bulk_router", "activity_timeline_router", "property_scoring_router", "market_watchlist_router", "showings_router", "clients_router", "transactions_router", "property_media_router", "commissions_router", "cma_router", "messages_router", "listings_router"]

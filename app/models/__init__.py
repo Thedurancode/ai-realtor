@@ -32,5 +32,12 @@ from app.models.offer import Offer, OfferStatus, FinancingType
 from app.models.conversation_history import ConversationHistory
 from app.models.property_note import PropertyNote, NoteSource
 from app.models.scheduled_task import ScheduledTask, TaskType, TaskStatus
+from app.models.showing import Showing, ShowingStatus, ShowingType
+from app.models.client import Client, ClientType, ClientStatus
+from app.models.transaction import Transaction, TransactionStatus, TransactionMilestone, MilestoneStatus
+from app.models.property_media import PropertyMedia, MediaType
+from app.models.commission import Commission, CommissionStatus
+from app.models.message import Message, MessageChannel, MessageDirection
+from app.models.listing import Listing, ListingStatus, ListingPriceChange
 
-__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge", "VoiceCampaign", "VoiceCampaignTarget", "Offer", "OfferStatus", "FinancingType", "ConversationHistory", "PropertyNote", "NoteSource", "ScheduledTask", "TaskType", "TaskStatus"]
+__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge", "VoiceCampaign", "VoiceCampaignTarget", "Offer", "OfferStatus", "FinancingType", "ConversationHistory", "PropertyNote", "NoteSource", "ScheduledTask", "TaskType", "TaskStatus", "Showing", "ShowingStatus", "ShowingType", "Client", "ClientType", "ClientStatus", "Transaction", "TransactionStatus", "TransactionMilestone", "MilestoneStatus", "PropertyMedia", "MediaType", "Commission", "CommissionStatus", "Message", "MessageChannel", "MessageDirection", "Listing", "ListingStatus", "ListingPriceChange"]
