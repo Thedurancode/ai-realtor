@@ -3,7 +3,7 @@ Research Model
 
 Tracks research jobs and their results.
 """
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Text, JSON, Boolean
+from sqlalchemy import Column, Index, Integer, String, DateTime, ForeignKey, Enum, Text, JSON, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -41,6 +41,11 @@ class Research(Base):
     - Due diligence: Owner research + compliance + contract requirements
     """
     __tablename__ = "research"
+    __table_args__ = (
+        Index("ix_research_property_id", "property_id"),
+        Index("ix_research_status", "status"),
+        Index("ix_research_agent_id", "agent_id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 

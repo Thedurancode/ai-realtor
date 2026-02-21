@@ -3,7 +3,7 @@ Agent Conversation Model
 
 Stores AI agent execution history and results.
 """
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON, Enum
+from sqlalchemy import Column, Index, Integer, String, DateTime, ForeignKey, Text, JSON, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -29,6 +29,11 @@ class AgentConversation(Base):
     - Iterative refinement
     """
     __tablename__ = "agent_conversations"
+    __table_args__ = (
+        Index("ix_agent_conversations_property_id", "property_id"),
+        Index("ix_agent_conversations_agent_id", "agent_id"),
+        Index("ix_agent_conversations_status", "status"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 

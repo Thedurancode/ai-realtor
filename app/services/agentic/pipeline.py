@@ -12,6 +12,7 @@ import httpx
 
 from dateutil import parser as date_parser
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -1227,7 +1228,9 @@ class AgenticResearchService:
                     date_field="sale_date",
                 )
 
-        db.query(CompSale).filter(CompSale.job_id == job.id).delete()
+        db.query(CompSale).filter(CompSale.job_id == job.id, CompSale.is_current.is_(True)).update(
+            {"is_current": False, "superseded_at": func.now()}, synchronize_session="fetch"
+        )
         for comp in selected:
             db.add(
                 CompSale(
@@ -1442,7 +1445,9 @@ class AgenticResearchService:
                     date_field="date_listed",
                 )
 
-        db.query(CompRental).filter(CompRental.job_id == job.id).delete()
+        db.query(CompRental).filter(CompRental.job_id == job.id, CompRental.is_current.is_(True)).update(
+            {"is_current": False, "superseded_at": func.now()}, synchronize_session="fetch"
+        )
         for comp in selected:
             db.add(
                 CompRental(
@@ -1877,7 +1882,9 @@ class AgenticResearchService:
         if rent_base is None:
             unknowns.append({"field": "rent_estimate", "reason": "No qualified rental comps available."})
 
-        db.query(Underwriting).filter(Underwriting.job_id == job.id).delete()
+        db.query(Underwriting).filter(Underwriting.job_id == job.id, Underwriting.is_current.is_(True)).update(
+            {"is_current": False, "superseded_at": func.now()}, synchronize_session="fetch"
+        )
         db.add(
             Underwriting(
                 research_property_id=job.research_property_id,
@@ -1953,7 +1960,9 @@ class AgenticResearchService:
             ),
         }
 
-        db.query(RiskScore).filter(RiskScore.job_id == job.id).delete()
+        db.query(RiskScore).filter(RiskScore.job_id == job.id, RiskScore.is_current.is_(True)).update(
+            {"is_current": False, "superseded_at": func.now()}, synchronize_session="fetch"
+        )
         db.add(
             RiskScore(
                 research_property_id=job.research_property_id,
@@ -3432,7 +3441,9 @@ Be specific with numbers. If data is missing, say so clearly and explain the imp
             )
 
         # Persist
-        db.query(Dossier).filter(Dossier.job_id == job.id).delete()
+        db.query(Dossier).filter(Dossier.job_id == job.id, Dossier.is_current.is_(True)).update(
+            {"is_current": False, "superseded_at": func.now()}, synchronize_session="fetch"
+        )
         new_dossier = Dossier(
             research_property_id=job.research_property_id,
             job_id=job.id,
@@ -3723,11 +3734,11 @@ Be specific with numbers. If data is missing, say so clearly and explain the imp
             .order_by(EvidenceItem.id.asc())
             .all()
         )
-        sales_rows = db.query(CompSale).filter(CompSale.job_id == job_id).order_by(CompSale.similarity_score.desc()).all()
-        rental_rows = db.query(CompRental).filter(CompRental.job_id == job_id).order_by(CompRental.similarity_score.desc()).all()
-        underwrite_row = db.query(Underwriting).filter(Underwriting.job_id == job_id).order_by(Underwriting.id.desc()).first()
-        risk_row = db.query(RiskScore).filter(RiskScore.job_id == job_id).order_by(RiskScore.id.desc()).first()
-        dossier_row = db.query(Dossier).filter(Dossier.job_id == job_id).order_by(Dossier.id.desc()).first()
+        sales_rows = db.query(CompSale).filter(CompSale.job_id == job_id, CompSale.is_current.is_(True)).order_by(CompSale.similarity_score.desc()).all()
+        rental_rows = db.query(CompRental).filter(CompRental.job_id == job_id, CompRental.is_current.is_(True)).order_by(CompRental.similarity_score.desc()).all()
+        underwrite_row = db.query(Underwriting).filter(Underwriting.job_id == job_id, Underwriting.is_current.is_(True)).order_by(Underwriting.id.desc()).first()
+        risk_row = db.query(RiskScore).filter(RiskScore.job_id == job_id, RiskScore.is_current.is_(True)).order_by(RiskScore.id.desc()).first()
+        dossier_row = db.query(Dossier).filter(Dossier.job_id == job_id, Dossier.is_current.is_(True)).order_by(Dossier.id.desc()).first()
         worker_rows = db.query(WorkerRun).filter(WorkerRun.job_id == job_id).order_by(WorkerRun.id.asc()).all()
 
         # Extract worker data stored in worker_run JSON (no dedicated DB models)

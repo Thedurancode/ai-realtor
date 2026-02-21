@@ -214,7 +214,10 @@ def list_offers(
     db: Session,
     property_id: int | None = None,
     status: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[Offer]:
+    limit = min(limit, 200)
     q = db.query(Offer)
     if property_id is not None:
         q = q.filter(Offer.property_id == property_id)
@@ -224,7 +227,7 @@ def list_offers(
             q = q.filter(Offer.status == status_enum)
         except ValueError:
             pass
-    return q.order_by(Offer.created_at.desc()).all()
+    return q.order_by(Offer.created_at.desc()).offset(offset).limit(limit).all()
 
 
 def get_negotiation_chain(db: Session, offer_id: int) -> list[Offer]:

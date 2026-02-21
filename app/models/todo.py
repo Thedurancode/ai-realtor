@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Date
+from sqlalchemy import Column, Index, Integer, String, DateTime, ForeignKey, Enum, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -22,6 +22,13 @@ class TodoPriority(str, enum.Enum):
 
 class Todo(Base):
     __tablename__ = "todos"
+    __table_args__ = (
+        Index("ix_todos_property_id", "property_id"),
+        Index("ix_todos_status", "status"),
+        Index("ix_todos_property_status", "property_id", "status"),
+        Index("ix_todos_due_date", "due_date"),
+        Index("ix_todos_priority_created", "priority", "created_at"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)

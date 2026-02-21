@@ -1,7 +1,7 @@
 """
 Zillow enrichment model for storing comprehensive property data from Zillow API
 """
-from sqlalchemy import Column, Integer, String, Float, JSON, DateTime, ForeignKey
+from sqlalchemy import Column, Index, Integer, String, Float, JSON, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -11,6 +11,9 @@ from app.database import Base
 class ZillowEnrichment(Base):
     """Store Zillow API enrichment data for properties"""
     __tablename__ = "zillow_enrichments"
+    __table_args__ = (
+        Index("ix_zillow_enrichments_property_id", "property_id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)

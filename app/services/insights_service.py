@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.contract import Contract, ContractStatus
 from app.models.conversation_history import ConversationHistory
@@ -102,6 +102,7 @@ class InsightsService:
         query = (
             db.query(Contract)
             .join(Property)
+            .options(joinedload(Contract.property))
             .filter(
                 Contract.is_required.is_(True),
                 Contract.required_by_date.isnot(None),
@@ -140,6 +141,7 @@ class InsightsService:
         query = (
             db.query(Contract)
             .join(Property)
+            .options(joinedload(Contract.property))
             .filter(
                 Contract.is_required.is_(True),
                 Contract.status.in_([ContractStatus.DRAFT, ContractStatus.SENT]),

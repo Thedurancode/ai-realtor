@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Boolean
+from sqlalchemy import Column, Index, Integer, String, DateTime, ForeignKey, Enum, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -19,6 +19,10 @@ class ContractSubmitter(Base):
     Allows multi-party signing where owner, lawyer, and agent all need to sign.
     """
     __tablename__ = "contract_submitters"
+    __table_args__ = (
+        Index("ix_contract_submitters_contract_id", "contract_id"),
+        Index("ix_contract_submitters_contact_id", "contact_id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False)

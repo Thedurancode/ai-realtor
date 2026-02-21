@@ -20,6 +20,10 @@ ALL_EVENT_TYPES = frozenset(
     ["conversation", "notification", "note", "task", "contract", "enrichment", "skip_trace"]
 )
 
+# Max rows fetched per event type to avoid unbounded table scans.
+# We over-fetch relative to the page size so the merged sort is accurate.
+_PER_TYPE_LIMIT = 200
+
 
 class ActivityTimelineService:
     """Aggregates activity across data sources into a unified timeline."""
@@ -103,7 +107,7 @@ class ActivityTimelineService:
             query = query.filter(ConversationHistory.created_at <= end_date)
 
         results: list[dict] = []
-        for item in query.all():
+        for item in query.order_by(ConversationHistory.created_at.desc()).limit(_PER_TYPE_LIMIT).all():
             results.append({
                 "event_type": "conversation",
                 "timestamp": item.created_at,
@@ -137,7 +141,7 @@ class ActivityTimelineService:
             query = query.filter(Notification.created_at <= end_date)
 
         results: list[dict] = []
-        for item in query.all():
+        for item in query.order_by(Notification.created_at.desc()).limit(_PER_TYPE_LIMIT).all():
             results.append({
                 "event_type": "notification",
                 "timestamp": item.created_at,
@@ -167,7 +171,7 @@ class ActivityTimelineService:
             query = query.filter(PropertyNote.created_at <= end_date)
 
         results: list[dict] = []
-        for item in query.all():
+        for item in query.order_by(PropertyNote.created_at.desc()).limit(_PER_TYPE_LIMIT).all():
             preview = item.content[:120] + "..." if len(item.content) > 120 else item.content
             results.append({
                 "event_type": "note",
@@ -197,7 +201,7 @@ class ActivityTimelineService:
             query = query.filter(ScheduledTask.created_at <= end_date)
 
         results: list[dict] = []
-        for item in query.all():
+        for item in query.order_by(ScheduledTask.created_at.desc()).limit(_PER_TYPE_LIMIT).all():
             results.append({
                 "event_type": "task",
                 "timestamp": item.created_at,
@@ -226,7 +230,7 @@ class ActivityTimelineService:
             ))
 
         results: list[dict] = []
-        for c in query.all():
+        for c in query.order_by(Contract.created_at.desc()).limit(_PER_TYPE_LIMIT).all():
             base_meta = {"contract_id": c.id, "contract_name": c.name, "status": c.status.value, "is_required": c.is_required}
 
             # Created event
@@ -277,7 +281,7 @@ class ActivityTimelineService:
             query = query.filter(ZillowEnrichment.created_at <= end_date)
 
         results: list[dict] = []
-        for item in query.all():
+        for item in query.order_by(ZillowEnrichment.created_at.desc()).limit(_PER_TYPE_LIMIT).all():
             z_str = f"${item.zestimate:,.0f}" if item.zestimate else "N/A"
             results.append({
                 "event_type": "enrichment",
@@ -304,7 +308,7 @@ class ActivityTimelineService:
             query = query.filter(SkipTrace.created_at <= end_date)
 
         results: list[dict] = []
-        for item in query.all():
+        for item in query.order_by(SkipTrace.created_at.desc()).limit(_PER_TYPE_LIMIT).all():
             owner = item.owner_name or "Unknown"
             phone_count = len(item.phone_numbers) if item.phone_numbers else 0
             results.append({
