@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Build comprehensive REST API with authentication, rate limiting, webhook support, and OpenAPI documentation for all agent capabilities",
+  "title": "RESTful API Layer",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 1,
+  "status": "backlog",
+  "id": "feature-1771507739314-xgz4n4j29",
+  "descriptionHistory": [
+    {
+      "description": "Build comprehensive REST API with authentication, rate limiting, webhook support, and OpenAPI documentation for all agent capabilities",
+      "timestamp": "2026-02-19T13:28:59.315Z",
+      "source": "initial"
+    }
+  ]
+}

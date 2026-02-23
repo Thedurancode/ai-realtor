@@ -1,0 +1,21 @@
+{
+  "category": "feature",
+  "description": "Implement RAG (Retrieval Augmented Generation) system with real estate domain knowledge, MLS terminology, legal requirements, market analysis concepts, and realtor best practices",
+  "title": "Realtor Domain Knowledge Base",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 1,
+  "status": "in_progress",
+  "id": "feature-1771507739310-ob6ti06pp",
+  "descriptionHistory": [
+    {
+      "description": "Implement RAG (Retrieval Augmented Generation) system with real estate domain knowledge, MLS terminology, legal requirements, market analysis concepts, and realtor best practices",
+      "timestamp": "2026-02-19T13:28:59.310Z",
+      "source": "initial"
+    }
+  ],
+  "branchName": "main",
+  "startedAt": "2026-02-19T15:40:11.474Z",
+  "updatedAt": "2026-02-19T15:40:11.595Z"
+}

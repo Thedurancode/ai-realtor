@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -14,8 +14,11 @@ class Agent(Base):
     phone = Column(String, nullable=True)
     license_number = Column(String, unique=True, nullable=True)
     api_key_hash = Column(String(64), nullable=True, index=True)
+    workspace_id = Column(Integer, ForeignKey("workspaces.id"), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     properties = relationship("Property", back_populates="agent")
     preferences = relationship("AgentPreference", back_populates="agent")
+    installed_skills = relationship("AgentSkill", back_populates="agent")
+    workspace = relationship("Workspace", back_populates="agents")

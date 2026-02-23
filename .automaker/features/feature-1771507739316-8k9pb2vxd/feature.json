@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Build tools for compliance checking, fair housing law adherence, disclosure requirements, and region-specific legal requirements",
+  "title": "Real Estate Compliance and Legal Tools",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 2,
+  "status": "backlog",
+  "id": "feature-1771507739316-8k9pb2vxd",
+  "descriptionHistory": [
+    {
+      "description": "Build tools for compliance checking, fair housing law adherence, disclosure requirements, and region-specific legal requirements",
+      "timestamp": "2026-02-19T13:28:59.316Z",
+      "source": "initial"
+    }
+  ]
+}

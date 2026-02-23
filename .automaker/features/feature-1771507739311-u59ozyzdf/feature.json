@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Implement tools for generating contracts, offers, disclosures, marketing materials, and analyzing documents for key terms and compliance",
+  "title": "Document Generation and Analysis Tools",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 2,
+  "status": "backlog",
+  "id": "feature-1771507739311-u59ozyzdf",
+  "descriptionHistory": [
+    {
+      "description": "Implement tools for generating contracts, offers, disclosures, marketing materials, and analyzing documents for key terms and compliance",
+      "timestamp": "2026-02-19T13:28:59.312Z",
+      "source": "initial"
+    }
+  ]
+}

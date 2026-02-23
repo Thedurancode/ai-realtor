@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Implement WebSocket support for real-time agent responses, streaming completions, and live status updates",
+  "title": "WebSocket Real-time Communication",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 2,
+  "status": "backlog",
+  "id": "feature-1771507739317-mdxq7z55k",
+  "descriptionHistory": [
+    {
+      "description": "Implement WebSocket support for real-time agent responses, streaming completions, and live status updates",
+      "timestamp": "2026-02-19T13:28:59.317Z",
+      "source": "initial"
+    }
+  ]
+}

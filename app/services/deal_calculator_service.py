@@ -769,3 +769,20 @@ def calculate_deal(
         voice_summary=voice,
         calculated_at=datetime.now(timezone.utc),
     )
+
+
+class DealCalculatorService:
+    """Wrapper for deal calculator functions to provide a service interface."""
+
+    @staticmethod
+    def calculate_deal(db: Session, calc_input: DealCalculatorInput) -> DealCalculatorResponse:
+        """Calculate deal metrics for a property."""
+        return calculate_deal(db, calc_input)
+
+
+# Singleton instance for imports
+deal_calculator_service = DealCalculatorService()
+
+
+# Singleton instance for imports
+deal_calculator_service = DealCalculatorService()

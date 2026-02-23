@@ -1,0 +1,21 @@
+{
+  "category": "feature",
+  "description": "Build foundational AI agent framework with plugin architecture, allowing dynamic tool registration, agent orchestration, and context management for multi-turn conversations",
+  "title": "Core AI Agent Framework",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 1,
+  "status": "verified",
+  "id": "feature-1771507739308-64w2g9mc0",
+  "descriptionHistory": [
+    {
+      "description": "Build foundational AI agent framework with plugin architecture, allowing dynamic tool registration, agent orchestration, and context management for multi-turn conversations",
+      "timestamp": "2026-02-19T13:28:59.309Z",
+      "source": "initial"
+    }
+  ],
+  "branchName": "main",
+  "startedAt": "2026-02-19T13:29:04.336Z",
+  "updatedAt": "2026-02-19T13:35:35.160Z"
+}

@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     supervisor \
+    sqlite3 \
+    cron \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching

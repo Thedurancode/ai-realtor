@@ -1,0 +1,25 @@
+name = "first-time-home-buyer-coach"
+description = "Specialized guidance for coaching first-time home buyers through the entire purchase process"
+version = "1.0.0"
+author = "AI Realtor Platform"
+license = "MIT"
+category = "buyer-coaching"
+tags = ["first-time-buyer", "education", "guidance", "buyer-representation"]
+
+# MCP tools this skill can use
+allowed_tools = [
+    "get_property",
+    "list_properties",
+    "get_property_recap",
+    "calculate_deal",
+    "get_comps_dashboard"
+]
+
+# Instructions file (markdown)
+instructions_file = "INSTRUCTIONS.md"
+
+# Optional code/executable scripts
+code = """
+# No executable code for this skill
+# It's purely informational/guidance
+"""

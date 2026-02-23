@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Create workflow builder allowing realtors to define multi-step automated processes (e.g., new listing workflow, buyer onboarding, transaction pipeline)",
+  "title": "Workflow Automation Engine",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 2,
+  "status": "backlog",
+  "id": "feature-1771507739315-yzd43nuw6",
+  "descriptionHistory": [
+    {
+      "description": "Create workflow builder allowing realtors to define multi-step automated processes (e.g., new listing workflow, buyer onboarding, transaction pipeline)",
+      "timestamp": "2026-02-19T13:28:59.315Z",
+      "source": "initial"
+    }
+  ]
+}

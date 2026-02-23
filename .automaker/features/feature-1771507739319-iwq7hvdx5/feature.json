@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Build intelligent task decomposition, planning, and multi-agent orchestration for complex realtor workflows requiring multiple capabilities",
+  "title": "Agent Orchestration and Task Planning",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 2,
+  "status": "backlog",
+  "id": "feature-1771507739319-iwq7hvdx5",
+  "descriptionHistory": [
+    {
+      "description": "Build intelligent task decomposition, planning, and multi-agent orchestration for complex realtor workflows requiring multiple capabilities",
+      "timestamp": "2026-02-19T13:28:59.319Z",
+      "source": "initial"
+    }
+  ]
+}

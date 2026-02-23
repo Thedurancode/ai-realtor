@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Implement multi-tenant system with brokerage-level and agent-level isolation, custom branding, and configuration management",
+  "title": "Multi-tenant Architecture",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 2,
+  "status": "backlog",
+  "id": "feature-1771507739316-9u8th3jrr",
+  "descriptionHistory": [
+    {
+      "description": "Implement multi-tenant system with brokerage-level and agent-level isolation, custom branding, and configuration management",
+      "timestamp": "2026-02-19T13:28:59.316Z",
+      "source": "initial"
+    }
+  ]
+}

@@ -28,3 +28,7 @@ from . import activity_timeline  # noqa: F401
 from . import property_scoring  # noqa: F401
 from . import market_watchlist  # noqa: F401
 from . import heartbeat  # noqa: F401
+# New intelligence tools
+from . import intelligence  # noqa: F401
+# Web scraper tools
+from . import web_scraper  # noqa: F401

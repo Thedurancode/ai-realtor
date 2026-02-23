@@ -37,20 +37,29 @@ def upgrade() -> None:
                     existing_type=sa.Enum(*OLD_VALUES, name='propertystatus'),
                     postgresql_using='status::text')
 
-    # 2. Map old values to new values
+    # 2. Normalize to lowercase first (handles mixed-case values like 'PENDING')
+    op.execute(sa.text("UPDATE properties SET status = LOWER(status)"))
+
+    # 3. Map old values to new values
     for old_val, new_val in STATUS_MAP.items():
         op.execute(
             sa.text(f"UPDATE properties SET status = '{new_val}' WHERE status = '{old_val}'")
         )
 
-    # 3. Drop old enum type
+    # 4. Catch-all: any unmapped values default to new_property
+    op.execute(sa.text(
+        "UPDATE properties SET status = 'new_property' "
+        "WHERE status NOT IN ('new_property','enriched','researched','waiting_for_contracts','complete')"
+    ))
+
+    # 5. Drop old enum type
     op.execute(sa.text("DROP TYPE IF EXISTS propertystatus"))
 
-    # 4. Create new enum type
+    # 6. Create new enum type
     new_enum = sa.Enum(*NEW_VALUES, name='propertystatus')
     new_enum.create(op.get_bind(), checkfirst=True)
 
-    # 5. Convert column back to enum
+    # 7. Convert column back to enum
     op.alter_column('properties', 'status',
                     type_=sa.Enum(*NEW_VALUES, name='propertystatus'),
                     existing_type=sa.String(30),

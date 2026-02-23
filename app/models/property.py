@@ -15,23 +15,23 @@ class PropertyStatus(str, enum.Enum):
 
 
 class PropertyType(str, enum.Enum):
-    HOUSE = "house"
-    APARTMENT = "apartment"
-    CONDO = "condo"
-    TOWNHOUSE = "townhouse"
-    LAND = "land"
-    COMMERCIAL = "commercial"
+    HOUSE = "HOUSE"
+    APARTMENT = "APARTMENT"
+    CONDO = "CONDO"
+    TOWNHOUSE = "TOWNHOUSE"
+    LAND = "LAND"
+    COMMERCIAL = "COMMERCIAL"
 
 
 class DealType(str, enum.Enum):
-    TRADITIONAL = "traditional"
-    SHORT_SALE = "short_sale"
-    REO = "reo"
-    FSBO = "fsbo"
-    NEW_CONSTRUCTION = "new_construction"
-    WHOLESALE = "wholesale"
-    RENTAL = "rental"
-    COMMERCIAL = "commercial"
+    TRADITIONAL = "TRADITIONAL"
+    SHORT_SALE = "SHORT_SALE"
+    REO = "REO"
+    FSBO = "FSBO"
+    NEW_CONSTRUCTION = "NEW_CONSTRUCTION"
+    WHOLESALE = "WHOLESALE"
+    RENTAL = "RENTAL"
+    COMMERCIAL = "COMMERCIAL"
 
 
 class Property(Base):
@@ -59,7 +59,7 @@ class Property(Base):
     lot_size = Column(Float, nullable=True)
     year_built = Column(Integer, nullable=True)
     property_type = Column(Enum(PropertyType), default=PropertyType.HOUSE)
-    status = Column(Enum(PropertyStatus), default=PropertyStatus.NEW_PROPERTY)
+    status = Column(Enum(PropertyStatus, values_callable=lambda x: [e.value for e in x]), default=PropertyStatus.NEW_PROPERTY)
     deal_type = Column(Enum(DealType), nullable=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
     # Deal scoring

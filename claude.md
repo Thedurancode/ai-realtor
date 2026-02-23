@@ -837,7 +837,50 @@ GET /properties/                - Includes heartbeat for all properties (batch-o
 
 ---
 
-## MCP Tools — Complete List (106 tools)
+### 32. Web Scraper
+
+**Automated property data extraction from any website**
+
+Point the AI at any property listing URL (Zillow, Redfin, Realtor.com, or any generic site) and automatically extract structured property data. Create properties directly from URLs with voice commands.
+
+**Features:**
+- Specialized scrapers for Zillow, Redfin, Realtor.com with accurate selectors
+- Generic AI-powered scraper for any website using Claude Sonnet 4
+- Concurrent scraping with rate limiting (respectful to servers)
+- Duplicate detection before creating properties
+- Auto-enrichment option after scraping
+- Batch import from search results (Zillow search pages)
+
+**Data extracted:**
+- Address, city, state, ZIP
+- Price, bedrooms, bathrooms, square footage
+- Year built, lot size, property type
+- Property description
+- Photo URLs (when available)
+
+**API Endpoints:**
+```
+POST /scrape/url                    - Scrape URL and preview data
+POST /scrape/multiple               - Scrape multiple URLs concurrently
+POST /scrape/scrape-and-create      - Scrape and create property
+POST /scrape/zillow-listing         - Convenience for Zillow URLs
+POST /scrape/redfin-listing         - Convenience for Redfin URLs
+POST /scrape/realtor-listing        - Convenience for Realtor.com URLs
+POST /scrape/zillow-search          - Scrape Zillow search results
+POST /scrape/scrape-and-enrich-batch - Bulk import with enrichment
+```
+
+**MCP Tools:**
+- `scrape_url` - Voice: "Scrape this Zillow listing", "What data can we get from this URL?"
+- `scrape_and_create` - Voice: "Add this property from the URL", "Create property from this Redfin link"
+- `scrape_zillow_search` - Voice: "Show me properties from this Zillow search"
+- `scrape_and_create_batch` - Voice: "Import these 10 Zillow listings and enrich them all"
+- `scrape_redfin` - Voice: "Add this Redfin property to my portfolio"
+- `scrape_realtor` - Voice: "Import this Realtor.com listing"
+
+---
+
+## MCP Tools — Complete List (135 tools)
 
 **Property Tools (7):**
 `list_properties`, `get_property`, `create_property`, `update_property`, `delete_property`, `enrich_property`, `skip_trace_property`
@@ -854,7 +897,7 @@ GET /properties/                - Includes heartbeat for all properties (batch-o
 **Deal & Offer Tools (18):**
 `calculate_deal`, `calculate_mao`, `what_if_deal`, `compare_strategies`, `preview_deal_type`, `set_deal_type`, `get_deal_status`, `create_deal_type_config`, `update_deal_type_config`, `delete_deal_type_config`, `list_deal_types`, `create_offer`, `list_offers`, `get_offer_details`, `accept_offer`, `reject_offer`, `counter_offer`, `draft_offer_letter`, `withdraw_offer`
 
-**Research & Search Tools (5):**
+**Research & Search Tools (7):**
 `research_property`, `research_property_async`, `get_research_status`, `get_research_dossier`, `search_research`, `semantic_search`, `find_similar_properties`
 
 **Conversation & History Tools (4):**
@@ -862,6 +905,45 @@ GET /properties/                - Includes heartbeat for all properties (batch-o
 
 **Property Notes Tools (2):**
 `add_property_note`, `list_property_notes`
+
+**🆕 NEW: Intelligence Tools (23):**
+
+**Predictive Intelligence (6):**
+`predict_property_outcome` - Predict closing probability (0-100%) with confidence
+`recommend_next_action` - AI-recommended next action with reasoning
+`batch_predict_outcomes` - Batch predict across multiple properties
+`record_deal_outcome` - Record actual outcome for machine learning
+`get_agent_success_patterns` - Get agent's success patterns (type/city/price)
+`get_prediction_accuracy` - Evaluate prediction accuracy (MAE, directional)
+
+**Market Opportunity Scanner (3):**
+`scan_market_opportunities` - Find deals matching agent's success patterns
+`detect_market_shifts` - Detect market shifts (price drops/surges >10%)
+`find_similar_properties` - Find similar properties for comparison
+
+**Relationship Intelligence (3):**
+`score_relationship_health` - Score relationship health (0-100) with trend
+`predict_best_contact_method` - Predict best contact method (phone/email/text)
+`analyze_contact_sentiment` - Analyze sentiment trend over time
+
+**Negotiation Agent (3):**
+`analyze_offer` - Analyze offers against deal metrics and market
+`generate_counter_offer` - Generate AI counter-offer letter with justification
+`suggest_offer_price` - Suggest optimal offer (conservative/moderate/aggressive)
+
+**Document Analysis (2):**
+`analyze_inspection_report` - Extract issues from inspection with NLP
+`extract_contract_terms` - Extract contract terms automatically
+
+**Competitive Intelligence (3):**
+`analyze_market_competition` - Analyze competing agents in market
+`detect_competitive_activity` - Alert if competition interested in property
+`get_market_saturation` - Assess inventory levels and demand
+
+**Deal Sequencer (3):**
+`sequence_1031_exchange` - Orchestrate 1031 exchange with deadline management
+`sequence_portfolio_acquisition` - Sequence buying multiple properties
+`sequence_sell_and_buy` - Manage sale-and-buy with contingencies
 
 **Workflow Tools (2):**
 `list_workflows`, `execute_workflow`
@@ -911,7 +993,15 @@ GET /properties/                - Includes heartbeat for all properties (batch-o
 **Webhook Tools (1):**
 `test_webhook_configuration`
 
-**Total: 106 MCP tools** for complete voice control of the entire platform.
+**🆕 NEW: Web Scraper Tools (6):**
+`scrape_url` - Scrape a property URL and extract data (preview only)
+`scrape_and_create` - Scrape URL and auto-create property in database
+`scrape_zillow_search` - Scrape Zillow search results for multiple properties
+`scrape_and_create_batch` - Bulk import multiple URLs with auto-enrichment
+`scrape_redfin` - Scrape Redfin listing and create property
+`scrape_realtor` - Scrape Realtor.com listing and create property
+
+**Total: 135 MCP tools** for complete voice control of the entire platform.
 
 ---
 
@@ -1036,6 +1126,71 @@ GET /properties/                - Includes heartbeat for all properties (batch-o
 "How is property 3 doing?"
 "Is property 5 stuck?"
 "Check the pulse on the Hillsborough property"
+
+# 🆕 Web Scraper
+"Scrape this Zillow listing URL"
+"What data can we extract from this Redfin page?"
+"Add this property from the URL"
+"Create property from this Realtor.com link"
+"Import these 10 Zillow listings and enrich them all"
+"Show me properties from this Zillow search page"
+"Batch import these URLs into my portfolio"
+"Scrape this Redfin property and auto-enrich it"
+
+# 🆕 Predictive Intelligence
+"Predict the outcome for property 5"
+"What's the closing probability for property 3?"
+"What should I do next with property 5?"
+"Recommend next action for the Hillsborough property"
+"Predict outcomes for all my active deals"
+"Record that property 5 closed successfully for $450,000"
+"What are my success patterns as an agent?"
+"How accurate are my predictions?"
+
+# 🆕 Market Opportunities
+"Scan for opportunities matching my patterns"
+"Find deals like my winners in Miami"
+"Any market shifts in Austin?"
+"Show me properties similar to 123 Main St"
+"Detect market changes in my watchlist cities"
+
+# 🆕 Relationship Intelligence
+"How's my relationship with John Smith?"
+"Score relationship health for contact 3"
+"Predict the best way to reach Sarah"
+"Should I call or email the buyer?"
+"Analyze sentiment for contact 5"
+"Is my relationship with the seller improving?"
+
+# 🆕 Negotiation
+"Analyze this $400,000 offer on property 5"
+"What's the acceptance probability?"
+"Generate a counter-offer for $425,000"
+"Suggest an offer price for property 3"
+"What should I offer? Be aggressive"
+"Calculate walkaway price for property 5"
+
+# 🆕 Document Analysis
+"Analyze this inspection report for property 5"
+"Extract issues from this inspection text"
+"Do these appraisals match?"
+"Extract terms from this contract"
+"What are the key issues in this report?"
+
+# 🆕 Competitive Intelligence
+"Who are the top agents in Miami?"
+"Analyze competition in Austin, Texas"
+"Is there competition for property 5?"
+"Detect competitive activity on 123 Main St"
+"What's the market saturation in Denver?"
+"Is it a buyer's or seller's market in Austin?"
+
+# 🆕 Deal Sequencing
+"Set up a 1031 exchange for property 5"
+"Find replacement properties for my 1031 exchange"
+"Sequence buying properties 1, 2, and 3"
+"I need to sell 5 and buy 10 with contingencies"
+"Orchestrate a portfolio acquisition parallel"
 ```
 
 ---
@@ -1065,7 +1220,7 @@ GET /properties/                - Includes heartbeat for all properties (batch-o
 - Anthropic Claude (AI analysis)
 
 **Voice & Communication:**
-- MCP Server (Claude Desktop integration) — 105 tools
+- MCP Server (Claude Desktop integration) — 135 tools
 - VAPI (voice AI platform)
 - ElevenLabs (text-to-speech)
 - WebSocket (real-time updates)
@@ -1090,7 +1245,7 @@ GET /properties/                - Includes heartbeat for all properties (batch-o
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   MCP Server (Python)                        │
-│             105 Tools for Voice Control                      │
+│             135 Tools for Voice Control                      │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Context Auto-Injection • Activity Logging            │   │
 │  │ Property-Linked Conversation History                 │   │
@@ -1244,6 +1399,105 @@ fly postgres connect -a ai-realtor-db               # DB console
 ---
 
 ## Recent Updates (Feb 2026)
+
+### 🌐 NEW: Web Scraper (Automated Property Data Extraction)
+
+**Browser-controlled property import:**
+- Specialized scrapers for Zillow, Redfin, Realtor.com
+- Generic AI-powered scraper for any website
+- Concurrent scraping with rate limiting
+- Auto-create properties from URLs
+- Duplicate detection and validation
+- Batch import from search results
+- Auto-enrichment option after scraping
+- 6 MCP tools + 8 API endpoints
+- ~650 lines of production code
+
+Voice examples:
+- "Scrape this Zillow listing"
+- "Add this property from the URL"
+- "Import these 10 listings and enrich them all"
+
+### 🧠 NEW: AI Intelligence Layer (Phases 1-3 Complete)
+
+**Phase 1: Predictive Intelligence (Quick Wins)**
+- **Predictive Intelligence Engine:**
+  - Predict closing probability (0-100%) with confidence levels
+  - Recommend next actions with AI reasoning
+  - Batch predict across multiple properties
+  - Risk factors, strengths, and time-to-close estimates
+  - 6 MCP tools + 6 API endpoints
+
+- **Market Opportunity Scanner:**
+  - Scan for deals matching agent's success patterns
+  - Detect market shifts (price drops/surges >10%)
+  - Find similar properties for comparison
+  - ROI estimation with upside calculations
+  - 3 MCP tools + 3 API endpoints
+
+- **Emotional Intelligence & Relationship Scoring:**
+  - Score relationship health (0-100) with trend analysis
+  - Predict best contact method (phone/email/text)
+  - Sentiment analysis without external dependencies
+  - Contact responsiveness and engagement tracking
+  - 3 MCP tools + 3 API endpoints
+
+**Phase 2: Core Intelligence**
+- **Adaptive Learning System:**
+  - Learn from deal outcomes to improve predictions
+  - Discover agent success patterns (type/city/price)
+  - Track prediction accuracy (MAE, directional)
+  - Agent performance metrics with pattern insights
+  - 3 new database tables (deal_outcomes, agent_performance_metrics, prediction_logs)
+
+- **Autonomous Campaign Manager:**
+  - Self-optimizing campaigns based on performance
+  - End-to-end autonomous execution from natural language goals
+  - Analyze best calling times and message variants
+  - Campaign ROI tracking and cost analysis
+  - 2 MCP tools + 3 API endpoints
+
+- **Negotiation Agent Service:**
+  - Analyze offers against deal metrics and market data
+  - Generate AI counter-offer letters with justification
+  - Suggest optimal prices (conservative/moderate/aggressive)
+  - Walkaway price calculation
+  - 3 MCP tools + 3 API endpoints
+
+**Phase 3: Advanced Capabilities**
+- **Document Analysis Service:**
+  - Extract issues from inspection reports using NLP
+  - Compare appraisals and flag discrepancies
+  - Extract contract terms automatically
+  - Repair cost estimation with severity levels
+  - 3 MCP tools + 3 API endpoints
+
+- **Competitive Intelligence Service:**
+  - Analyze competing agents in markets
+  - Detect competitive activity on properties
+  - Market saturation assessment (inventory levels, price trends)
+  - Winning bid pattern analysis
+  - 3 MCP tools + 3 API endpoints
+
+- **Multi-Property Deal Sequencer:**
+  - Orchestrate 1031 exchanges with 45/180 day deadlines
+  - Sequence portfolio acquisitions (parallel/sequential)
+  - Manage sell-and-buy transactions with contingencies
+  - Automated deadline reminders
+  - 3 MCP tools + 3 API endpoints
+
+**Intelligence Layer Summary:**
+- **9 New Services** spanning predictive, learning, market, relationship, campaign, negotiation, document, competition, and sequencing intelligence
+- **23 New MCP Tools** bringing total from 106 to **129 tools**
+- **30 New API Endpoints** across 4 new routers
+- **3 New Database Tables** for outcome tracking and learning
+- **~4,000+ Lines of Code** in production-ready services
+
+**Total MCP Tools: 129** (up from 106)
+
+---
+
+### Previous Updates
 
 - **Property Pipeline Overhaul:**
   - New 5-stage pipeline: NEW_PROPERTY → ENRICHED → RESEARCHED → WAITING_FOR_CONTRACTS → COMPLETE

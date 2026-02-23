@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Build standardized integration framework for common realtor tools (Zillow, Realtor.com, DocuSign, calendar systems, social media platforms)",
+  "title": "Third-party Integration Framework",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 2,
+  "status": "backlog",
+  "id": "feature-1771507739317-lvq8bxq5u",
+  "descriptionHistory": [
+    {
+      "description": "Build standardized integration framework for common realtor tools (Zillow, Realtor.com, DocuSign, calendar systems, social media platforms)",
+      "timestamp": "2026-02-19T13:28:59.317Z",
+      "source": "initial"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Build tools for automated client communication, email/SMS generation, appointment scheduling, follow-ups, and CRM integration (e.g., Salesforce, HubSpot, realtor-specific CRMs)",
+  "title": "Client Communication and CRM Tools",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 2,
+  "status": "backlog",
+  "id": "feature-1771507739311-7sf0yse9b",
+  "descriptionHistory": [
+    {
+      "description": "Build tools for automated client communication, email/SMS generation, appointment scheduling, follow-ups, and CRM integration (e.g., Salesforce, HubSpot, realtor-specific CRMs)",
+      "timestamp": "2026-02-19T13:28:59.311Z",
+      "source": "initial"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Create official SDKs in Python, JavaScript/TypeScript, and other popular languages with comprehensive documentation and examples",
+  "title": "SDK and Client Libraries",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 3,
+  "status": "backlog",
+  "id": "feature-1771507739318-xjy49tpwn",
+  "descriptionHistory": [
+    {
+      "description": "Create official SDKs in Python, JavaScript/TypeScript, and other popular languages with comprehensive documentation and examples",
+      "timestamp": "2026-02-19T13:28:59.318Z",
+      "source": "initial"
+    }
+  ]
+}

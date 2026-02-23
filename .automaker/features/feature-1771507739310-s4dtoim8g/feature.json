@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Create extensible tools for MLS integration, property search, listing management, and comparative market analysis (CMA) generation",
+  "title": "Property Search and MLS Integration Tools",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 1,
+  "status": "backlog",
+  "id": "feature-1771507739310-s4dtoim8g",
+  "descriptionHistory": [
+    {
+      "description": "Create extensible tools for MLS integration, property search, listing management, and comparative market analysis (CMA) generation",
+      "timestamp": "2026-02-19T13:28:59.311Z",
+      "source": "initial"
+    }
+  ]
+}

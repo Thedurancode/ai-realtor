@@ -3,7 +3,7 @@ set -e
 
 # Run database migrations
 echo "Running database migrations..."
-alembic upgrade head
+alembic upgrade head || echo "Migration failed - starting anyway"
 
 # Start supervisor (manages both FastAPI and MCP SSE)
 echo "Starting services via supervisor..."

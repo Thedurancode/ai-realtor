@@ -1,0 +1,18 @@
+{
+  "category": "feature",
+  "description": "Create analytics system tracking agent usage, performance metrics, transaction pipeline, and business intelligence for realtors",
+  "title": "Analytics and Reporting Dashboard",
+  "dependencies": [
+    "feature-1771507475379-p1952q4lk"
+  ],
+  "priority": 3,
+  "status": "backlog",
+  "id": "feature-1771507739316-sa65mkkjq",
+  "descriptionHistory": [
+    {
+      "description": "Create analytics system tracking agent usage, performance metrics, transaction pipeline, and business intelligence for realtors",
+      "timestamp": "2026-02-19T13:28:59.317Z",
+      "source": "initial"
+    }
+  ]
+}

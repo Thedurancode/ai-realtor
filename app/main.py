@@ -12,7 +12,11 @@ from app.database import engine, Base, SessionLocal
 from app.config import settings
 from app.rate_limit import limiter
 from app.auth import verify_api_key
-from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router
+from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router, web_scraper, approval_router, credential_scrubbing_router, observer_router, sqlite_tuning_router, skills_router
+# New intelligence routers
+from app.routers import predictive_intelligence, market_opportunities, relationship_intelligence, intelligence
+# ZeroClaw-inspired features
+from app.routers import workspace, cron_scheduler, hybrid_search
 import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 
@@ -135,6 +139,32 @@ app.include_router(activity_timeline_router)
 app.include_router(property_scoring_router)
 app.include_router(market_watchlist_router)
 
+# New intelligence routers
+app.include_router(predictive_intelligence.router)
+app.include_router(market_opportunities.router)
+app.include_router(relationship_intelligence.router)
+app.include_router(intelligence.router)
+# Web scraper router
+app.include_router(web_scraper)
+
+# ZeroClaw-inspired features
+app.include_router(workspace.router)
+app.include_router(cron_scheduler.router)
+app.include_router(hybrid_search.router)
+# Onboarding
+from app.routers import onboarding
+app.include_router(onboarding.router)
+# Approval Manager
+app.include_router(approval_router)
+# Credential Scrubbing
+app.include_router(credential_scrubbing_router)
+# Observer Pattern
+app.include_router(observer_router)
+# SQLite Tuning
+app.include_router(sqlite_tuning_router)
+# Skills System
+app.include_router(skills_router)
+
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -190,6 +220,111 @@ async def send_display_command(command: dict):
 @app.get("/")
 def root():
     return {"message": "Real Estate API", "docs": "/docs"}
+
+
+# --- Startup and Shutdown Events ---
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize background services on startup."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info("Starting AI Realtor Platform...")
+
+    # Start cron scheduler in background
+    from app.services.cron_scheduler import cron_scheduler
+
+    asyncio.create_task(cron_scheduler.start())
+    logger.info("Cron scheduler started")
+
+    # Create default scheduled tasks if they don't exist
+    db = SessionLocal()
+    try:
+        from app.services.cron_scheduler import CRON_EXPRESSIONS
+
+        # Heartbeat cycle every 5 minutes
+        if not db.query(ScheduledTask).filter_by(name="heartbeat_cycle").first():
+            await cron_scheduler.schedule_task(
+                name="heartbeat_cycle",
+                handler_name="heartbeat_cycle",
+                cron_expression=CRON_EXPRESSIONS["every_5_minutes"],
+                metadata={"description": "Full autonomous monitoring cycle"}
+            )
+            logger.info("Scheduled heartbeat_cycle task")
+
+        # Portfolio scan every 5 minutes
+        if not db.query(ScheduledTask).filter_by(name="portfolio_scan").first():
+            await cron_scheduler.schedule_task(
+                name="portfolio_scan",
+                handler_name="portfolio_scan",
+                cron_expression=CRON_EXPRESSIONS["every_5_minutes"],
+                metadata={"description": "Scan portfolio for stale properties"}
+            )
+            logger.info("Scheduled portfolio_scan task")
+
+        # Market intelligence every 15 minutes
+        if not db.query(ScheduledTask).filter_by(name="market_intelligence").first():
+            await cron_scheduler.schedule_task(
+                name="market_intelligence",
+                handler_name="market_intelligence",
+                cron_expression=CRON_EXPRESSIONS["every_15_minutes"],
+                metadata={"description": "Gather market intelligence"}
+            )
+            logger.info("Scheduled market_intelligence task")
+
+        # Relationship health every hour
+        if not db.query(ScheduledTask).filter_by(name="relationship_health").first():
+            await cron_scheduler.schedule_task(
+                name="relationship_health",
+                handler_name="relationship_health",
+                cron_expression=CRON_EXPRESSIONS["every_hour"],
+                metadata={"description": "Score relationship health"}
+            )
+            logger.info("Scheduled relationship_health task")
+
+        # Predictive insights every hour
+        if not db.query(ScheduledTask).filter_by(name="predictive_insights").first():
+            await cron_scheduler.schedule_task(
+                name="predictive_insights",
+                handler_name="predictive_insights",
+                cron_expression=CRON_EXPRESSIONS["every_hour"],
+                metadata={"description": "Generate predictive insights"}
+            )
+            logger.info("Scheduled predictive_insights task")
+
+        db.commit()
+
+    except Exception as e:
+        logger.error(f"Error creating default scheduled tasks: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+    logger.info("AI Realtor Platform startup complete")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info("Shutting down AI Realtor Platform...")
+
+    # Stop cron scheduler
+    from app.services.cron_scheduler import cron_scheduler
+
+    cron_scheduler.stop()
+    logger.info("Cron scheduler stopped")
+
+    # Close hybrid search connection
+    from app.services.hybrid_search import hybrid_search
+
+    hybrid_search.close()
+    logger.info("Hybrid search closed")
+
+    logger.info("AI Realtor Platform shutdown complete")
 
 
 # --- Cache management endpoints ---
