@@ -57,9 +57,15 @@ from app.routers.approval import router as approval_router
 from app.routers.credential_scrubbing import router as credential_scrubbing_router
 # Observer Pattern
 from app.routers.observer import router as observer_router
+# Agent Branding
+from app.routers.agent_brand import router as agent_brand_router
+# Facebook Ads Management
+from app.routers.facebook_ads import router as facebook_ads_router
+# Postiz Social Media Marketing
+from app.routers.postiz import router as postiz_router
 # SQLite Tuning
 from app.routers.sqlite_tuning import router as sqlite_tuning_router
 # Skills System
 from app.routers.skills import router as skills_router
 
-__all__ = ["agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router", "deal_types_router", "research_router", "research_templates_router", "ai_agents_router", "elevenlabs_router", "agentic_research_router", "exa_research_router", "voice_campaigns_router", "offers_router", "search_router", "deal_calculator_router", "workflows_router", "property_notes_router", "insights_router", "scheduled_tasks_router", "analytics_router", "pipeline_router", "daily_digest_router", "follow_ups_router", "comps_router", "bulk_router", "activity_timeline_router", "property_scoring_router", "market_watchlist_router", "predictive_intelligence_router", "market_opportunities_router", "relationship_intelligence_router", "intelligence_router", "web_scraper", "workspace_router", "cron_scheduler_router", "hybrid_search_router", "onboarding_router", "approval_router", "credential_scrubbing_router", "observer_router", "sqlite_tuning_router", "skills_router"]
+__all__ = ["agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router", "deal_types_router", "research_router", "research_templates_router", "ai_agents_router", "elevenlabs_router", "agentic_research_router", "exa_research_router", "voice_campaigns_router", "offers_router", "search_router", "deal_calculator_router", "workflows_router", "property_notes_router", "insights_router", "scheduled_tasks_router", "analytics_router", "pipeline_router", "daily_digest_router", "follow_ups_router", "comps_router", "bulk_router", "activity_timeline_router", "property_scoring_router", "market_watchlist_router", "predictive_intelligence_router", "market_opportunities_router", "relationship_intelligence_router", "intelligence_router", "web_scraper", "workspace_router", "cron_scheduler_router", "hybrid_search_router", "onboarding_router", "approval_router", "credential_scrubbing_router", "observer_router", "agent_brand_router", "facebook_ads_router", "postiz_router", "sqlite_tuning_router", "skills_router"]

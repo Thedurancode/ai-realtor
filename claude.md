@@ -1398,7 +1398,357 @@ fly postgres connect -a ai-realtor-db               # DB console
 
 ---
 
+### 33. Complete Marketing Hub
+
+**All-in-one marketing platform with brand management, Facebook Ads, and social media**
+
+Three integrated systems enable agents to handle **ALL their marketing** through the AI Realtor platform:
+
+1. **Agent Branding** - Set up your brand identity once
+2. **Facebook Ads** - Run paid advertising campaigns
+3. **Postiz Social Media** - Manage organic social media posting
+
+**Unified Brand Integration:**
+- Set brand colors, logo, tagline once
+- Automatically applied to all marketing materials
+- Consistent across Facebook Ads, Instagram, Twitter, LinkedIn, TikTok
+- Platform-specific optimization with unified brand voice
+
+---
+
+#### Agent Branding System
+
+**5-color slots for complete brand identity:**
+- `primary_color` - Main brand color (CTAs, headlines)
+- `secondary_color` - Supporting color (subheadlines, borders)
+- `accent_color` - Highlight color (buttons, badges)
+- `background_color` - Page backgrounds
+- `text_color` - Main text color
+
+**Brand assets:**
+- Company logo URL
+- Tagline/slogan
+- Website URL
+- Bio/about text
+- Social media links
+
+**6 Pre-defined Color Presets:**
+1. **Professional Blue** - Corporate, trustworthy (#1E40AF, #3B82F6, #60A5FA, #F8FAFC, #1E293B)
+2. **Modern Green** - Growth, eco-friendly (#065F46, #10B981, #34D399, #F0FDF4, #064E3B)
+3. **Luxury Gold** - Premium, high-end (#B45309, #D97706, #F59E0B, #FFFBEB, #78350F)
+4. **Bold Red** - Urgent, attention-grabbing (#991B1B, #EF4444, #F87171, #FEF2F2, #7F1D1D)
+5. **Minimalist Black** - Sleek, modern (#18181B, #27272A, #3F3F46, #FAFAFA, #09090B)
+6. **Ocean Teal** - Calm, coastal (#0E7490, #14B8A6, #2DD4BF, #F0FDFA, #164E63)
+
+**API Endpoints:**
+```
+POST   /agent-brand/{id}                  - Create brand
+GET    /agent-brand/{id}                  - Get brand
+PUT    /agent-brand/{id}                  - Update brand
+DELETE /agent-brand/{id}                  - Delete brand
+GET    /agent-brand/colors/presets        - Get color presets
+POST   /agent-brand/{id}/apply-preset     - Apply preset
+POST   /agent-brand/{id}/generate-preview - Generate preview
+GET    /agent-brand/{id}/preview          - Get preview
+POST   /agent-brand/{id}/validate         - Validate brand data
+GET    /agent-brand/{id}/guidelines       - Get brand guidelines
+POST   /agent-brand/{id}/export           - Export brand kit
+```
+
+**Voice Commands:**
+- "Set up my brand with Emprezario Inc"
+- "Apply the Luxury Gold color scheme"
+- "Generate a preview of my brand"
+- "Update my tagline to Your Dream Home Awaits"
+
+---
+
+#### Facebook Ads Integration
+
+**AI-powered Facebook Ad campaign generation:**
+- Analyze property URL → Auto-generate campaign
+- Target audience recommendations
+- Ad copy with brand voice
+- Launch directly to Meta Ads Manager
+- Track performance and ROI
+
+**Campaign types:**
+- Property promotion
+- Open house
+- Brand awareness
+- Lead generation
+- Just listed
+- Price reduction
+
+**AI-Powered Features:**
+- Market research - Generate market insights for campaigns
+- Competitor analysis - Analyze competitor ads
+- Review intelligence - Extract insights from Google/Yelp reviews
+- Target audience recommendations
+
+**API Endpoints:**
+```
+POST /facebook-ads/campaigns/generate          - Generate campaign
+POST /facebook-ads/campaigns/{id}/launch       - Launch to Meta
+POST /facebook-ads/campaigns/{id}/track        - Track performance
+GET  /facebook-ads/campaigns                   - List campaigns
+GET  /facebook-ads/campaigns/{id}              - Get campaign
+PUT  /facebook-ads/campaigns/{id}              - Update campaign
+POST /facebook-ads/research/generate           - Market research
+POST /facebook-ads/competitors/analyze         - Competitor analysis
+POST /facebook-ads/reviews/extract             - Review intelligence
+POST /facebook-ads/audiences/recommend         - Audience recommendations
+POST /facebook-ads/audiences/{id}/create       - Create audience
+GET  /facebook-ads/analytics/campaign/{id}     - Campaign analytics
+GET  /facebook-ads/analytics/account           - Account analytics
+```
+
+**Voice Commands:**
+- "Create a Facebook ad for property 5"
+- "Generate market research for Miami condos"
+- "Analyze competitor ads"
+- "Launch my campaign to Meta"
+- "Track my Facebook ad performance"
+
+---
+
+#### Postiz Social Media Integration
+
+**Multi-platform organic social media management:**
+- Schedule posts across Facebook, Instagram, Twitter, LinkedIn, TikTok
+- AI-powered content generation
+- Multi-post campaigns
+- Reusable templates
+- Content calendar
+- Analytics dashboard
+
+**Supported Platforms:**
+| Platform | Character Limit | Hashtags | Features |
+|----------|----------------|----------|----------|
+| Facebook | 63,206 | 3-5 | CTA buttons, long-form |
+| Instagram | 2,200 | 10-30 | Visual-heavy, stories |
+| Twitter | 280 | 1-3 | Short, timely |
+| LinkedIn | 3,000 | 3-5 | Professional tone |
+| TikTok | 2,200 | 3-5 | Video-first |
+
+**Content Types:**
+- Property promotion
+- Open house
+- Market update
+- Brand awareness
+- Educational
+- Community highlight
+- Client testimonial
+
+**API Endpoints:**
+```
+POST /postiz/accounts/connect              - Connect social account
+GET  /postiz/accounts                      - List connected accounts
+POST /postiz/posts/create                  - Create post
+POST /postiz/posts/{id}/schedule           - Schedule post
+GET  /postiz/posts                         - List posts
+GET  /postiz/posts/{id}                    - Get post
+PUT  /postiz/posts/{id}                    - Update post
+POST /postiz/ai/generate                   - AI content generation
+POST /postiz/campaigns/create              - Create campaign
+GET  /postiz/campaigns                     - List campaigns
+POST /postiz/templates/create              - Create template
+GET  /postiz/templates                     - List templates
+GET  /postiz/analytics/overview            - Get analytics
+GET  /postiz/calendar                      - Content calendar
+```
+
+**Voice Commands:**
+- "Create a social media post for this property"
+- "Schedule posts for next week"
+- "Generate Instagram content with AI"
+- "Create a 10-post campaign for this listing"
+- "Get my social media analytics"
+
+---
+
+#### Complete Marketing Workflow
+
+**Step 1: Set Up Brand Identity**
+```bash
+POST /agent-brand/5
+{
+  "company_name": "Emprezario Inc",
+  "tagline": "Your Dream Home Awaits",
+  "primary_color": "#B45309",
+  "secondary_color": "#D97706",
+  "logo_url": "https://example.com/logo.png",
+  "website_url": "https://emprezario.com",
+  "bio": "Luxury real estate specialist serving NYC"
+}
+```
+
+**Step 2: Create Facebook Ad Campaign**
+```bash
+POST /facebook-ads/campaigns/generate?agent_id=5
+{
+  "url": "https://emprezario.com/properties/luxury-condo",
+  "campaign_objective": "leads",
+  "daily_budget": 100
+}
+```
+
+**Step 3: Launch Paid Ads**
+```bash
+POST /facebook-ads/campaigns/3/launch
+{
+  "meta_access_token": "YOUR_TOKEN",
+  "ad_account_id": "act_1234567890"
+}
+```
+
+**Step 4: Create Organic Social Posts**
+```bash
+POST /postiz/posts/create?agent_id=5
+{
+  "content_type": "property_promo",
+  "caption": "🏠 Stunning luxury condo in NYC!",
+  "hashtags": ["#luxuryliving", "#nyc", "#realestate"],
+  "platforms": ["facebook", "instagram", "linkedin"],
+  "use_branding": true,
+  "scheduled_at": "2026-02-24T10:00:00"
+}
+```
+
+**Step 5: Create Multi-Post Campaign**
+```bash
+POST /postiz/campaigns/create?agent_id=5
+{
+  "campaign_name": "Property Launch Campaign",
+  "campaign_type": "property_launch",
+  "start_date": "2026-02-24",
+  "end_date": "2026-03-02",
+  "platforms": ["facebook", "instagram"],
+  "post_count": 10,
+  "auto_generate": true
+}
+```
+
+---
+
+#### Marketing Analytics Dashboard
+
+**Unified view of all marketing performance:**
+
+**Paid Ads (Facebook Ads):**
+- Active campaigns
+- Total spend
+- Impressions, clicks, CTR
+- Conversions, cost per conversion
+- ROI calculation
+
+**Organic Social (Postiz):**
+- Total posts by platform
+- Follower counts
+- Engagement metrics
+- Engagement rate
+- Top performing posts
+
+**Brand Reach:**
+- Total impressions across all channels
+- Unique reach
+- Brand recall lift
+- Cross-platform performance
+
+**API Endpoints:**
+```
+GET /facebook-ads/analytics/campaign/{id}   - Campaign analytics
+GET /facebook-ads/analytics/account         - Account analytics
+GET /postiz/analytics/overview              - Social media analytics
+```
+
+---
+
+#### Database Tables
+
+**Agent Branding (1 table):**
+- `agent_brands` - Brand identity with 5 color slots
+
+**Facebook Ads (6 tables):**
+- `facebook_ad_campaigns` - Campaign data
+- `facebook_ad_sets` - Ad sets
+- `facebook_ads` - Individual ads
+- `facebook_ad_creatives` - Ad creative assets
+- `facebook_audiences` - Target audiences
+- `facebook_ad_metrics` - Performance metrics
+
+**Postiz Social Media (5 tables):**
+- `postiz_accounts` - Connected social accounts
+- `postiz_posts` - Social media posts
+- `postiz_campaigns` - Multi-post campaigns
+- `postiz_templates` - Reusable post templates
+- `postiz_analytics` - Aggregated analytics
+
+**Total Marketing Hub: 12 tables**
+
+---
+
+#### Marketing Hub Summary
+
+**What Agents Can Now Do:**
+
+✅ **Brand Management**
+- Set up complete brand identity
+- Apply to all marketing automatically
+- Consistent across all channels
+- 6 pre-defined color presets
+
+✅ **Paid Advertising**
+- Create Facebook ad campaigns
+- Generate with AI from URLs
+- Launch to Meta Ads Manager
+- Track performance and ROI
+
+✅ **Social Media Management**
+- Schedule posts across platforms
+- Generate AI-powered content
+- Create multi-post campaigns
+- Use reusable templates
+- View content calendar
+
+✅ **Analytics & Insights**
+- Paid ad performance
+- Organic social metrics
+- Unified dashboard
+- Competitor analysis
+- Market research
+
+**All marketing, one platform, fully integrated!**
+
+**Total Marketing Endpoints: 39**
+- Agent Branding: 12 endpoints
+- Facebook Ads: 13 endpoints
+- Postiz Social Media: 14 endpoints
+
+---
+
 ## Recent Updates (Feb 2026)
+
+### 🎨 NEW: Complete Marketing Hub (Agent Branding + Facebook Ads + Postiz)
+
+**All-in-one marketing platform:**
+- **Agent Branding System** - 5-color slots, logo, tagline, social links
+- **Facebook Ads Integration** - AI-powered campaign generation and Meta launch
+- **Postiz Social Media** - Multi-platform organic posting (Facebook, Instagram, Twitter, LinkedIn, TikTok)
+- **Unified Brand Integration** - Set brand once, apply everywhere
+- **39 New Endpoints** across 3 routers
+- **12 New Database Tables** for marketing data
+- **6 Pre-defined Color Presets** for instant branding
+- **AI-Powered Content Generation** for ads and social posts
+- **Multi-Platform Publishing** with platform-specific optimization
+- **Analytics Dashboard** for paid + organic performance
+
+Voice examples:
+- "Set up my brand with Emprezario Inc"
+- "Create a Facebook ad for property 5"
+- "Schedule social posts for next week"
+- "Generate Instagram content with AI"
+- "Get my marketing analytics"
 
 ### 🌐 NEW: Web Scraper (Automated Property Data Extraction)
 
