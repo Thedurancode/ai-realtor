@@ -72,6 +72,10 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ZHIPU_API_KEY: ${ZHIPU_API_KEY:-}
 
+      # AI Realtor API Configuration
+      AI_REALTOR_API_URL: http://ai-realtor:8000
+      AI_REALTOR_API_KEY: nanobot-perm-key-2024
+
       # Chat Platform Configuration
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_ALLOW_FROM: ${TELEGRAM_ALLOW_FROM:-}
