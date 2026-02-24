@@ -1,7 +1,7 @@
 """MCP tools for web scraping — voice-controlled property data extraction."""
 
-from mcp_server.tools import register_tool
-from mcp_server.utils.context import add_property_context
+from ..server import register_tool
+from ..utils.context import add_property_context
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.services.web_scraper_service import web_scraper_service

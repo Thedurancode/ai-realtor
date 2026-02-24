@@ -1,0 +1,73 @@
+# =============================================================================
+# AI REALTOR - SQLite Docker Image
+# =============================================================================
+# A production-ready Docker container using SQLite for zero-config deployment
+# Features: Auto-migration, health checks, persistent storage, auto-restart
+# =============================================================================
+
+FROM python:3.11-slim
+
+# Metadata
+LABEL maintainer="AI Realtor Team"
+LABEL description="AI Realtor Platform - SQLite Edition"
+LABEL version="2.0.0"
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    # Build essentials
+    gcc \
+    g++ \
+    # Process management
+    supervisor \
+    # Utilities
+    curl \
+    sqlite3 \
+    # Cron for scheduled tasks
+    cron \
+    # Clean up
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user for security
+RUN useradd -m -u 1000 -s /bin/bash ai-realtor
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY app ./app
+COPY mcp_server ./mcp_server
+COPY scripts ./scripts
+COPY alembic ./alembic
+COPY alembic.ini .
+COPY start.sh .
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Create data directory for SQLite database
+RUN mkdir -p /app/data && \
+    chown -R ai-realtor:ai-realtor /app
+
+# Make scripts executable
+RUN chmod +x start.sh
+
+# Switch to non-root user
+USER ai-realtor
+
+# Expose ports
+# 8000 - FastAPI backend
+# 8001 - MCP Server (Server-Sent Events)
+EXPOSE 8000 8001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Start services
+CMD ["./start.sh"]

@@ -19,32 +19,45 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Check if pgvector extension is available without breaking the transaction
+    import logging
+    # Check if we're using SQLite
     conn = op.get_bind()
-    result = conn.execute(sa.text(
-        "SELECT 1 FROM pg_available_extensions WHERE name = 'vector'"
-    ))
-    if not result.fetchone():
-        import logging
+    dialect_name = conn.dialect.name
+
+    if dialect_name == 'sqlite':
         logging.warning(
-            "pgvector extension not available — skipping vector search columns. "
-            "Install pgvector on the database and re-run this migration to enable."
+            "SQLite detected — skipping pgvector extension and vector columns. "
+            "Vector search requires PostgreSQL with pgvector extension."
         )
         return
 
-    conn.execute(sa.text('CREATE EXTENSION IF NOT EXISTS vector'))
+    # Check if pgvector extension is available without breaking the transaction
+    try:
+        result = conn.execute(sa.text(
+            "SELECT 1 FROM pg_available_extensions WHERE name = 'vector'"
+        ))
+        if not result.fetchone():
+            logging.warning(
+                "pgvector extension not available — skipping vector search columns. "
+                "Install pgvector on the database and re-run this migration to enable."
+            )
+            return
 
-    # Add embedding columns directly as vector type
-    op.execute('ALTER TABLE properties ADD COLUMN IF NOT EXISTS embedding vector(1536)')
-    op.execute('ALTER TABLE property_recaps ADD COLUMN IF NOT EXISTS embedding vector(1536)')
-    op.execute('ALTER TABLE dossiers ADD COLUMN IF NOT EXISTS embedding vector(1536)')
-    op.execute('ALTER TABLE evidence ADD COLUMN IF NOT EXISTS embedding vector(1536)')
+        conn.execute(sa.text('CREATE EXTENSION IF NOT EXISTS vector'))
 
-    # Create HNSW indexes for fast similarity search
-    op.execute('CREATE INDEX IF NOT EXISTS idx_properties_embedding ON properties USING hnsw (embedding vector_cosine_ops)')
-    op.execute('CREATE INDEX IF NOT EXISTS idx_recaps_embedding ON property_recaps USING hnsw (embedding vector_cosine_ops)')
-    op.execute('CREATE INDEX IF NOT EXISTS idx_dossiers_embedding ON dossiers USING hnsw (embedding vector_cosine_ops)')
-    op.execute('CREATE INDEX IF NOT EXISTS idx_evidence_embedding ON evidence USING hnsw (embedding vector_cosine_ops)')
+        # Add embedding columns directly as vector type
+        op.execute('ALTER TABLE properties ADD COLUMN IF NOT EXISTS embedding vector(1536)')
+        op.execute('ALTER TABLE property_recaps ADD COLUMN IF NOT EXISTS embedding vector(1536)')
+        op.execute('ALTER TABLE dossiers ADD COLUMN IF NOT EXISTS embedding vector(1536)')
+        op.execute('ALTER TABLE evidence ADD COLUMN IF NOT EXISTS embedding vector(1536)')
+
+        # Create HNSW indexes for fast similarity search
+        op.execute('CREATE INDEX IF NOT EXISTS idx_properties_embedding ON properties USING hnsw (embedding vector_cosine_ops)')
+        op.execute('CREATE INDEX IF NOT EXISTS idx_recaps_embedding ON property_recaps USING hnsw (embedding vector_cosine_ops)')
+        op.execute('CREATE INDEX IF NOT EXISTS idx_dossiers_embedding ON dossiers USING hnsw (embedding vector_cosine_ops)')
+        op.execute('CREATE INDEX IF NOT EXISTS idx_evidence_embedding ON evidence USING hnsw (embedding vector_cosine_ops)')
+    except Exception as e:
+        logging.warning(f"Failed to add vector search: {e}")
 
 
 def downgrade() -> None:

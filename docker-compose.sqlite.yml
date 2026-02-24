@@ -1,0 +1,83 @@
+# =============================================================================
+# AI REALTOR - Docker Compose (SQLite Edition)
+# =============================================================================
+# Zero-config Docker setup using SQLite for local development and testing
+# No external database required - just run and go!
+# =============================================================================
+
+services:
+  # Main AI Realtor Application
+  ai-realtor:
+    build:
+      context: .
+      dockerfile: Dockerfile.sqlite
+    container_name: ai-realtor-sqlite
+    restart: unless-stopped
+    ports:
+      - "8000:8000"  # FastAPI backend
+      - "8001:8001"  # MCP Server
+    environment:
+      # Database Configuration
+      DATABASE_URL: sqlite:////app/data/ai_realtor.db
+
+      # API Keys (Load from .env file or set defaults)
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      RAPIDAPI_KEY: ${RAPIDAPI_KEY:-}
+      SKIP_TRACE_API_HOST: ${SKIP_TRACE_API_HOST:-skip-tracing-working-api.p.rapidapi.com}
+      ZILLOW_API_HOST: ${ZILLOW_API_HOST:-private-zillow.p.rapidapi.com}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      EXA_BASE_URL: ${EXA_BASE_URL:-https://api.exa.ai}
+      EXA_SEARCH_TYPE: ${EXA_SEARCH_TYPE:-auto}
+      EXA_TIMEOUT_SECONDS: ${EXA_TIMEOUT_SECONDS:-20}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DOCUSEAL_API_KEY: ${DOCUSEAL_API_KEY:-}
+      DOCUSEAL_API_URL: ${DOCUSEAL_API_URL:-https://api.docuseal.com}
+      VAPI_API_KEY: ${VAPI_API_KEY:-}
+      VAPI_PHONE_NUMBER_ID: ${VAPI_PHONE_NUMBER_ID:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+
+      # Application Settings
+      CAMPAIGN_WORKER_ENABLED: "true"
+      CAMPAIGN_WORKER_INTERVAL_SECONDS: "15"
+      CAMPAIGN_WORKER_MAX_CALLS_PER_TICK: "5"
+      DAILY_DIGEST_ENABLED: "true"
+      DAILY_DIGEST_HOUR: "8"
+
+      # Python Settings
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+
+    volumes:
+      # Persistent SQLite database and logs
+      - ai_realtor_data:/app/data
+
+      # Optional: Mount local code for development (comment out for production)
+      # - ./app:/app/app
+      # - ./mcp_server:/app/mcp_server
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Named volumes for persistent data
+volumes:
+  ai_realtor_data:
+    driver: local
+    name: ai_realtor_sqlite_data
+
+# Optional: Network configuration
+networks:
+  default:
+    name: ai-realtor-network
+    driver: bridge

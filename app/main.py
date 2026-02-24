@@ -21,7 +21,7 @@ import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 
 # Paths that don't require API key authentication
-PUBLIC_PATHS = frozenset(("/", "/docs", "/redoc", "/openapi.json"))
+PUBLIC_PATHS = frozenset(("/", "/docs", "/redoc", "/openapi.json", "/health"))
 PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register")
 
 
@@ -226,6 +226,53 @@ async def send_display_command(command: dict):
 @app.get("/")
 def root():
     return {"message": "Real Estate API", "docs": "/docs"}
+
+
+@app.get("/health")
+def health_check():
+    """
+    Health check endpoint for Docker and monitoring systems.
+    Checks database connectivity and returns system status.
+    """
+    import os
+    from sqlalchemy import text
+
+    # Check database connection
+    db_status = "healthy"
+    db_error = None
+
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+    except Exception as e:
+        db_status = "unhealthy"
+        db_error = str(e)
+
+    # Get database type
+    database_url = os.getenv("DATABASE_URL", "")
+    is_sqlite = database_url.startswith("sqlite://")
+    db_type = "SQLite" if is_sqlite else "PostgreSQL"
+
+    response = {
+        "status": "healthy" if db_status == "healthy" else "unhealthy",
+        "version": "1.0.0",
+        "database": {
+            "type": db_type,
+            "status": db_status,
+            "error": db_error
+        }
+    }
+
+    # Return appropriate status code
+    if db_status != "healthy":
+        from fastapi import status
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=response
+        )
+
+    return response
 
 
 # --- Startup and Shutdown Events ---
