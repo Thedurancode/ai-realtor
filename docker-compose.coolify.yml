@@ -1,0 +1,163 @@
+# =============================================================================
+# AI REALTOR + NANOBOT - Coolify Deployment Configuration
+# =============================================================================
+# This docker-compose is optimized for Coolify PaaS deployment
+# Features:
+# - Automatic health checks
+# - Persistent volumes for database and config
+# - Environment variable management via Coolify UI
+# - Automatic SSL certificates
+# - Automatic restarts
+# =============================================================================
+
+services:
+  # ================================================================
+  # AI REALTOR - Real Estate Management Platform
+  # ================================================================
+  ai-realtor:
+    image: ai-realtor-sqlite:latest
+    container_name: ai-realtor-sqlite
+    restart: always
+
+    ports:
+      - "8000:8000"  # FastAPI backend
+      - "8001:8001"  # MCP Server
+
+    environment:
+      # Database Configuration
+      - DATABASE_URL=sqlite:////app/data/ai_realtor.db
+
+      # Google Places API (Required - for address lookup)
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
+
+      # RapidAPI Configuration (Required - for Zillow & Skip Trace)
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY}
+      - SKIP_TRACE_API_HOST=${SKIP_TRACE_API_HOST:-skip-tracing-working-api.p.rapidapi.com}
+      - ZILLOW_API_HOST=${ZILLOW_API_HOST:-private-zillow.p.rapidapi.com}
+
+      # Exa AI Research API (Optional)
+      - EXA_API_KEY=${EXA_API_KEY}
+      - EXA_BASE_URL=${EXA_BASE_URL:-https://api.exa.ai}
+      - EXA_SEARCH_TYPE=${EXA_SEARCH_TYPE:-auto}
+      - EXA_TIMEOUT_SECONDS=${EXA_TIMEOUT_SECONDS:-20}
+
+      # Anthropic Claude (Optional - for AI recaps and contract analysis)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+      # DocuSeal E-Signature (Required - for contract sending)
+      - DOCUSEAL_API_KEY=${DOCUSEAL_API_KEY}
+      - DOCUSEAL_API_URL=${DOCUSEAL_API_URL:-https://api.docuseal.com}
+
+      # VAPI Phone Calls (Optional)
+      - VAPI_API_KEY=${VAPI_API_KEY}
+      - VAPI_PHONE_NUMBER_ID=${VAPI_PHONE_NUMBER_ID}
+
+      # ElevenLabs Voice (Optional)
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+
+      # Resend Email (Optional - for notifications)
+      - RESEND_API_KEY=${RESEND_API_KEY}
+
+      # Background Workers
+      - CAMPAIGN_WORKER_ENABLED=${CAMPAIGN_WORKER_ENABLED:-true}
+      - CAMPAIGN_WORKER_INTERVAL_SECONDS=${CAMPAIGN_WORKER_INTERVAL_SECONDS:-15}
+      - CAMPAIGN_WORKER_MAX_CALLS_PER_TICK=${CAMPAIGN_WORKER_MAX_CALLS_PER_TICK:-5}
+      - DAILY_DIGEST_ENABLED=${DAILY_DIGEST_ENABLED:-true}
+      - DAILY_DIGEST_HOUR=${DAILY_DIGEST_HOUR:-8}
+
+      # Python Settings
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+
+    volumes:
+      # Persistent SQLite database
+      - ai_realtor_data:/app/data
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    labels:
+      # Coolify automatic HTTPS
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai-realtor.rule=Host(`ai-realtor.your-domain.com`)"
+      - "traefik.http.routers.ai-realtor.tls=true"
+      - "traefik.http.routers.ai-realtor.tls.certresolver=letsencrypt"
+
+  # ================================================================
+  # NANOBOT - AI Assistant Gateway (Built from Source)
+  # ================================================================
+  nanobot:
+    image: nanobot-gateway:latest
+    container_name: nanobot-gateway
+    restart: always
+
+    command: ["gateway"]  # Override default "status" command
+
+    ports:
+      - "18790:18790"  # Nanobot default port
+
+    environment:
+      # AI Provider (Zhipu AI recommended - working alternative to Anthropic)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY}
+
+      # Telegram Bot (Required - for chat interface)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM:-}
+
+      # Optional: Discord
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - DISCORD_ALLOW_FROM=${DISCORD_ALLOW_FROM:-}
+
+    volumes:
+      # Persistent Nanobot configuration
+      - nanobot_config:/root/.nanobot
+      # Mount AI Realtor skill (read-only)
+      - nanobot_skills:/root/.nanobot/workspace/skills:ro
+
+    depends_on:
+      ai-realtor:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18790/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    labels:
+      # Coolify automatic HTTPS
+      - "traefik.enable=true"
+      - "traefik.http.routers.nanobot.rule=Host(`nanobot.your-domain.com`)"
+      - "traefik.http.routers.nanobot.tls=true"
+      - "traefik.http.routers.nanobot.tls.certresolver=letsencrypt"
+
+# =============================================================================
+# Volumes - Persistent Data Storage
+# =============================================================================
+# Coolify automatically manages these volumes on your server
+volumes:
+  ai_realtor_data:
+    driver: local
+    name: ai_realtor_sqlite_data
+
+  nanobot_config:
+    driver: local
+    name: nanobot_config_data
+
+  nanobot_skills:
+    driver: local
+    name: nanobot_skills_data
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  default:
+    name: ai-platform-network
+    driver: bridge

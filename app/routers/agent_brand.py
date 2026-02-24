@@ -201,10 +201,51 @@ def create_agent_brand(
     # Generate voice summary
     voice_summary = f"Brand profile created for {agent.name}. {brand.company_name or 'Personal brand'} is now active."
 
-    return AgentBrandResponse(
-        **brand.__dict__,
-        voice_summary=voice_summary
-    )
+    # Convert brand to dict, excluding SQLAlchemy internals
+    brand_dict = {
+        'id': brand.id,
+        'agent_id': brand.agent_id,
+        'company_name': brand.company_name,
+        'tagline': brand.tagline,
+        'logo_url': brand.logo_url,
+        'website_url': brand.website_url,
+        'bio': brand.bio,
+        'about_us': brand.about_us,
+        'specialties': brand.specialties,
+        'service_areas': brand.service_areas,
+        'languages': brand.languages,
+        'primary_color': brand.primary_color,
+        'secondary_color': brand.secondary_color,
+        'accent_color': brand.accent_color,
+        'background_color': brand.background_color,
+        'text_color': brand.text_color,
+        'social_media': brand.social_media,
+        'display_phone': brand.display_phone,
+        'display_email': brand.display_email,
+        'office_address': brand.office_address,
+        'office_phone': brand.office_phone,
+        'license_display_name': brand.license_display_name,
+        'license_number': brand.license_number,
+        'license_states': brand.license_states,
+        'show_profile': brand.show_profile,
+        'show_contact_info': brand.show_contact_info,
+        'show_social_media': brand.show_social_media,
+        'headshot_url': brand.headshot_url,
+        'banner_url': brand.banner_url,
+        'company_badge_url': brand.company_badge_url,
+        'email_template_style': brand.email_template_style,
+        'report_logo_placement': brand.report_logo_placement,
+        'meta_title': brand.meta_title,
+        'meta_description': brand.meta_description,
+        'keywords': brand.keywords,
+        'google_analytics_id': brand.google_analytics_id,
+        'facebook_pixel_id': brand.facebook_pixel_id,
+        'created_at': brand.created_at,
+        'updated_at': brand.updated_at,
+        'voice_summary': voice_summary
+    }
+
+    return AgentBrandResponse(**brand_dict)
 
 
 @router.get("/{agent_id}", response_model=AgentBrandResponse)
@@ -236,10 +277,51 @@ def get_agent_brand_endpoint(
     else:
         voice_summary += "No branding set up yet."
 
-    return AgentBrandResponse(
-        **brand.__dict__,
-        voice_summary=voice_summary
-    )
+    # Convert brand to dict, excluding SQLAlchemy internals
+    brand_dict = {
+        'id': brand.id,
+        'agent_id': brand.agent_id,
+        'company_name': brand.company_name,
+        'tagline': brand.tagline,
+        'logo_url': brand.logo_url,
+        'website_url': brand.website_url,
+        'bio': brand.bio,
+        'about_us': brand.about_us,
+        'specialties': brand.specialties,
+        'service_areas': brand.service_areas,
+        'languages': brand.languages,
+        'primary_color': brand.primary_color,
+        'secondary_color': brand.secondary_color,
+        'accent_color': brand.accent_color,
+        'background_color': brand.background_color,
+        'text_color': brand.text_color,
+        'social_media': brand.social_media,
+        'display_phone': brand.display_phone,
+        'display_email': brand.display_email,
+        'office_address': brand.office_address,
+        'office_phone': brand.office_phone,
+        'license_display_name': brand.license_display_name,
+        'license_number': brand.license_number,
+        'license_states': brand.license_states,
+        'show_profile': brand.show_profile,
+        'show_contact_info': brand.show_contact_info,
+        'show_social_media': brand.show_social_media,
+        'headshot_url': brand.headshot_url,
+        'banner_url': brand.banner_url,
+        'company_badge_url': brand.company_badge_url,
+        'email_template_style': brand.email_template_style,
+        'report_logo_placement': brand.report_logo_placement,
+        'meta_title': brand.meta_title,
+        'meta_description': brand.meta_description,
+        'keywords': brand.keywords,
+        'google_analytics_id': brand.google_analytics_id,
+        'facebook_pixel_id': brand.facebook_pixel_id,
+        'created_at': brand.created_at,
+        'updated_at': brand.updated_at,
+        'voice_summary': voice_summary
+    }
+
+    return AgentBrandResponse(**brand_dict)
 
 
 @router.put("/{agent_id}", response_model=AgentBrandResponse)
@@ -266,10 +348,51 @@ def update_agent_brand(
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
     voice_summary = f"{agent.name}'s brand profile updated successfully."
 
-    return AgentBrandResponse(
-        **brand.__dict__,
-        voice_summary=voice_summary
-    )
+    # Convert brand to dict, excluding SQLAlchemy internals
+    brand_dict = {
+        'id': brand.id,
+        'agent_id': brand.agent_id,
+        'company_name': brand.company_name,
+        'tagline': brand.tagline,
+        'logo_url': brand.logo_url,
+        'website_url': brand.website_url,
+        'bio': brand.bio,
+        'about_us': brand.about_us,
+        'specialties': brand.specialties,
+        'service_areas': brand.service_areas,
+        'languages': brand.languages,
+        'primary_color': brand.primary_color,
+        'secondary_color': brand.secondary_color,
+        'accent_color': brand.accent_color,
+        'background_color': brand.background_color,
+        'text_color': brand.text_color,
+        'social_media': brand.social_media,
+        'display_phone': brand.display_phone,
+        'display_email': brand.display_email,
+        'office_address': brand.office_address,
+        'office_phone': brand.office_phone,
+        'license_display_name': brand.license_display_name,
+        'license_number': brand.license_number,
+        'license_states': brand.license_states,
+        'show_profile': brand.show_profile,
+        'show_contact_info': brand.show_contact_info,
+        'show_social_media': brand.show_social_media,
+        'headshot_url': brand.headshot_url,
+        'banner_url': brand.banner_url,
+        'company_badge_url': brand.company_badge_url,
+        'email_template_style': brand.email_template_style,
+        'report_logo_placement': brand.report_logo_placement,
+        'meta_title': brand.meta_title,
+        'meta_description': brand.meta_description,
+        'keywords': brand.keywords,
+        'google_analytics_id': brand.google_analytics_id,
+        'facebook_pixel_id': brand.facebook_pixel_id,
+        'created_at': brand.created_at,
+        'updated_at': brand.updated_at,
+        'voice_summary': voice_summary
+    }
+
+    return AgentBrandResponse(**brand_dict)
 
 
 @router.patch("/{agent_id}/colors", response_model=AgentBrandResponse)
@@ -311,10 +434,51 @@ def update_brand_colors(
 
     voice_summary = f"Brand colors updated for {brand.company_name or 'your profile'}."
 
-    return AgentBrandResponse(
-        **brand.__dict__,
-        voice_summary=voice_summary
-    )
+    # Convert brand to dict, excluding SQLAlchemy internals
+    brand_dict = {
+        'id': brand.id,
+        'agent_id': brand.agent_id,
+        'company_name': brand.company_name,
+        'tagline': brand.tagline,
+        'logo_url': brand.logo_url,
+        'website_url': brand.website_url,
+        'bio': brand.bio,
+        'about_us': brand.about_us,
+        'specialties': brand.specialties,
+        'service_areas': brand.service_areas,
+        'languages': brand.languages,
+        'primary_color': brand.primary_color,
+        'secondary_color': brand.secondary_color,
+        'accent_color': brand.accent_color,
+        'background_color': brand.background_color,
+        'text_color': brand.text_color,
+        'social_media': brand.social_media,
+        'display_phone': brand.display_phone,
+        'display_email': brand.display_email,
+        'office_address': brand.office_address,
+        'office_phone': brand.office_phone,
+        'license_display_name': brand.license_display_name,
+        'license_number': brand.license_number,
+        'license_states': brand.license_states,
+        'show_profile': brand.show_profile,
+        'show_contact_info': brand.show_contact_info,
+        'show_social_media': brand.show_social_media,
+        'headshot_url': brand.headshot_url,
+        'banner_url': brand.banner_url,
+        'company_badge_url': brand.company_badge_url,
+        'email_template_style': brand.email_template_style,
+        'report_logo_placement': brand.report_logo_placement,
+        'meta_title': brand.meta_title,
+        'meta_description': brand.meta_description,
+        'keywords': brand.keywords,
+        'google_analytics_id': brand.google_analytics_id,
+        'facebook_pixel_id': brand.facebook_pixel_id,
+        'created_at': brand.created_at,
+        'updated_at': brand.updated_at,
+        'voice_summary': voice_summary
+    }
+
+    return AgentBrandResponse(**brand_dict)
 
 
 @router.post("/{agent_id}/logo", response_model=AgentBrandResponse)
@@ -347,10 +511,51 @@ async def upload_logo(
 
     voice_summary = f"Logo uploaded for {brand.company_name or 'your profile'}."
 
-    return AgentBrandResponse(
-        **brand.__dict__,
-        voice_summary=voice_summary
-    )
+    # Convert brand to dict, excluding SQLAlchemy internals
+    brand_dict = {
+        'id': brand.id,
+        'agent_id': brand.agent_id,
+        'company_name': brand.company_name,
+        'tagline': brand.tagline,
+        'logo_url': brand.logo_url,
+        'website_url': brand.website_url,
+        'bio': brand.bio,
+        'about_us': brand.about_us,
+        'specialties': brand.specialties,
+        'service_areas': brand.service_areas,
+        'languages': brand.languages,
+        'primary_color': brand.primary_color,
+        'secondary_color': brand.secondary_color,
+        'accent_color': brand.accent_color,
+        'background_color': brand.background_color,
+        'text_color': brand.text_color,
+        'social_media': brand.social_media,
+        'display_phone': brand.display_phone,
+        'display_email': brand.display_email,
+        'office_address': brand.office_address,
+        'office_phone': brand.office_phone,
+        'license_display_name': brand.license_display_name,
+        'license_number': brand.license_number,
+        'license_states': brand.license_states,
+        'show_profile': brand.show_profile,
+        'show_contact_info': brand.show_contact_info,
+        'show_social_media': brand.show_social_media,
+        'headshot_url': brand.headshot_url,
+        'banner_url': brand.banner_url,
+        'company_badge_url': brand.company_badge_url,
+        'email_template_style': brand.email_template_style,
+        'report_logo_placement': brand.report_logo_placement,
+        'meta_title': brand.meta_title,
+        'meta_description': brand.meta_description,
+        'keywords': brand.keywords,
+        'google_analytics_id': brand.google_analytics_id,
+        'facebook_pixel_id': brand.facebook_pixel_id,
+        'created_at': brand.created_at,
+        'updated_at': brand.updated_at,
+        'voice_summary': voice_summary
+    }
+
+    return AgentBrandResponse(**brand_dict)
 
 
 @router.get("/public/{agent_id}", response_model=Dict[str, Any])
@@ -551,10 +756,51 @@ def apply_color_preset(
 
     voice_summary = f"Applied {preset_name} color scheme to {brand.company_name or 'your profile'}."
 
-    return AgentBrandResponse(
-        **brand.__dict__,
-        voice_summary=voice_summary
-    )
+    # Convert brand to dict, excluding SQLAlchemy internals
+    brand_dict = {
+        'id': brand.id,
+        'agent_id': brand.agent_id,
+        'company_name': brand.company_name,
+        'tagline': brand.tagline,
+        'logo_url': brand.logo_url,
+        'website_url': brand.website_url,
+        'bio': brand.bio,
+        'about_us': brand.about_us,
+        'specialties': brand.specialties,
+        'service_areas': brand.service_areas,
+        'languages': brand.languages,
+        'primary_color': brand.primary_color,
+        'secondary_color': brand.secondary_color,
+        'accent_color': brand.accent_color,
+        'background_color': brand.background_color,
+        'text_color': brand.text_color,
+        'social_media': brand.social_media,
+        'display_phone': brand.display_phone,
+        'display_email': brand.display_email,
+        'office_address': brand.office_address,
+        'office_phone': brand.office_phone,
+        'license_display_name': brand.license_display_name,
+        'license_number': brand.license_number,
+        'license_states': brand.license_states,
+        'show_profile': brand.show_profile,
+        'show_contact_info': brand.show_contact_info,
+        'show_social_media': brand.show_social_media,
+        'headshot_url': brand.headshot_url,
+        'banner_url': brand.banner_url,
+        'company_badge_url': brand.company_badge_url,
+        'email_template_style': brand.email_template_style,
+        'report_logo_placement': brand.report_logo_placement,
+        'meta_title': brand.meta_title,
+        'meta_description': brand.meta_description,
+        'keywords': brand.keywords,
+        'google_analytics_id': brand.google_analytics_id,
+        'facebook_pixel_id': brand.facebook_pixel_id,
+        'created_at': brand.created_at,
+        'updated_at': brand.updated_at,
+        'voice_summary': voice_summary
+    }
+
+    return AgentBrandResponse(**brand_dict)
 
 
 @router.post("/{agent_id}/generate-preview")

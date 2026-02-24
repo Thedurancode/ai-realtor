@@ -22,3 +22,4 @@ class Agent(Base):
     preferences = relationship("AgentPreference", back_populates="agent")
     installed_skills = relationship("AgentSkill", back_populates="agent")
     workspace = relationship("Workspace", back_populates="agents")
+    brand = relationship("AgentBrand", back_populates="agent", uselist=False)

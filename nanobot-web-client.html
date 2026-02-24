@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nanobot Web Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #chat {
+            border: 1px solid #ccc;
+            height: 400px;
+            overflow-y: scroll;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user {
+            background: #e3f2fd;
+            text-align: right;
+        }
+        .assistant {
+            background: #f5f5f5;
+        }
+        #input {
+            width: 70%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #send {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #send:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>🤖 Nanobot Web Client</h1>
+    <div id="chat"></div>
+    <div>
+        <input type="text" id="input" placeholder="Type your message here..." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('input');
+        let ws;
+
+        function connect() {
+            ws = new WebSocket('ws://localhost:18790/ws');
+
+            ws.onopen = () => {
+                addMessage('System', 'Connected to Nanobot!');
+            };
+
+            ws.onmessage = (event) => {
+                addMessage('🤖 Nanobot', event.data);
+            };
+
+            ws.onclose = () => {
+                addMessage('System', 'Disconnected. Reconnecting in 3s...');
+                setTimeout(connect, 3000);
+            };
+
+            ws.onerror = (error) => {
+                addMessage('System', 'Error connecting to Nanobot');
+            };
+        }
+
+        function addMessage(sender, text) {
+            const div = document.createElement('div');
+            div.className = 'message ' + (sender === 'You' ? 'user' : 'assistant');
+            div.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            addMessage('You', text);
+            input.value = '';
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(text);
+            }
+        }
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        connect();
+    </script>
+</body>
+</html>

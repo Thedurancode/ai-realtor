@@ -1,0 +1,147 @@
+# AI Realtor API Docker Stack
+# Complete multi-service deployment with Nanobot integration
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: ai-realtor-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ai_realtor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_realtor}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ai-realtor-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # AI Realtor FastAPI Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-realtor-api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      # Database
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ai_realtor}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-ai_realtor}
+
+      # API Keys
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
+      - ZILLOW_API_KEY=${ZILLOW_API_KEY}
+      - SKIP_TRACE_API_KEY=${SKIP_TRACE_API_KEY}
+      - DOCUSEAL_API_KEY=${DOCUSEAL_API_KEY}
+      - DOCUSEAL_WEBHOOK_SECRET=${DOCUSEAL_WEBHOOK_SECRET}
+      - VAPI_API_KEY=${VAPI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - EXA_API_KEY=${EXA_API_KEY}
+      - BRAVE_API_KEY=${BRAVE_API_KEY}
+
+      # Application Settings
+      - APP_NAME=${APP_NAME:-AI Realtor}
+      - APP_ENV=${APP_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ai-realtor-network
+    volumes:
+      - ./app:/app/app:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Run database migrations
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-realtor-migrations
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ai_realtor}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-ai_realtor}
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - ai-realtor-network
+    volumes:
+      - ./app:/app/app:ro
+      - ./alembic:/app/alembic:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+    command: >
+      sh -c "
+        echo 'Waiting for API...' &&
+        sleep 10 &&
+        echo 'Running migrations...' &&
+        alembic upgrade head &&
+        echo 'Migrations complete!' &&
+        exit 0
+      "
+    profiles:
+      - migrations
+
+  # Nanobot with AI Realtor Skill
+  nanobot:
+    image: ghcr.io/hkd0/nanobot:latest
+    container_name: nanobot-ai-realtor
+    environment:
+      # Pass API URL to nanobot - THIS IS THE KEY!
+      - AI_REALTOR_API_URL=http://api:8000
+
+      # Nanobot Configuration
+      - NANOBOT__PROVIDERS__ANTHROPIC__API_KEY=${ANTHROPIC_API_KEY}
+      - NANOBOT__AGENTS__DEFAULTS__MODEL=${NANOBOT_MODEL:-anthropic/claude-opus-4-5}
+      - NANOBOT__AGENTS__DEFAULTS__WORKSPACE=/workspace
+      - NANOBOT__AGENTS__DEFAULTS__TEMPERATURE=${NANOBOT_TEMPERATURE:-0.1}
+      - NANOBOT__CHANNELS__CLI__ENABLED=true
+
+      # Tool Configuration
+      - NANOBOT__TOOLS__EXEC__TIMEOUT=${EXEC_TIMEOUT:-60}
+      - NANOBOT__TOOLS__RESTRICT_TO_WORKSPACE=${RESTRICT_TO_WORKSPACE:-false}
+
+      # Web Search (if using)
+      - NANOBOT__TOOLS__WEB__SEARCH__API_KEY=${BRAVE_API_KEY:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - ai-realtor-network
+    volumes:
+      # Mount AI Realtor skill
+      - ./nanobot/skills:/workspace/skills:ro
+
+      # Nanobot workspace (persist conversations)
+      - ./nanobot/workspace:/workspace:rw
+
+      # Nanobot memory
+      - ./nanobot/memory:/workspace/memory:rw
+
+      # Config files
+      - ./nanobot/.nanobtrc:/root/.nanobtrc:ro
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+
+networks:
+  ai-realtor-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

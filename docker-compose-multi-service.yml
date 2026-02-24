@@ -1,0 +1,139 @@
+# =============================================================================
+# AI REALTOR + NANOBOT - Combined Docker Setup
+# =============================================================================
+# This docker-compose file runs both AI Realtor and Nanobot together
+# Nanobot can interact with the AI Realtor API
+# =============================================================================
+
+services:
+  # ================================================================
+  # AI REALTOR - Real Estate Management Platform
+  # ================================================================
+  ai-realtor:
+    build:
+      context: .
+      dockerfile: Dockerfile.sqlite
+    container_name: ai-realtor-sqlite
+    restart: unless-stopped
+    ports:
+      - "8000:8000"  # FastAPI backend
+      - "8001:8001"  # MCP Server
+    environment:
+      # Database Configuration
+      DATABASE_URL: sqlite:////app/data/ai_realtor.db
+
+      # API Keys (Load from .env file or set defaults)
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      RAPIDAPI_KEY: ${RAPIDAPI_KEY:-}
+      SKIP_TRACE_API_HOST: ${SKIP_TRACE_API_HOST:-skip-tracing-working-api.p.rapidapi.com}
+      ZILLOW_API_HOST: ${ZILLOW_API_HOST:-private-zillow.p.rapidapi.com}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DOCUSEAL_API_KEY: ${DOCUSEAL_API_KEY:-}
+      VAPI_API_KEY: ${VAPI_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+
+      # Application Settings
+      CAMPAIGN_WORKER_ENABLED: "true"
+      DAILY_DIGEST_ENABLED: "true"
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+
+    volumes:
+      # Persistent SQLite database and logs
+      - ai_realtor_data:/app/data
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    networks:
+      - ai-platform
+
+  # ================================================================
+  # NANOBOT - AI Assistant Gateway (Multiple Chat Platforms)
+  # ================================================================
+  nanobot:
+    image: ghcr.io/hkuds/nanobot:latest
+    container_name: nanobot-gateway
+    restart: unless-stopped
+    ports:
+      - "18790:18790"  # Nanobot default port
+
+    environment:
+      # Configure AI Realtor API as a tool/endpoint for Nanobot
+      # This allows Nanobot to make calls to AI Realtor
+      NANOBOT_API_BASE_URL: http://ai-realtor:8000
+      NANOBOT_API_KEY: ${NANOBOT_AI_REALTOR_KEY:-}
+
+      # Nanobot LLM Provider Configuration
+      # You can use OpenRouter, Anthropic, OpenAI, etc.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+      # Chat Platform Configuration (choose one or more)
+      # Telegram Bot Token
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ALLOW_FROM: ${TELEGRAM_ALLOW_FROM:-}
+
+      # Discord Bot Token
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_ALLOW_FROM: ${DISCORD_ALLOW_FROM:-}
+
+      # Slack Configuration
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:-}
+
+      # Email Configuration (optional)
+      EMAIL_IMAP_HOST: ${EMAIL_IMAP_HOST:-imap.gmail.com}
+      EMAIL_IMAP_PORT: ${EMAIL_IMAP_PORT:-993}
+      EMAIL_IMAP_USERNAME: ${EMAIL_IMAP_USERNAME:-}
+      EMAIL_IMAP_PASSWORD: ${EMAIL_IMAP_PASSWORD:-}
+      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:-smtp.gmail.com}
+      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-587}
+      EMAIL_SMTP_USERNAME: ${EMAIL_SMTP_USERNAME:-}
+      EMAIL_SMTP_PASSWORD: ${EMAIL_SMTP_PASSWORD:-}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-}
+
+    volumes:
+      # Mount Nanobot config directory (persistent)
+      - nanobot_config:/root/.nanobot
+
+    depends_on:
+      ai-realtor:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18790/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    networks:
+      - ai-platform
+
+# ================================================================
+# Volumes - Persistent Data Storage
+# ================================================================
+volumes:
+  ai_realtor_data:
+    driver: local
+    name: ai_realtor_sqlite_data
+
+  nanobot_config:
+    driver: local
+    name: nanobot_config_data
+
+# ================================================================
+# Networks - Service Communication
+# ================================================================
+networks:
+  ai-platform:
+    driver: bridge
+    name: ai-platform-network

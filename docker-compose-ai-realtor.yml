@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # AI Realtor API - Starts first
+  ai-realtor-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-realtor-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db:5432/ai_realtor
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
+      # ... other API env vars
+    depends_on:
+      - db
+    networks:
+      - ai-realtor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  # Nanobot with AI Realtor Skill - Starts after API
+  nanobot:
+    image: ghcr.io/hkd0/nanobot:latest
+    container_name: nanobot-ai-realtor
+    environment:
+      # Pass API URL to nanobot
+      - AI_REALTOR_API_URL=http://ai-realtor-api:8000
+
+      # Nanobot configuration
+      - NANOBOT__PROVIDERS__ANTHROPIC__API_KEY=${ANTHROPIC_API_KEY}
+      - NANOBOT__AGENTS__DEFAULTS__MODEL=anthropic/claude-opus-4-5
+      - NANOBOT__AGENTS__DEFAULTS__WORKSPACE=/workspace
+      - NANOBOT__CHANNELS__CLI__ENABLED=true
+    volumes:
+      # Mount AI Realtor skill into nanobot
+      - ./nanobot/skills:/workspace/skills:ro
+      - ./nanobot/workspace:/workspace:rw
+      - ./nanobot/memory:/workspace/memory:rw
+    depends_on:
+      ai-realtor-api:
+        condition: service_healthy
+    networks:
+      - ai-realtor-network
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+
+  # PostgreSQL Database
+  db:
+    image: postgres:16
+    container_name: ai-realtor-db
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=ai_realtor
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ai-realtor-network
+    restart: unless-stopped
+
+networks:
+  ai-realtor-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
