@@ -33,6 +33,8 @@ class CampaignLaunchRequest(BaseModel):
     campaign_id: str = Field(..., description="Campaign ID from create_campaign")
     meta_access_token: str = Field(..., description="Meta API access token")
     ad_account_id: str = Field(..., description="Meta ad account ID (act_XXXXXXXXX)")
+    meta_page_id: Optional[str] = Field(None, description="Facebook Page ID (required for lead ads)")
+    is_adset_budget_sharing_enabled: Optional[bool] = Field(True, description="Enable adset budget sharing (Meta requirement)")
 
 
 class ConversionsRequest(BaseModel):
@@ -128,7 +130,9 @@ async def launch_campaign(request: CampaignLaunchRequest):
         result = await service.launch_campaign(
             campaign_id=request.campaign_id,
             meta_access_token=request.meta_access_token,
-            ad_account_id=request.ad_account_id
+            ad_account_id=request.ad_account_id,
+            meta_page_id=request.meta_page_id,
+            is_adset_budget_sharing_enabled=request.is_adset_budget_sharing_enabled
         )
         return result
     except Exception as e:

@@ -89,7 +89,9 @@ class ZuckerbotService:
         self,
         campaign_id: str,
         meta_access_token: str,
-        ad_account_id: str
+        ad_account_id: str,
+        meta_page_id: Optional[str] = None,
+        is_adset_budget_sharing_enabled: Optional[bool] = True
     ) -> Dict:
         """Launch campaign to Meta Ads Manager
 
@@ -97,18 +99,26 @@ class ZuckerbotService:
             campaign_id: Campaign ID from create_campaign
             meta_access_token: Meta API access token
             ad_account_id: Meta ad account ID (act_XXXXXXXXX)
+            meta_page_id: Facebook Page ID (required for lead ads)
+            is_adset_budget_sharing_enabled: Enable adset budget sharing (Meta requirement)
 
         Returns:
             Launch status and Meta campaign IDs
         """
+        payload = {
+            "meta_access_token": meta_access_token,
+            "meta_ad_account_id": ad_account_id,
+            "is_adset_budget_sharing_enabled": is_adset_budget_sharing_enabled
+        }
+
+        if meta_page_id:
+            payload["meta_page_id"] = meta_page_id
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{self.base_url}/campaigns/{campaign_id}/launch",
                 headers=self.headers,
-                json={
-                    "meta_access_token": meta_access_token,
-                    "ad_account_id": ad_account_id
-                }
+                json=payload
             )
             response.raise_for_status()
             return response.json()
