@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.property import Property, PropertyStatus, PropertyType
 from app.models.agent import Agent
+from app.models.phone_call import PhoneCall
 from app.schemas.property import (
     PropertyCreate,
     PropertyUpdate,
@@ -366,3 +367,63 @@ def get_property_deal_status(
         raise HTTPException(status_code=404, detail="Property not found")
 
     return get_deal_type_summary(db, db_property)
+
+
+@router.get("/{property_id}/calls")
+def get_property_calls(
+    property_id: int,
+    limit: int = Query(50, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+):
+    """
+    Get all phone calls for a specific property.
+
+    Returns chronological list of calls with:
+    - Call details (provider, direction, status)
+    - Recordings and transcriptions
+    - Call duration and timestamps
+    - AI-generated summaries
+
+    This creates an activity feed of all phone interactions for a property.
+    """
+    # Verify property exists
+    db_property = db.query(Property).filter(Property.id == property_id).first()
+    if not db_property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    # Get calls for this property
+    query = db.query(PhoneCall).filter(PhoneCall.property_id == property_id)
+
+    total = query.count()
+    calls = query.order_by(PhoneCall.created_at.desc()).offset(offset).limit(limit).all()
+
+    # Format response
+    call_list = []
+    for call in calls:
+        call_list.append({
+            "id": call.id,
+            "provider": call.provider,
+            "direction": call.direction,
+            "phone_number": call.phone_number,
+            "status": call.status,
+            "duration_seconds": call.duration_seconds,
+            "created_at": call.created_at.isoformat() if call.created_at else None,
+            "started_at": call.started_at.isoformat() if call.started_at else None,
+            "ended_at": call.ended_at.isoformat() if call.ended_at else None,
+            "recording_url": call.recording_url,
+            "transcription": call.transcription,
+            "summary": call.summary,
+            "intent": call.intent,
+            "outcome": call.outcome,
+            "cost": call.cost,
+        })
+
+    return {
+        "property_id": property_id,
+        "property_address": f"{db_property.address}, {db_property.city}" if db_property else None,
+        "calls": call_list,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }

@@ -85,3 +85,7 @@ class Property(Base):
     notes = relationship("PropertyNote", back_populates="property", order_by="PropertyNote.created_at.desc()")
     offers = relationship("Offer", back_populates="property")
     phone_calls = relationship("PhoneCall", back_populates="property")
+    # Portal access for this property
+    access_list = relationship("PropertyAccess", back_populates="property", cascade="all, delete-orphan")
+    # Calendar events for this property
+    calendar_events = relationship("CalendarEvent", back_populates="property")

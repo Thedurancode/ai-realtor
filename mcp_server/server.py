@@ -154,6 +154,68 @@ def _summarize_input(tool_name: str, arguments: Any) -> str:
     if tool_name == "add_campaign_targets":
         return f"Add targets to campaign #{arguments.get('campaign_id')}"
 
+    # Calendar tools
+    if tool_name == "connect_calendar":
+        return "Connect Google Calendar"
+    if tool_name == "create_calendar_event":
+        return f"Create calendar event: {arguments.get('title')}"
+    if tool_name == "list_calendar_events":
+        return f"List calendar events (days: {arguments.get('days', 7)})"
+    if tool_name == "sync_to_calendar":
+        return "Sync to Google Calendar"
+    if tool_name == "list_calendars":
+        return "List connected calendars"
+    if tool_name == "disconnect_calendar":
+        return f"Disconnect calendar #{arguments.get('connection_id')}"
+    if tool_name == "update_calendar_event":
+        return f"Update calendar event #{arguments.get('event_id')}"
+    if tool_name == "delete_calendar_event":
+        return f"Delete calendar event #{arguments.get('event_id')}"
+
+    # Smart calendar tools
+    if tool_name == "check_calendar_conflicts":
+        return f"Check calendar conflicts for {arguments.get('start_time', 'proposed time')}"
+    if tool_name == "suggest_meeting_time":
+        duration = arguments.get('duration_minutes', 60)
+        return f"Suggest meeting time ({duration} min)"
+    if tool_name == "analyze_schedule":
+        days = arguments.get('days', 7)
+        return f"Analyze schedule ({days} days)"
+
+    # AI calendar optimization tools
+    if tool_name == "get_calendar_insights":
+        days = arguments.get('days', 30)
+        return f"Get calendar insights ({days} days)"
+    if tool_name == "find_optimal_time":
+        event_type = arguments.get('event_type', 'meeting')
+        return f"Find optimal time for {event_type}"
+    if tool_name == "predict_meeting_success":
+        day = arguments.get('day_of_week', 'weekday')
+        hour = arguments.get('hour', 12)
+        return f"Predict success for {day} at {hour}:00"
+    if tool_name == "optimize_schedule":
+        return "Optimize schedule with AI"
+
+    # Q&A call tools
+    if tool_name == "qa_call":
+        questions_count = len(arguments.get('questions', []))
+        return f"Q&A call with {questions_count} questions"
+    if tool_name == "get_call_status":
+        return f"Check call status {arguments.get('call_id')}"
+    if tool_name == "schedule_qa_call":
+        return f"Schedule Q&A call for {arguments.get('scheduled_time', 'later')}"
+    if tool_name == "batch_qa_calls":
+        contacts_count = len(arguments.get('contacts', []))
+        return f"Batch Q&A calls to {contacts_count} contacts"
+
+    # Call history tools
+    if tool_name == "get_property_calls":
+        return f"View call history for property {arguments.get('property_id')}"
+    if tool_name == "get_call_recording":
+        return f"Get recording for call {arguments.get('call_id')}"
+    if tool_name == "call_summary":
+        return f"Call summary for property {arguments.get('property_id')}"
+
     # Default
     return f"Called {tool_name}"
 

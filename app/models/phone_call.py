@@ -17,7 +17,11 @@ class PhoneCall(Base):
     # Call details
     direction = Column(String, nullable=False)  # 'inbound' or 'outbound'
     phone_number = Column(String, nullable=False)  # Caller ID (for inbound) or destination (for outbound)
+    provider = Column(String, nullable=False, default="vapi")  # 'vapi', 'telnyx', 'elevenlabs'
     vapi_call_id = Column(String, unique=True, nullable=True)  # VAPI call UUID
+    telnyx_call_id = Column(String, unique=True, nullable=True)  # Telnyx call control ID
+    telnyx_call_session_id = Column(String, nullable=True)  # Telnyx session ID
+    telnyx_call_leg_id = Column(String, nullable=True)  # Telnyx leg ID
     vapi_phone_number_id = Column(String, nullable=True)  # VAPI phone number ID
 
     # Call status

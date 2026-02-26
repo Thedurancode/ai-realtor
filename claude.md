@@ -878,9 +878,15 @@ POST /scrape/scrape-and-enrich-batch - Bulk import with enrichment
 - `scrape_redfin` - Voice: "Add this Redfin property to my portfolio"
 - `scrape_realtor` - Voice: "Import this Realtor.com listing"
 
+**🆕 NEW: Q&A Call Tools (4):**
+`qa_call` - Make automated phone call to ask questions and get answers
+`get_call_status` - Check call status and get transcript with AI-extracted answers
+`schedule_qa_call` - Schedule a Q&A call for a specific time
+`batch_qa_calls` - Make Q&A calls to multiple contacts at once
+
 ---
 
-## MCP Tools — Complete List (135 tools)
+## MCP Tools — Complete List (154 tools)
 
 **Property Tools (7):**
 `list_properties`, `get_property`, `create_property`, `update_property`, `delete_property`, `enrich_property`, `skip_trace_property`
@@ -1001,7 +1007,24 @@ POST /scrape/scrape-and-enrich-batch - Bulk import with enrichment
 `scrape_redfin` - Scrape Redfin listing and create property
 `scrape_realtor` - Scrape Realtor.com listing and create property
 
-**Total: 135 MCP tools** for complete voice control of the entire platform.
+**🆕 NEW: Calendar Tools (15):**
+`connect_calendar` - Initiate Google Calendar OAuth connection
+`create_calendar_event` - Create manual calendar events (showings, inspections, closings, meetings)
+`list_calendar_events` - List upcoming calendar events by days or event type
+`sync_to_calendar` - Manually trigger sync of pending items to Google Calendar
+`list_calendars` - List connected calendar accounts and sync settings
+`disconnect_calendar` - Disconnect a calendar account
+`update_calendar_event` - Update existing calendar event (reschedule, change location)
+`delete_calendar_event` - Delete a calendar event
+`check_calendar_conflicts` - Check for scheduling conflicts and suggest alternatives
+`suggest_meeting_time` - Find optimal meeting times based on calendar availability
+`analyze_schedule` - Analyze schedule patterns, workload, and provide recommendations
+`get_calendar_insights` - AI-powered pattern analysis and predictive recommendations
+`find_optimal_time` - Multi-objective optimization for ideal meeting times
+`predict_meeting_success` - Predict likelihood of meeting success based on timing
+`optimize_schedule` - AI-powered schedule optimization with automatic improvements
+
+**Total: 154 MCP tools** for complete voice control of the entire platform.
 
 ---
 
@@ -1137,6 +1160,71 @@ POST /scrape/scrape-and-enrich-batch - Bulk import with enrichment
 "Batch import these URLs into my portfolio"
 "Scrape this Redfin property and auto-enrich it"
 
+# 🆕 Q&A Phone Calls
+"Call the seller at 555-1234 and ask if they're flexible on price"
+"Phone the buyer and ask their preferred move-in date"
+"Call the inspector and ask about any issues with the foundation"
+"What's the status of call 12345?"
+"Get the transcript of the seller call"
+"Did the buyer answer about their move-in date?"
+"Schedule a call to the seller tomorrow at 10am"
+"Set up a reminder to call the buyer on Friday afternoon"
+"Call all parties for property 5 and ask about availability"
+"Phone the buyer and seller to confirm closing time"
+"Survey all contacts about their preferred meeting time"
+
+# 🆕 Google Calendar Integration
+"Connect my Google Calendar"
+"Schedule a showing for 123 Main St tomorrow at 2pm"
+"Add closing appointment for property 5 on Friday at 10am"
+"Create meeting with seller next Tuesday at 3pm"
+"Set up a video call with the buyer for Friday at 3pm with Google Meet"
+"Create a Zoom meeting with the inspector tomorrow at noon"
+"What's on my calendar today?"
+"Show me this week's events"
+"List upcoming showings"
+"Any appointments this week?"
+"Sync my calendar"
+"Update Google Calendar"
+"Sync tasks to calendar"
+"Show my calendars"
+"What calendars are connected?"
+"Disconnect my calendar"
+"Reschedule the showing to tomorrow"
+"Change meeting time to 3pm"
+"Cancel the showing"
+"Delete calendar event"
+
+# Smart Calendar Analysis
+"Check if Saturday at 2pm works"
+"Any conflicts with tomorrow morning?"
+"Will Friday at 3pm conflict with anything?"
+"When's a good time for a 1-hour meeting?"
+"Suggest a time this week"
+"Best time for a showing tomorrow?"
+"When should I schedule a closing?"
+"Analyze my schedule this week"
+"How's my calendar looking?"
+"What's my workload like?"
+
+# AI-Powered Calendar Optimization
+"Analyze my calendar patterns"
+"What does my calendar say about my business?"
+"Get calendar intelligence report"
+"Show me my scheduling patterns"
+"When's the best time for a closing?"
+"Optimal time for showing property 5?"
+"Find the best time this week for a meeting"
+"What's the ideal time for an inspection?"
+"Will a Monday morning closing succeed?"
+"Predict success for Friday 2pm showing"
+"What's the success rate for Tuesday meetings?"
+"Is Saturday a good day for inspections?"
+"Optimize my schedule"
+"How can I improve my calendar?"
+"Review my schedule for optimization"
+"Fix my scheduling issues"
+
 # 🆕 Predictive Intelligence
 "Predict the outcome for property 5"
 "What's the closing probability for property 3?"
@@ -1220,7 +1308,7 @@ POST /scrape/scrape-and-enrich-batch - Bulk import with enrichment
 - Anthropic Claude (AI analysis)
 
 **Voice & Communication:**
-- MCP Server (Claude Desktop integration) — 135 tools
+- MCP Server (Claude Desktop integration) — 154 tools
 - VAPI (voice AI platform)
 - ElevenLabs (text-to-speech)
 - WebSocket (real-time updates)
@@ -1245,7 +1333,7 @@ POST /scrape/scrape-and-enrich-batch - Bulk import with enrichment
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   MCP Server (Python)                        │
-│             135 Tools for Voice Control                      │
+│             154 Tools for Voice Control                      │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Context Auto-Injection • Activity Logging            │   │
 │  │ Property-Linked Conversation History                 │   │
@@ -1259,7 +1347,7 @@ POST /scrape/scrape-and-enrich-batch - Bulk import with enrichment
 │  │ Routers: Properties, Contracts, Webhooks, Recaps,    │   │
 │  │   Notes, Workflows, Contacts, Compliance, Offers,   │   │
 │  │   Insights, Analytics, Pipeline, Digest, Tasks,     │   │
-│  │   Scoring, Watchlists                               │   │
+│  │   Scoring, Watchlists, Calendar                     │   │
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Services: Voice Goal Planner, AI Recap, VAPI,        │   │
@@ -1336,6 +1424,9 @@ POST /scrape/scrape-and-enrich-batch - Bulk import with enrichment
 ```bash
 DATABASE_URL=postgresql://user:pass@host:5432/dbname
 GOOGLE_PLACES_API_KEY=your-key
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+GOOGLE_OAUTH_REDIRECT_URI=https://your-domain.com/calendar/oauth/callback
 ZILLOW_API_KEY=your-key
 SKIP_TRACE_API_KEY=your-key
 ANTHROPIC_API_KEY=sk-ant-your-key
@@ -1343,6 +1434,10 @@ DOCUSEAL_API_KEY=your-key
 DOCUSEAL_WEBHOOK_SECRET=your-webhook-secret
 VAPI_API_KEY=your-vapi-key
 VAPI_PHONE_NUMBER=+14155551234
+TELNYX_API_KEY=your-telnyx-api-key
+TELNYX_CONNECTION_ID=your-telnyx-connection-id
+TELNYX_PHONE_NUMBER=+14155551234
+TELNYX_WEBHOOK_URL=https://your-domain.com/telnyx/webhook
 ELEVENLABS_API_KEY=your-key
 EXA_API_KEY=your-key
 ```
@@ -1768,6 +1863,38 @@ Voice examples:
 - "Add this property from the URL"
 - "Import these 10 listings and enrich them all"
 
+### 📅 NEW: Google Calendar Integration
+
+**Sync tasks, follow-ups, and appointments to your calendar:**
+- **Google Calendar OAuth** - Secure authorization flow with access/refresh token management
+- **Automatic Sync** - Scheduled tasks, follow-ups, and appointments automatically sync to Google Calendar
+- **Manual Events** - Create calendar events directly (showings, inspections, closings, meetings)
+- **Google Meet Integration** - Automatically generate Google Meet links for virtual meetings
+- **Smart Scheduling** - Conflict detection, optimal time suggestions, and schedule analysis
+- **"All Parties" Feature** - Auto-invite all property contacts with one command
+- **AI-Powered Optimization** - Predictive insights and multi-objective time optimization
+- **Attendee Management** - Add attendees to events via email
+- **Granular Control** - Choose what to sync (tasks, follow-ups, contracts, appointments)
+- **Bi-directional Sync** - Track sync status for each item (created/updated/deleted/error)
+- **15 MCP Tools** for voice-controlled calendar management
+- **15+ API Endpoints** for OAuth, events, and sync operations
+- **3 New Database Tables** (calendar_connections, synced_calendar_events, calendar_events)
+
+Voice examples:
+- "Connect my Google Calendar"
+- "Schedule a showing for 123 Main St tomorrow at 2pm"
+- "Add all parties for 142 Throop for meeting on Saturday"
+- "Set up a video call with the buyer for Friday at 3pm with Google Meet"
+- "Create meeting with seller next Tuesday at 3pm"
+- "What's on my calendar today?"
+- "Check if Saturday at 2pm works"
+- "When's a good time for a 1-hour meeting?"
+- "Analyze my schedule this week"
+- "Optimize my schedule with AI"
+- "When's the best time for a closing?"
+- "Predict success for Monday morning meeting"
+- "Get calendar intelligence report"
+
 ### 🧠 NEW: AI Intelligence Layer (Phases 1-3 Complete)
 
 **Phase 1: Predictive Intelligence (Quick Wins)**
@@ -1839,13 +1966,44 @@ Voice examples:
 **Intelligence Layer Summary:**
 - **9 New Services** spanning predictive, learning, market, relationship, campaign, negotiation, document, competition, and sequencing intelligence
 - **23 New MCP Tools** bringing total from 106 to **129 tools**
+- **15 Calendar Tools** (8 basic + 3 smart + 4 AI optimization) bringing total to **144 tools**
+- **6 Web Scraper Tools** bringing total to **150 tools**
+- **4 Q&A Call Tools** bringing total to **154 tools**
 - **30 New API Endpoints** across 4 new routers
 - **3 New Database Tables** for outcome tracking and learning
 - **~4,000+ Lines of Code** in production-ready services
 
-**Total MCP Tools: 129** (up from 106)
+**Total MCP Tools: 154** (129 intelligence + 15 calendar with AI optimization + 6 web scraper + 4 Q&A calls)
 
 ---
+
+### 📞 NEW: Q&A Phone Call Integration
+
+**AI-powered phone calls for information gathering:**
+- **Two Voice Providers** - Choose between VAPI AI or Telnyx for calls
+- **VAPI Features** - Natural AI conversations with GPT-4 powered dialogue
+- **Telnyx Features** - Answering machine detection, call recording, direct API control
+- **Property Context** - Automatically includes property details in call scripts
+- **Transcript Retrieval** - Get full transcripts with AI-extracted key information
+- **Scheduled Calls** - Set up calls for specific times with task integration
+- **Batch Calling** - Call multiple contacts simultaneously for bulk information gathering
+- **Status Tracking** - Monitor call progress (in_progress, completed, failed, no_answer)
+- **Contact Lookup** - Auto-fetch phone numbers from contact ID
+
+**4 New MCP Tools:**
+- `qa_call` - Make automated phone call to ask questions and get answers (supports both VAPI and Telnyx)
+- `get_call_status` - Check call status and get transcript with AI-extracted answers
+- `schedule_qa_call` - Schedule a Q&A call for a specific time
+- `batch_qa_calls` - Make Q&A calls to multiple contacts at once
+
+Voice examples:
+- "Call the seller at 555-1234 and ask if they're flexible on price"
+- "Phone the buyer using Telnyx and ask their preferred move-in date"
+- "Call the inspector with VAPI and ask about any issues with the foundation"
+- "What's the status of call 12345?"
+- "Schedule a call to the seller tomorrow at 10am"
+- "Call all parties for property 5 and ask about availability"
+- "Phone the buyer and seller to confirm closing time"
 
 ### Previous Updates
 

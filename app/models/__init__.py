@@ -1,6 +1,8 @@
 from app.models.agent import Agent
 from app.models.agent_brand import AgentBrand
 from app.models.property import Property
+# Customer Portal
+from app.models.portal_user import PortalUser, PropertyAccess, PortalActivity
 from app.models.skip_trace import SkipTrace
 from app.models.contact import Contact
 from app.models.todo import Todo
@@ -48,5 +50,7 @@ from app.models.timeline_project import TimelineProject
 from app.models.workspace import Workspace, WorkspaceAPIKey, CommandPermission, API_SCOPES
 # Skills System
 from app.models.skill import Skill, AgentSkill, SkillReview
+# Calendar Integration
+from app.models.calendar_integration import CalendarConnection, SyncedCalendarEvent, CalendarEvent
 
-__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge", "VoiceCampaign", "VoiceCampaignTarget", "Offer", "OfferStatus", "FinancingType", "ConversationHistory", "PropertyNote", "NoteSource", "ScheduledTask", "TaskType", "TaskStatus", "MarketWatchlist", "DealOutcome", "OutcomeStatus", "AgentPerformanceMetrics", "PredictionLog", "PhoneNumber", "PhoneCall", "Workspace", "WorkspaceAPIKey", "CommandPermission", "API_SCOPES", "Skill", "AgentSkill", "SkillReview", "VideoGenVideo", "VideoGenAvatar", "VideoGenScriptTemplate", "VideoGenSettings", "PostizAccount", "PostizPost", "PostizCalendar", "PostizTemplate", "PostizAnalytics", "PostizCampaign", "FacebookAdCampaign", "FacebookAdSet", "FacebookAd", "FacebookAdCreative", "FacebookAudience", "FacebookAdMetrics", "RenderJob", "TimelineProject"]
+__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge", "VoiceCampaign", "VoiceCampaignTarget", "Offer", "OfferStatus", "FinancingType", "ConversationHistory", "PropertyNote", "NoteSource", "ScheduledTask", "TaskType", "TaskStatus", "MarketWatchlist", "DealOutcome", "OutcomeStatus", "AgentPerformanceMetrics", "PredictionLog", "PhoneNumber", "PhoneCall", "Workspace", "WorkspaceAPIKey", "CommandPermission", "API_SCOPES", "Skill", "AgentSkill", "SkillReview", "VideoGenVideo", "VideoGenAvatar", "VideoGenScriptTemplate", "VideoGenSettings", "PostizAccount", "PostizPost", "PostizCalendar", "PostizTemplate", "PostizAnalytics", "PostizCampaign", "FacebookAdCampaign", "FacebookAdSet", "FacebookAd", "FacebookAdCreative", "FacebookAudience", "FacebookAdMetrics", "RenderJob", "TimelineProject", "PortalUser", "PropertyAccess", "PortalActivity", "AgentBrand", "CalendarConnection", "SyncedCalendarEvent", "CalendarEvent"]

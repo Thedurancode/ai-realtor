@@ -35,5 +35,15 @@ from . import intelligence  # noqa: F401
 from . import postiz  # noqa: F401
 # VideoGen AI avatar videos
 from . import videogen  # noqa: F401
+# Calendar integration
+from . import calendar  # noqa: F401
+# Smart calendar analysis
+from . import calendar_smart  # noqa: F401
+# AI-powered calendar optimization
+from . import calendar_ai  # noqa: F401
+# Q&A phone calls
+from . import calls  # noqa: F401
+# Call history
+from . import call_history  # noqa: F401
 # Web scraper tools - TODO: Fix import issues
 # from . import web_scraper  # noqa: F401

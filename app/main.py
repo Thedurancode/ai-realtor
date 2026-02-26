@@ -19,7 +19,11 @@ from app.auth import verify_api_key
 from app.models.phone_number import PhoneNumber
 from app.models.phone_call import PhoneCall
 
-from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router, web_scraper, approval_router, credential_scrubbing_router, observer_router, agent_brand_router, facebook_ads_router, postiz_router, videogen_router, sqlite_tuning_router, skills_router, setup_router, campaigns_router, document_analysis_router, zuckerbot_router, facebook_targeting_router, composio_router, renders_router
+from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router, web_scraper, approval_router, credential_scrubbing_router, observer_router, agent_brand_router, facebook_ads_router, postiz_router, videogen_router, sqlite_tuning_router, skills_router, setup_router, campaigns_router, document_analysis_router, zuckerbot_router, facebook_targeting_router, composio_router, renders_router, telnyx
+# NEW: Customer Portal and Document Extraction
+from app.routers import portal, document_extraction
+# Calendar Integration
+from app.routers import calendar
 # Property Videos with Voiceover
 from app.routers import property_videos
 # Temporarily disabled: timeline_router (import errors)
@@ -202,6 +206,14 @@ app.include_router(renders_router)
 app.include_router(property_videos.router)
 # Timeline Video Editor (temporarily disabled)
 # app.include_router(timeline_router)
+# NEW: Customer Portal
+app.include_router(portal.router)
+# NEW: Document AI Extraction
+app.include_router(document_extraction.router)
+# NEW: Calendar Integration
+app.include_router(calendar.router)
+# NEW: Telnyx Voice Integration
+app.include_router(telnyx.router)
 
 # Mount static files for timeline editor
 if os.path.exists("static"):
