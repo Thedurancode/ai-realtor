@@ -2,6 +2,7 @@ import { Composition, registerRoot } from "remotion";
 import { CaptionedReel } from "./CaptionedReel";
 import { Slideshow } from "./Slideshow";
 import { TimelineEditor } from "./TimelineEditor";
+import { PropertyShowcase } from "./PropertyShowcase";
 
 export const RemotionVideo: React.FC = () => {
   return (
@@ -50,6 +51,33 @@ export const RemotionVideo: React.FC = () => {
           fps: 30,
           width: 1080,
           height: 1920
+        }}
+      />
+      <Composition
+        id="PropertyShowcase"
+        component={PropertyShowcase}
+        durationInFrames={900} // 30 seconds default, will be calculated based on photos
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          logoUrl: "",
+          companyName: "Your Real Estate Experts",
+          tagline: "Finding Your Dream Home",
+          primaryColor: "#1E40AF",
+          secondaryColor: "#3B82F6",
+          propertyAddress: "123 Main St",
+          propertyPrice: "$500,000",
+          propertyDetails: {
+            bedrooms: 3,
+            bathrooms: 2,
+            squareFeet: 2000,
+            propertyType: "House"
+          },
+          propertyPhotos: [],
+          audioUrl: "",
+          logoDuration: 90,
+          photoDuration: 120
         }}
       />
     </>

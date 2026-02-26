@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Video Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .panel-title {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="url"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        input[type="color"] {
+            width: 100px;
+            height: 40px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .range-value {
+            display: inline-block;
+            margin-left: 10px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .photo-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .photo-item {
+            position: relative;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .photo-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+
+        .photo-item input {
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .remove-photo {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #f5576c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .timeline-preview {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .timeline {
+            position: relative;
+            height: 80px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .timeline-track {
+            display: flex;
+            height: 100%;
+        }
+
+        .timeline-segment {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.85em;
+            padding: 5px;
+            transition: all 0.3s;
+        }
+
+        .segment-logo {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .segment-transition {
+            background: #333;
+        }
+
+        .segment-photo {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .duration-display {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .duration-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .duration-item:last-child {
+            border-bottom: none;
+        }
+
+        .export-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .json-output {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .preview-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            margin-top: 15px;
+        }
+
+        .color-preview {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .color-sample {
+            width: 50px;
+            height: 30px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        @media (max-width: 1200px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Property Video Editor</h1>
+        <p style="text-align: center; color: #666;">Customize your property showcase video in real-time</p>
+
+        <div class="timeline-preview">
+            <h3 style="margin-bottom: 15px; color: #333;">📊 Live Timeline Preview</h3>
+            <div class="timeline" id="timeline">
+                <div class="timeline-track" id="timelineTrack">
+                    <!-- Dynamic timeline -->
+                </div>
+            </div>
+            <div class="duration-display">
+                <h4 style="margin-bottom: 10px; color: #555;">⏱️ Duration Breakdown</h4>
+                <div id="durationBreakdown">
+                    <!-- Dynamic durations -->
+                </div>
+            </div>
+        </div>
+
+        <div class="main-layout">
+            <!-- Left Panel: Settings -->
+            <div class="panel">
+                <h2 class="panel-title">⚙️ Timeline Settings</h2>
+
+                <div class="form-group">
+                    <label>Logo Intro Duration: <span class="range-value" id="logoDurationValue">3.0s</span></label>
+                    <input type="range" id="logoDuration" min="1" max="10" value="3" step="0.5">
+                </div>
+
+                <div class="form-group">
+                    <label>Photo Duration: <span class="range-value" id="photoDurationValue">4.0s</span></label>
+                    <input type="range" id="photoDuration" min="2" max="10" value="4" step="0.5">
+                </div>
+
+                <div class="form-group">
+                    <label>Transition After Logo: <span class="range-value" id="transitionValue">1.0s</span></label>
+                    <input type="range" id="transition" min="0.5" max="2" value="1" step="0.5">
+                </div>
+
+                <h2 class="panel-title" style="margin-top: 30px;">🏢 Branding</h2>
+
+                <div class="form-group">
+                    <label>Company Name</label>
+                    <input type="text" id="companyName" value="Emprezario Inc">
+                </div>
+
+                <div class="form-group">
+                    <label>Tagline</label>
+                    <input type="text" id="tagline" value="Finding Your Dream Home">
+                </div>
+
+                <div class="form-group">
+                    <label>Logo URL</label>
+                    <input type="url" id="logoUrl" placeholder="https://example.com/logo.png">
+                </div>
+
+                <div class="form-group">
+                    <label>Primary Color</label>
+                    <div class="color-preview">
+                        <input type="color" id="primaryColor" value="#B45309">
+                        <span class="color-sample" id="primaryColorSample"></span>
+                        <span style="font-size: 0.9em; color: #666;">Price badges, brand elements</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Secondary Color</label>
+                    <div class="color-preview">
+                        <input type="color" id="secondaryColor" value="#D97706">
+                        <span class="color-sample" id="secondaryColorSample"></span>
+                        <span style="font-size: 0.9em; color: #666;">Details badges, CTA</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Property Details -->
+            <div class="panel">
+                <h2 class="panel-title">🏠 Property Details</h2>
+
+                <div class="form-group">
+                    <label>Property Address</label>
+                    <input type="text" id="propertyAddress" value="123 Main St, New York, NY">
+                </div>
+
+                <div class="form-group">
+                    <label>Price</label>
+                    <input type="text" id="propertyPrice" value="$500,000">
+                </div>
+
+                <div class="form-group">
+                    <label>Bedrooms</label>
+                    <input type="number" id="bedrooms" value="3" min="0" max="20">
+                </div>
+
+                <div class="form-group">
+                    <label>Bathrooms</label>
+                    <input type="number" id="bathrooms" value="2" min="0" max="20" step="0.5">
+                </div>
+
+                <div class="form-group">
+                    <label>Square Feet</label>
+                    <input type="number" id="squareFeet" value="2000" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Property Type</label>
+                    <select id="propertyType">
+                        <option value="House">House</option>
+                        <option value="Condo">Condo</option>
+                        <option value="Townhouse">Townhouse</option>
+                        <option value="Apartment">Apartment</option>
+                        <option value="Land">Land</option>
+                        <option value="Commercial">Commercial</option>
+                    </select>
+                </div>
+
+                <h2 class="panel-title" style="margin-top: 30px;">📸 Property Photos</h2>
+                <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Add up to 10 property photos</p>
+
+                <button class="btn btn-secondary" onclick="addPhoto()">+ Add Photo URL</button>
+
+                <div class="photo-list" id="photoList">
+                    <!-- Dynamic photos -->
+                </div>
+
+                <div class="export-section">
+                    <h3 style="margin-bottom: 15px;">📤 Export Configuration</h3>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="exportJSON()">Copy JSON</button>
+                        <button class="btn btn-success" onclick="exportPython()">Python Code</button>
+                        <button class="btn btn-secondary" onclick="saveConfig()">Save Config</button>
+                    </div>
+                    <div class="json-output" id="jsonOutput">
+                        <!-- JSON output -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let state = {
+            logoDuration: 3,
+            photoDuration: 4,
+            transition: 1,
+            companyName: 'Emprezario Inc',
+            tagline: 'Finding Your Dream Home',
+            logoUrl: '',
+            primaryColor: '#B45309',
+            secondaryColor: '#D97706',
+            propertyAddress: '123 Main St, New York, NY',
+            propertyPrice: '$500,000',
+            bedrooms: 3,
+            bathrooms: 2,
+            squareFeet: 2000,
+            propertyType: 'House',
+            photos: [
+                'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1080',
+                'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=1080',
+                'https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=1080'
+            ]
+        };
+
+        const fps = 30;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeInputs();
+            renderPhotos();
+            updateTimeline();
+            updateColorSamples();
+        });
+
+        function initializeInputs() {
+            // Duration sliders
+            document.getElementById('logoDuration').addEventListener('input', function() {
+                state.logoDuration = parseFloat(this.value);
+                document.getElementById('logoDurationValue').textContent = state.logoDuration.toFixed(1) + 's';
+                updateTimeline();
+            });
+
+            document.getElementById('photoDuration').addEventListener('input', function() {
+                state.photoDuration = parseFloat(this.value);
+                document.getElementById('photoDurationValue').textContent = state.photoDuration.toFixed(1) + 's';
+                updateTimeline();
+            });
+
+            document.getElementById('transition').addEventListener('input', function() {
+                state.transition = parseFloat(this.value);
+                document.getElementById('transitionValue').textContent = state.transition.toFixed(1) + 's';
+                updateTimeline();
+            });
+
+            // Branding
+            document.getElementById('companyName').addEventListener('input', function() {
+                state.companyName = this.value;
+                updateJSONOutput();
+            });
+
+            document.getElementById('tagline').addEventListener('input', function() {
+                state.tagline = this.value;
+                updateJSONOutput();
+            });
+
+            document.getElementById('logoUrl').addEventListener('input', function() {
+                state.logoUrl = this.value;
+                updateJSONOutput();
+            });
+
+            document.getElementById('primaryColor').addEventListener('input', function() {
+                state.primaryColor = this.value;
+                updateColorSamples();
+                updateJSONOutput();
+            });
+
+            document.getElementById('secondaryColor').addEventListener('input', function() {
+                state.secondaryColor = this.value;
+                updateColorSamples();
+                updateJSONOutput();
+            });
+
+            // Property details
+            const propertyFields = ['propertyAddress', 'propertyPrice', 'bedrooms', 'bathrooms', 'squareFeet', 'propertyType'];
+            propertyFields.forEach(field => {
+                document.getElementById(field).addEventListener('input', function() {
+                    state[field] = this.value;
+                    updateJSONOutput();
+                });
+            });
+        }
+
+        function updateColorSamples() {
+            document.getElementById('primaryColorSample').style.backgroundColor = state.primaryColor;
+            document.getElementById('secondaryColorSample').style.backgroundColor = state.secondaryColor;
+        }
+
+        function renderPhotos() {
+            const photoList = document.getElementById('photoList');
+            photoList.innerHTML = '';
+
+            state.photos.forEach((photo, index) => {
+                const div = document.createElement('div');
+                div.className = 'photo-item';
+                div.innerHTML = `
+                    <button class="remove-photo" onclick="removePhoto(${index})">×</button>
+                    <img src="${photo}" alt="Property photo ${index + 1}" onerror="this.src='https://via.placeholder.com/200x120?text=Photo+${index+1}'">
+                    <input type="text" value="${photo}" onchange="updatePhoto(${index}, this.value)">
+                `;
+                photoList.appendChild(div);
+            });
+
+            if (state.photos.length < 10) {
+                document.querySelector('.btn-secondary').style.display = 'inline-block';
+            } else {
+                document.querySelector('.btn-secondary').style.display = 'none';
+            }
+
+            updateTimeline();
+            updateJSONOutput();
+        }
+
+        function addPhoto() {
+            if (state.photos.length >= 10) {
+                alert('Maximum 10 photos allowed');
+                return;
+            }
+            state.photos.push('https://via.placeholder.com/1080x1920?text=Photo+' + (state.photos.length + 1));
+            renderPhotos();
+        }
+
+        function removePhoto(index) {
+            state.photos.splice(index, 1);
+            renderPhotos();
+        }
+
+        function updatePhoto(index, value) {
+            state.photos[index] = value;
+            updateJSONOutput();
+        }
+
+        function updateTimeline() {
+            const track = document.getElementById('timelineTrack');
+            const breakdown = document.getElementById('durationBreakdown');
+
+            // Calculate durations in frames
+            const logoFrames = Math.round(state.logoDuration * fps);
+            const transitionFrames = Math.round(state.transition * fps);
+            const photoFrames = Math.round(state.photoDuration * fps);
+            const totalFrames = logoFrames + transitionFrames + (state.photos.length * photoFrames);
+            const totalSeconds = totalFrames / fps;
+
+            // Calculate percentages
+            const logoPercent = (logoFrames / totalFrames) * 100;
+            const transitionPercent = (transitionFrames / totalFrames) * 100;
+            const photoPercent = (photoFrames / totalFrames) * 100;
+
+            // Build timeline HTML
+            let html = `
+                <div class="timeline-segment segment-logo" style="width: ${logoPercent}%">
+                    <div>🏢 Logo Intro</div>
+                    <div style="font-size: 0.8em">${state.logoDuration.toFixed(1)}s</div>
+                </div>
+                <div class="timeline-segment segment-transition" style="width: ${transitionPercent}%">
+                    <div>⚡</div>
+                    <div style="font-size: 0.8em">${state.transition.toFixed(1)}s</div>
+                </div>
+            `;
+
+            state.photos.forEach((photo, i) => {
+                html += `
+                    <div class="timeline-segment segment-photo" style="width: ${photoPercent}%">
+                        <div>📸 Photo ${i + 1}</div>
+                        <div style="font-size: 0.8em">${state.photoDuration.toFixed(1)}s</div>
+                    </div>
+                `;
+            });
+
+            track.innerHTML = html;
+
+            // Duration breakdown
+            breakdown.innerHTML = `
+                <div class="duration-item">
+                    <span>Logo Intro:</span>
+                    <strong>${state.logoDuration.toFixed(1)}s (${logoFrames} frames)</strong>
+                </div>
+                <div class="duration-item">
+                    <span>Transition:</span>
+                    <strong>${state.transition.toFixed(1)}s (${transitionFrames} frames)</strong>
+                </div>
+                <div class="duration-item">
+                    <span>Photos (${state.photos.length} × ${state.photoDuration.toFixed(1)}s):</span>
+                    <strong>${(state.photos.length * state.photoDuration).toFixed(1)}s (${state.photos.length * photoFrames} frames)</strong>
+                </div>
+                <div class="duration-item" style="border-top: 2px solid #667eea; margin-top: 10px; padding-top: 10px;">
+                    <span style="font-size: 1.1em; color: #667eea;">TOTAL DURATION:</span>
+                    <strong style="font-size: 1.2em; color: #667eea;">${totalSeconds.toFixed(1)}s (${totalFrames} frames)</strong>
+                </div>
+            `;
+
+            updateJSONOutput();
+        }
+
+        function updateJSONOutput() {
+            const jsonOutput = document.getElementById('jsonOutput');
+
+            const config = {
+                logoUrl: state.logoUrl || null,
+                companyName: state.companyName,
+                tagline: state.tagline,
+                primaryColor: state.primaryColor,
+                secondaryColor: state.secondaryColor,
+                propertyAddress: state.propertyAddress,
+                propertyPrice: state.propertyPrice,
+                propertyDetails: {
+                    bedrooms: parseInt(state.bedrooms),
+                    bathrooms: parseFloat(state.bathrooms),
+                    squareFeet: parseInt(state.squareFeet),
+                    propertyType: state.propertyType
+                },
+                propertyPhotos: state.photos,
+                audioUrl: "",
+                logoDuration: Math.round(state.logoDuration * fps),
+                photoDuration: Math.round(state.photoDuration * fps)
+            };
+
+            jsonOutput.textContent = JSON.stringify(config, null, 2);
+        }
+
+        function exportJSON() {
+            updateJSONOutput();
+            const jsonText = document.getElementById('jsonOutput').textContent;
+            navigator.clipboard.writeText(jsonText).then(() => {
+                alert('✅ JSON copied to clipboard!\n\nYou can now paste this into your API call or Python script.');
+            });
+        }
+
+        function exportPython() {
+            const code = `
+# Property Video Configuration
+config = {
+    "logoUrl": "${state.logoUrl || ''}",
+    "companyName": "${state.companyName}",
+    "tagline": "${state.tagline}",
+    "primaryColor": "${state.primaryColor}",
+    "secondaryColor": "${state.secondaryColor}",
+    "propertyAddress": "${state.propertyAddress}",
+    "propertyPrice": "${state.propertyPrice}",
+    "propertyDetails": {
+        "bedrooms": ${state.bedrooms},
+        "bathrooms": ${state.bathrooms},
+        "squareFeet": ${state.squareFeet},
+        "propertyType": "${state.propertyType}"
+    },
+    "propertyPhotos": ${JSON.stringify(state.photos, indent=8)},
+    "logoDuration": ${Math.round(state.logoDuration * fps)},
+    "photoDuration": ${Math.round(state.photoDuration * fps)}
+}
+
+# API Call
+import requests
+
+response = requests.post(
+    "http://localhost:8000/v1/property-videos/generate",
+    headers={"x-api-key": "YOUR_API_KEY"},
+    json={
+        "property_id": 3,
+        "agent_id": 5,
+        **config  # Add configuration here
+    }
+)
+
+video = response.json()
+print(f"Video: {video['video_path']}")
+`;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('✅ Python code copied to clipboard!');
+            });
+        }
+
+        function saveConfig() {
+            const config = {
+                logoUrl: state.logoUrl,
+                companyName: state.companyName,
+                tagline: state.tagline,
+                primaryColor: state.primaryColor,
+                secondaryColor: state.secondaryColor,
+                propertyAddress: state.propertyAddress,
+                propertyPrice: state.propertyPrice,
+                bedrooms: state.bedrooms,
+                bathrooms: state.bathrooms,
+                squareFeet: state.squareFeet,
+                propertyType: state.propertyType,
+                photos: state.photos,
+                logoDuration: state.logoDuration,
+                photoDuration: state.photoDuration,
+                transition: state.transition
+            };
+
+            const blob = new Blob([JSON.stringify(config, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'property-video-config.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
