@@ -12,7 +12,13 @@ from app.database import engine, Base, SessionLocal
 from app.config import settings
 from app.rate_limit import limiter
 from app.auth import verify_api_key
-from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router, web_scraper, approval_router, credential_scrubbing_router, observer_router, agent_brand_router, facebook_ads_router, postiz_router, sqlite_tuning_router, skills_router, setup_router
+
+# Import phone models FIRST to avoid circular dependency
+from app.models.phone_number import PhoneNumber
+from app.models.phone_call import PhoneCall
+
+from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router, web_scraper, approval_router, credential_scrubbing_router, observer_router, agent_brand_router, facebook_ads_router, postiz_router, videogen_router, sqlite_tuning_router, skills_router, setup_router, campaigns_router, document_analysis_router, zuckerbot_router
+# Temporarily disabled: voice_assistant
 # New intelligence routers
 from app.routers import predictive_intelligence, market_opportunities, relationship_intelligence, intelligence
 # ZeroClaw-inspired features
@@ -166,12 +172,22 @@ app.include_router(agent_brand_router)
 app.include_router(facebook_ads_router)
 # Postiz Social Media Marketing
 app.include_router(postiz_router)
+# VideoGen AI Avatar Videos
+app.include_router(videogen_router)
 # SQLite Tuning
 app.include_router(sqlite_tuning_router)
 # Skills System
 app.include_router(skills_router)
 # Setup Wizard (no authentication required)
 app.include_router(setup_router)
+# Voice Assistant (Inbound Calling) - Temporarily disabled
+# app.include_router(voice_assistant.router)
+# Email/Text Campaigns
+app.include_router(campaigns_router)
+# Document Analysis AI
+app.include_router(document_analysis_router)
+# Zuckerbot AI Facebook Ads
+app.include_router(zuckerbot_router)
 
 
 # WebSocket connection manager
@@ -283,6 +299,7 @@ def health_check():
 async def startup_event():
     """Initialize background services on startup."""
     import logging
+    from app.models.scheduled_task import ScheduledTask
 
     logger = logging.getLogger(__name__)
     logger.info("Starting AI Realtor Platform...")

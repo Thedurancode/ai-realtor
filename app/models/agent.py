@@ -23,3 +23,6 @@ class Agent(Base):
     installed_skills = relationship("AgentSkill", back_populates="agent")
     workspace = relationship("Workspace", back_populates="agents")
     brand = relationship("AgentBrand", back_populates="agent", uselist=False)
+    # Temporarily commented to fix circular import
+    # phone_numbers = relationship("PhoneNumber", back_populates="agent")
+    # phone_calls = relationship("PhoneCall", back_populates="agent")
