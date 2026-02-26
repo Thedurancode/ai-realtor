@@ -1,5 +1,5 @@
 """Telnyx Voice API - Direct telephony integration."""
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -9,7 +9,7 @@ import logging
 from app.database import get_db
 from app.services.telnyx_service import get_telnyx_service
 from app.models import Agent, ScheduledTask, PhoneCall, Property
-from app.auth import get_current_agent
+from app.auth import get_current_agent, verify_telnyx_webhook_request
 
 logger = logging.getLogger(__name__)
 
@@ -302,8 +302,9 @@ async def list_telnyx_phone_numbers(
 
 @router.post("/webhook")
 async def telnyx_webhook(
-    payload: dict,
+    request: Request,
     background_tasks: BackgroundTasks,
+    is_verified: bool = Depends(verify_telnyx_webhook_request),
     db: Session = Depends(get_db),
 ):
     """
@@ -318,9 +319,11 @@ async def telnyx_webhook(
 
     Automatically updates PhoneCall records and stores recordings.
 
-    NOTE: This endpoint does not require authentication as it's called by Telnyx.
-    Webhook signature verification should be implemented for production security.
+    SECURITY: This endpoint verifies Telnyx webhook signatures to ensure
+    requests are genuinely from Telnyx. Set TELNYX_WEBHOOK_SECRET environment variable.
     """
+    # Parse JSON payload
+    payload = await request.json()
     event_type = payload.get("event_type", "unknown")
     call_data = payload.get("data", {})
     call_control_id = call_data.get("call_control_id")

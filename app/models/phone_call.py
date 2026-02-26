@@ -1,6 +1,6 @@
 """Phone call model for inbound/outbound voice interactions."""
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Float, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Float, Boolean, Index
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -11,8 +11,12 @@ class PhoneCall(Base):
 
     __tablename__ = "phone_calls"
 
+    # Primary key
     id = Column(Integer, primary_key=True, index=True)
+
+    # Foreign keys
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=True)
 
     # Call details
     direction = Column(String, nullable=False)  # 'inbound' or 'outbound'
@@ -25,7 +29,7 @@ class PhoneCall(Base):
     vapi_phone_number_id = Column(String, nullable=True)  # VAPI phone number ID
 
     # Call status
-    status = Column(String, nullable=False, default="initiated")  # initiated, in_progress, completed, failed, no_answer, busy
+    status = Column(String, nullable=False, default="initiated", index=True)  # For filtering by status
     duration_seconds = Column(Integer, nullable=True)  # Call duration
     cost = Column(Float, nullable=True)  # Call cost in USD
 
@@ -33,7 +37,6 @@ class PhoneCall(Base):
     transcription = Column(Text, nullable=True)  # Full call transcript
     summary = Column(Text, nullable=True)  # AI-generated summary
     intent = Column(String, nullable=True)  # Detected intent: property_inquiry, schedule_viewing, offer, speak_agent, general
-    property_id = Column(Integer, ForeignKey("properties.id"), nullable=True)  # Property discussed
     confidence_score = Column(Float, nullable=True)  # AI confidence in intent (0-1)
 
     # Outcome
@@ -48,13 +51,23 @@ class PhoneCall(Base):
     recording_transcribed = Column(Boolean, default=False)  # Was transcription processed?
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     started_at = Column(DateTime, nullable=True)
     ended_at = Column(DateTime, nullable=True)
 
     # Relationships
     # agent = relationship("Agent", back_populates="phone_calls")  # Temporarily disabled
     property = relationship("Property", back_populates="phone_calls")
+
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        # For property call history (most recent first)
+        Index('idx_phonecall_property_created', 'property_id', 'created_at'),
+        # For agent's calls (most recent first)
+        Index('idx_phonecall_agent_created', 'agent_id', 'created_at'),
+        # For provider + status lookups (e.g., all completed Telnyx calls)
+        Index('idx_phonecall_provider_status', 'provider', 'status'),
+    )
 
     def __repr__(self):
         return f"<PhoneCall(id={self.id}, direction={self.direction}, status={self.status}, phone={self.phone_number})>"

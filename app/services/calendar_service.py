@@ -5,6 +5,7 @@ Handles OAuth flow and calendar sync operations.
 """
 import os
 import httpx
+import logging
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
@@ -12,6 +13,8 @@ from sqlalchemy.orm import Session
 from app.models.calendar_integration import CalendarConnection, SyncedCalendarEvent, CalendarEvent
 from app.models.scheduled_task import ScheduledTask
 from app.models.property import Property
+
+logger = logging.getLogger(__name__)
 
 
 class GoogleCalendarService:
@@ -106,13 +109,88 @@ class GoogleCalendarService:
             "grant_type": "refresh_token",
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 GoogleCalendarService.TOKEN_URL,
                 data=data
             )
             response.raise_for_status()
             return response.json()
+
+    @staticmethod
+    def is_token_expired(connection: CalendarConnection, buffer_minutes: int = 5) -> bool:
+        """
+        Check if a calendar connection's access token is expired or will expire soon.
+
+        Args:
+            connection: Calendar connection with token_expires_at field
+            buffer_minutes: Buffer time in minutes to refresh token before actual expiry
+
+        Returns:
+            True if token is expired or will expire within buffer time
+        """
+        if not connection.token_expires_at:
+            return True  # No expiry info, assume expired
+
+        now = datetime.utcnow()
+        expiry_time = connection.token_expires_at - timedelta(minutes=buffer_minutes)
+        return now >= expiry_time
+
+    @staticmethod
+    async def get_valid_access_token(db: Session, connection: CalendarConnection) -> str:
+        """
+        Get a valid access token, refreshing if necessary.
+
+        This helper method checks if the token is expired and automatically refreshes it.
+        Updates the CalendarConnection record in the database with the new token.
+
+        Args:
+            db: Database session
+            connection: Calendar connection with tokens
+
+        Returns:
+            Valid access token
+
+        Raises:
+            ValueError: If refresh fails (no refresh token available)
+        """
+        # Check if token is still valid
+        if not GoogleCalendarService.is_token_expired(connection):
+            return connection.access_token
+
+        # Token is expired, need to refresh
+        if not connection.refresh_token:
+            logger.error(f"Calendar connection {connection.id} has no refresh token")
+            raise ValueError(
+                "Calendar access token expired and no refresh token available. "
+                "Please re-connect your calendar."
+            )
+
+        try:
+            logger.info(f"Refreshing access token for calendar connection {connection.id}")
+            token_data = await GoogleCalendarService.refresh_access_token(connection.refresh_token)
+
+            # Update connection with new tokens
+            connection.access_token = token_data.get("access_token")
+            connection.token_expires_at = datetime.utcnow() + timedelta(
+                seconds=token_data.get("expires_in", 3600)
+            )
+
+            # Google sometimes returns a new refresh token
+            if "refresh_token" in token_data:
+                connection.refresh_token = token_data["refresh_token"]
+
+            db.commit()
+            logger.info(f"Successfully refreshed token for calendar connection {connection.id}")
+
+            return connection.access_token
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Failed to refresh token for calendar connection {connection.id}: {e}")
+            raise ValueError(f"Failed to refresh calendar token: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error refreshing token for calendar connection {connection.id}: {e}")
+            raise ValueError(f"Failed to refresh calendar token: {str(e)}")
 
     @staticmethod
     def get_calendar_list_url() -> str:
@@ -300,6 +378,9 @@ class CalendarSyncService:
         if not connection.sync_tasks or not connection.sync_enabled:
             return None
 
+        # Get valid access token (auto-refreshes if expired)
+        access_token = await GoogleCalendarService.get_valid_access_token(self.db, connection)
+
         # Check if already synced
         existing = self.db.query(SyncedCalendarEvent).filter(
             SyncedCalendarEvent.source_type == "scheduled_task",
@@ -329,7 +410,7 @@ class CalendarSyncService:
         if existing:
             # Update existing event
             await GoogleCalendarService.update_event(
-                access_token=connection.access_token,
+                access_token=access_token,
                 calendar_id=connection.calendar_id or "primary",
                 event_id=existing.external_event_id,
                 title=title,
@@ -347,7 +428,7 @@ class CalendarSyncService:
         else:
             # Create new event
             event = await GoogleCalendarService.create_event(
-                access_token=connection.access_token,
+                access_token=access_token,
                 calendar_id=connection.calendar_id or "primary",
                 title=title,
                 description=description,
@@ -396,6 +477,9 @@ class CalendarSyncService:
         if not connection.sync_appointments or not connection.sync_enabled:
             return None
 
+        # Get valid access token (auto-refreshes if expired)
+        access_token = await GoogleCalendarService.get_valid_access_token(self.db, connection)
+
         # Build description
         description = event.description or ""
         if event.property_id:
@@ -409,7 +493,7 @@ class CalendarSyncService:
         if event.external_event_id:
             # Update existing
             await GoogleCalendarService.update_event(
-                access_token=connection.access_token,
+                access_token=access_token,
                 calendar_id=connection.calendar_id or "primary",
                 event_id=event.external_event_id,
                 title=event.title,
@@ -421,7 +505,7 @@ class CalendarSyncService:
         else:
             # Create new with optional Google Meet
             google_event = await GoogleCalendarService.create_event(
-                access_token=connection.access_token,
+                access_token=access_token,
                 calendar_id=connection.calendar_id or "primary",
                 title=event.title,
                 description=description,
