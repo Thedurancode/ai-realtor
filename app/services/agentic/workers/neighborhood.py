@@ -132,7 +132,7 @@ async def worker_neighborhood_intel(
 {snippets_text}
 
 Write the analysis as prose paragraphs, not bullet points. Focus on what matters for a real estate investor.""",
-                model="claude-sonnet-4-5-20250929",
+                model="claude-3-5-sonnet-20241022",
                 max_tokens=600,
             )
             cost_usd = 0.01  # Approximate Sonnet cost

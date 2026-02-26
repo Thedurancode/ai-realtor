@@ -21,14 +21,16 @@ from app.database import get_db
 from app.models.agent import Agent
 from app.models.property import Property
 from app.models.agent_brand import AgentBrand
+from app.models.zillow_enrichment import ZillowEnrichment
 from app.models.postiz import (
     PostizAccount, PostizPost, PostizCalendar,
     PostizTemplate, PostizAnalytics, PostizCampaign
 )
+from app.services.postiz_service import PostizService, create_property_post
 from pydantic import BaseModel, Field
 from typing import Dict as DictType, List as ListType
 
-router = APIRouter(prefix="/postiz", tags=["Postiz Social Media"])
+router = APIRouter(prefix="/social", tags=["Social Media Management"])
 
 
 # ============================================================================
@@ -817,8 +819,460 @@ def get_content_calendar(
 
 
 # ============================================================================
+# Real Postiz API Integration
+# ============================================================================
+
+class MediaUploadRequest(BaseModel):
+    """Upload media to Postiz"""
+    image_url: Optional[str] = None
+    # file upload handled separately
+
+
+class PreviewPostRequest(BaseModel):
+    """Preview post without publishing"""
+    caption: str
+    platforms: ListType[str]
+    media_urls: Optional[ListType[str]] = None
+    hashtags: Optional[ListType[str]] = None
+    property_id: Optional[int] = None
+
+
+class DirectPostRequest(BaseModel):
+    """Create and publish post directly to Postiz API"""
+    caption: str
+    platforms: ListType[str]  # facebook, instagram, twitter, linkedin, tiktok, etc.
+    media_urls: Optional[ListType[str]] = None
+    hashtags: Optional[ListType[str]] = None
+    scheduled_at: Optional[str] = None  # ISO datetime
+    publish_immediately: bool = True
+    property_id: Optional[int] = None
+
+
+@router.post("/api/preview")
+async def preview_post(
+    request: PreviewPostRequest,
+    agent_id: int,
+    db: Session = Depends(get_db)
+):
+    """Preview post without publishing
+
+    Returns a preview of how the post will look on each platform
+    with character counts, warnings, and platform-specific optimizations.
+    """
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # Get property if specified
+    property = None
+    if request.property_id:
+        property = db.query(Property).filter(Property.id == request.property_id).first()
+
+    # Get brand
+    brand = db.query(AgentBrand).filter(AgentBrand.agent_id == agent_id).first()
+
+    # Generate platform-specific previews
+    previews = []
+
+    for platform in request.platforms:
+        # Get platform-specific content
+        platform_caption = request.caption
+        platform_hashtags = request.hashtags or []
+
+        # Platform character limits
+        char_limits = {
+            "twitter": 280,
+            "facebook": 63206,
+            "instagram": 2200,
+            "linkedin": 3000,
+            "tiktok": 150,
+            "youtube": 5000
+        }
+
+        char_limit = char_limits.get(platform, 2200)
+        total_length = len(platform_caption) + len(" ".join(platform_hashtags))
+
+        # Warnings
+        warnings = []
+        if total_length > char_limit:
+            warnings.append(f"⚠️ Exceeds {char_limit} character limit by {total_length - char_limit} chars")
+        if platform == "twitter" and len(platform_hashtags) > 3:
+            warnings.append("⚠️ Twitter recommends max 3 hashtags")
+        if platform == "instagram" and not request.media_urls:
+            warnings.append("⚠️ Instagram posts perform better with images")
+        if platform == "linkedin" and len(platform_caption) < 100:
+            warnings.append("⚠️ LinkedIn posts typically perform better with 100+ characters")
+
+        # Build preview data
+        preview = {
+            "platform": platform,
+            "platform_display": _get_platform_display_name(platform),
+            "caption": platform_caption,
+            "hashtags": platform_hashtags,
+            "media_count": len(request.media_urls) if request.media_urls else 0,
+            "character_limit": char_limit,
+            "character_count": total_length,
+            "character_remaining": char_limit - total_length,
+            "warnings": warnings,
+            "will_be_truncated": total_length > char_limit
+        }
+
+        # Add property info if applicable
+        if property:
+            preview["property_context"] = {
+                "address": f"{property.street_address}, {property.city}" if property.street_address else property.city,
+                "price": f"${property.price:,}" if property.price else None,
+                "beds": property.bedrooms,
+                "baths": property.bathrooms
+            }
+
+        # Add brand info if used
+        if brand:
+            preview["brand_applied"] = {
+                "company": brand.company_name,
+                "tagline": brand.tagline
+            }
+
+        previews.append(preview)
+
+    return {
+        "agent_id": agent_id,
+        "platforms": request.platforms,
+        "previews": previews,
+        "total_warnings": sum(len(p["warnings"]) for p in previews),
+        "ready_to_post": all(not p["will_be_truncated"] for p in previews),
+        "voice_summary": f"Preview generated for {len(request.platforms)} platforms. {sum(1 for p in previews if p['warnings'])} platforms have warnings."
+    }
+
+
+@router.post("/api/upload-media")
+async def upload_media_to_postiz(
+    agent_id: int,
+    file: Optional[UploadFile] = File(None),
+    image_url: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Upload media to Postiz
+
+    Uploads image or video to Postiz for use in posts.
+    Supports either file upload or URL.
+
+    Returns:
+        {
+            "id": "img-123",
+            "path": "https://uploads.postiz.com/photo.jpg"
+        }
+    """
+    service = PostizService(db)
+
+    try:
+        if file:
+            # Save uploaded file temporarily
+            import tempfile
+            import os
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file.filename.split('.')[-1]}") as tmp:
+                content = await file.read()
+                tmp.write(content)
+                tmp_path = tmp.name
+
+            result = await service.upload_media(agent_id=agent_id, file_path=tmp_path)
+
+            # Cleanup
+            os.unlink(tmp_path)
+
+            return {
+                "media_id": result.get("id"),
+                "media_url": result.get("path"),
+                "voice_summary": f"Media uploaded successfully to Postiz."
+            }
+
+        elif image_url:
+            result = await service.upload_media(agent_id=agent_id, image_url=image_url)
+
+            return {
+                "media_id": result.get("id"),
+                "media_url": result.get("path"),
+                "original_url": image_url,
+                "voice_summary": f"Media uploaded from URL to Postiz."
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Either file or image_url must be provided")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/publish")
+async def publish_post_to_postiz(
+    request: DirectPostRequest,
+    agent_id: int,
+    db: Session = Depends(get_db)
+):
+    """Create and publish post directly to Postiz API
+
+    This endpoint integrates with the real Postiz API to:
+    1. Upload media (if provided)
+    2. Create post with platform-specific content
+    3. Publish immediately or schedule
+
+    Args:
+        caption: Post caption text
+        platforms: List of platforms (facebook, instagram, twitter, linkedin, tiktok)
+        media_urls: Optional list of image URLs
+        hashtags: Optional hashtags
+        scheduled_at: Optional ISO datetime for scheduling
+        publish_immediately: True to publish now, False to schedule
+        property_id: Optional property ID for context
+
+    Returns:
+        Published post info with Postiz post ID and platform IDs
+    """
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # Get property if specified
+    property = None
+    if request.property_id:
+        property = db.query(Property).filter(Property.id == request.property_id).first()
+
+    # Get brand
+    brand = db.query(AgentBrand).filter(AgentBrand.agent_id == agent_id).first()
+
+    # Build caption with brand
+    caption = request.caption
+    if brand and brand.company_name:
+        caption = f"{caption}\n\n{brand.tagline or ''}" if brand.tagline else caption
+
+    try:
+        result = await create_property_post(
+            agent_id=agent_id,
+            db=db,
+            property=property,
+            brand=brand,
+            caption=caption,
+            platforms=request.platforms,
+            media_urls=request.media_urls,
+            scheduled_at=datetime.fromisoformat(request.scheduled_at.replace('Z', '+00:00')) if request.scheduled_at else None,
+            publish_immediately=request.publish_immediately
+        )
+
+        return {
+            "success": True,
+            "postiz_id": result.get("post", {}).get("id"),
+            "post_id": result.get("post", {}).get("id"),
+            "status": result.get("post", {}).get("status"),
+            "platforms": request.platforms,
+            "voice_summary": f"Post published to {', '.join(request.platforms)}. Postiz ID: {result.get('post', {}).get('id')}"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to publish post: {str(e)}")
+
+
+@router.get("/api/integrations")
+async def get_postiz_integrations(
+    agent_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get connected social media accounts from Postiz
+
+    Returns list of all connected platforms (integrations/channels)
+    with their IDs and details.
+    """
+    service = PostizService(db)
+
+    try:
+        platforms = await service.get_connected_platforms(agent_id)
+
+        return {
+            "agent_id": agent_id,
+            "platforms": platforms,
+            "total": len(platforms),
+            "voice_summary": f"Connected to {len(platforms)} platforms: {', '.join([p.get('provider', 'unknown') for p in platforms])}"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get integrations: {str(e)}")
+
+
+@router.post("/api/property/{property_id}/publish")
+async def publish_property_post(
+    property_id: int,
+    agent_id: int,
+    platforms: ListType[str] = ["facebook", "instagram"],
+    scheduled_at: Optional[str] = None,
+    publish_immediately: bool = True,
+    db: Session = Depends(get_db)
+):
+    """Auto-generate and publish property post
+
+    Creates a property promotion post using:
+    - Property details (address, price, features)
+    - Agent branding
+    - Property photos from enrichment
+
+    Args:
+        property_id: Property ID
+        agent_id: Agent ID
+        platforms: Platforms to publish to
+        scheduled_at: Optional schedule time
+        publish_immediately: Publish now if True
+
+    Returns:
+        Published post info
+    """
+    property = db.query(Property).filter(Property.id == property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    brand = db.query(AgentBrand).filter(AgentBrand.agent_id == agent_id).first()
+
+    # Generate caption
+    caption = f"🏠 {property.city or 'New Listing'}!\n\n"
+
+    if property.price:
+        caption += f"Price: ${property.price:,}\n"
+
+    if property.bedrooms:
+        caption += f"{property.bedrooms} Bed"
+
+    if property.bathrooms:
+        caption += f" | {property.bathrooms} Bath"
+
+    if property.square_footage:
+        caption += f" | {property.square_footage:,} sqft"
+
+    caption += "\n\n"
+
+    if property.street_address:
+        caption += f"📍 {property.street_address}, {property.city or ''} {property.state or ''}\n\n"
+
+    if brand:
+        caption += f"Contact {brand.company_name or agent.name} for details!\n"
+        if brand.website_url:
+            caption += f"{brand.website_url}"
+    else:
+        caption += f"Contact {agent.name} for details!"
+
+    # Get property images from enrichment
+    from app.models.zillow_enrichment import ZillowEnrichment
+    enrichment = db.query(ZillowEnrichment).filter(
+        ZillowEnrichment.property_id == property_id
+    ).first()
+
+    media_urls = []
+    if enrichment and enrichment.photos:
+        media_urls = enrichment.photos[:5]  # Use first 5 photos
+
+    try:
+        result = await create_property_post(
+            agent_id=agent_id,
+            db=db,
+            property=property,
+            brand=brand,
+            caption=caption,
+            platforms=platforms,
+            media_urls=media_urls if media_urls else None,
+            scheduled_at=datetime.fromisoformat(scheduled_at.replace('Z', '+00:00')) if scheduled_at else None,
+            publish_immediately=publish_immediately
+        )
+
+        return {
+            "success": True,
+            "property_id": property_id,
+            "postiz_id": result.get("post", {}).get("id"),
+            "status": result.get("post", {}).get("status"),
+            "platforms": platforms,
+            "media_count": len(media_urls),
+            "voice_summary": f"Property post published to {', '.join(platforms)}. {len(media_urls)} photos included."
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to publish property post: {str(e)}")
+
+
+@router.post("/api/batch-publish")
+async def batch_publish_posts(
+    agent_id: int,
+    property_ids: ListType[int],
+    platforms: ListType[str] = ["facebook", "instagram"],
+    db: Session = Depends(get_db)
+):
+    """Publish posts for multiple properties at once
+
+    Args:
+        agent_id: Agent ID
+        property_ids: List of property IDs
+        platforms: Platforms to publish to
+
+    Returns:
+        List of publish results
+    """
+    results = []
+
+    for property_id in property_ids:
+        try:
+            result = await publish_property_post(
+                property_id=property_id,
+                agent_id=agent_id,
+                platforms=platforms,
+                publish_immediately=True,
+                db=db
+            )
+            results.append({
+                "property_id": property_id,
+                "success": True,
+                "result": result
+            })
+        except Exception as e:
+            results.append({
+                "property_id": property_id,
+                "success": False,
+                "error": str(e)
+            })
+
+    successful = sum(1 for r in results if r["success"])
+
+    return {
+        "agent_id": agent_id,
+        "total": len(property_ids),
+        "successful": successful,
+        "failed": len(property_ids) - successful,
+        "results": results,
+        "voice_summary": f"Batch publish complete: {successful}/{len(property_ids)} posts published successfully."
+    }
+
+
+# ============================================================================
 # Helper Functions
 # ============================================================================
+
+def _get_platform_display_name(platform: str) -> str:
+    """Get display name for platform"""
+    display_names = {
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "twitter": "X (Twitter)",
+        "x": "X (Twitter)",
+        "linkedin": "LinkedIn",
+        "tiktok": "TikTok",
+        "youtube": "YouTube",
+        "pinterest": "Pinterest",
+        "reddit": "Reddit",
+        "medium": "Medium",
+        "telegram": "Telegram",
+        "threads": "Threads",
+        "mastodon": "Mastodon",
+        "bluesky": "Bluesky"
+    }
+    return display_names.get(platform.lower(), platform.title())
+
 
 def _get_default_account(agent_id: int, db: Session) -> int:
     """Get default Postiz account for agent"""

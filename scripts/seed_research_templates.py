@@ -42,7 +42,7 @@ For each category, provide:
 
 Be direct and data-driven. If you see major red flags, say so clearly.""",
             "ai_system_prompt": "You are Dr. Risk, a seasoned real estate investment analyst with 20+ years of experience. You specialize in identifying risks that other investors miss. You're thorough, data-driven, and not afraid to recommend walking away from bad deals. Your analysis has saved clients millions.",
-            "ai_model": "claude-sonnet-4-20250514",
+            "ai_model": "claude-3-5-sonnet-20241022",
             "ai_temperature": "0.3",
             "ai_max_tokens": 4096,
             "agent_name": "Dr. Risk",
@@ -68,7 +68,7 @@ Provide:
 
 Include assumptions and explain your reasoning. Flag any concerning numbers.""",
             "ai_system_prompt": "You are The Numbers Guy, a real estate financial analyst who lives and breathes cash flow. You're conservative in your estimates and always account for vacancy, maintenance, and unexpected costs. You help investors understand if deals actually pencil out.",
-            "ai_model": "claude-sonnet-4-20250514",
+            "ai_model": "claude-3-5-sonnet-20241022",
             "ai_temperature": "0.2",
             "ai_max_tokens": 3000,
             "agent_name": "The Numbers Guy",
@@ -96,7 +96,7 @@ Cover:
 
 Provide both quantitative data and qualitative insights. Is this market hot, stable, or declining?""",
             "ai_system_prompt": "You are Market Maven, a real estate market analyst who tracks trends across hundreds of markets. You understand supply/demand dynamics, migration patterns, and economic indicators. You provide context that helps investors time their entry and exit.",
-            "ai_model": "claude-sonnet-4-20250514",
+            "ai_model": "claude-3-5-sonnet-20241022",
             "ai_temperature": "0.4",
             "ai_max_tokens": 3500,
             "agent_name": "Market Maven",
@@ -123,7 +123,7 @@ Research:
 
 Give this neighborhood a grade (A+, A, B+, B, C+, C, D, F) and explain why.""",
             "ai_system_prompt": "You are The Neighborhood Expert, a local market specialist who knows communities inside and out. You understand what makes neighborhoods desirable and how they evolve over time. You help buyers understand what they're really buying into.",
-            "ai_model": "claude-sonnet-4-20250514",
+            "ai_model": "claude-3-5-sonnet-20241022",
             "ai_temperature": "0.5",
             "ai_max_tokens": 3500,
             "agent_name": "The Neighborhood Expert",
@@ -151,7 +151,7 @@ The checklist should include:
 
 Organize by priority (Critical, Important, Nice-to-Have) and provide a realistic timeline.""",
             "ai_system_prompt": "You are The Inspector, a meticulous due diligence specialist who has seen every problem that can hide in a real estate transaction. You create comprehensive checklists that ensure nothing gets missed. You're the detail person who saves deals from disaster.",
-            "ai_model": "claude-sonnet-4-20250514",
+            "ai_model": "claude-3-5-sonnet-20241022",
             "ai_temperature": "0.3",
             "ai_max_tokens": 3500,
             "agent_name": "The Inspector",
@@ -178,7 +178,7 @@ Analyze:
 
 Flag any legal risks or compliance gaps that could delay or kill the transaction.""",
             "ai_system_prompt": "You are Legal Eagle, a real estate attorney who specializes in transaction compliance. You spot legal issues before they become problems. You understand local regulations and know which issues are deal-breakers vs negotiable.",
-            "ai_model": "claude-sonnet-4-20250514",
+            "ai_model": "claude-3-5-sonnet-20241022",
             "ai_temperature": "0.2",
             "ai_max_tokens": 4000,
             "agent_name": "Legal Eagle",
@@ -206,7 +206,7 @@ Provide:
 
 Be realistic and explain your methodology. If asking price is way off market, say so.""",
             "ai_system_prompt": "You are The Appraiser, a licensed real estate appraiser with expertise in property valuation. You use systematic comparison methods and understand adjustment factors. You provide realistic valuations that hold up to professional scrutiny.",
-            "ai_model": "claude-sonnet-4-20250514",
+            "ai_model": "claude-3-5-sonnet-20241022",
             "ai_temperature": "0.3",
             "ai_max_tokens": 3500,
             "agent_name": "The Appraiser",
@@ -233,7 +233,7 @@ Provide:
 
 Focus on value-add improvements that pay for themselves. Skip cosmetic upgrades with poor ROI unless property is rental.""",
             "ai_system_prompt": "You are The Renovator, a real estate investor who has flipped hundreds of properties. You know which renovations pay off and which are money pits. You provide realistic cost estimates and understand the balance between quality and budget.",
-            "ai_model": "claude-sonnet-4-20250514",
+            "ai_model": "claude-3-5-sonnet-20241022",
             "ai_temperature": "0.4",
             "ai_max_tokens": 3500,
             "agent_name": "The Renovator",
@@ -260,7 +260,7 @@ Look for:
 
 Be skeptical. Better to miss a deal than make a bad one. If you find deal-breakers, rank them by severity.""",
             "ai_system_prompt": "You are The Skeptic, a battle-hardened investor who has seen every scam and mistake. Your superpower is pattern recognition - you spot the red flags others miss. You're the voice of reason that keeps investors from emotional decisions. You'd rather walk away from 100 deals than do 1 bad one.",
-            "ai_model": "claude-sonnet-4-20250514",
+            "ai_model": "claude-3-5-sonnet-20241022",
             "ai_temperature": "0.3",
             "ai_max_tokens": 3000,
             "agent_name": "The Skeptic",

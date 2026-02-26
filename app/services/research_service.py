@@ -416,7 +416,7 @@ class ResearchService:
 
         Expected parameters:
         - prompt: str (required) - The question or research prompt
-        - model: str (optional) - Model to use (default: claude-sonnet-4-20250514)
+        - model: str (optional) - Model to use (default: claude-3-5-sonnet-20241022)
         - max_tokens: int (optional) - Max tokens in response (default: 4096)
         - temperature: float (optional) - Temperature 0-1 (default: 1.0)
         - system_prompt: str (optional) - System prompt for context
@@ -480,7 +480,7 @@ Property Context:
 
             # Call Anthropic API
             response = await llm_service.acreate(
-                model=params.get("model", "claude-sonnet-4-20250514"),
+                model=params.get("model", "claude-3-5-sonnet-20241022"),
                 max_tokens=params.get("max_tokens", 4096),
                 temperature=params.get("temperature", 1.0),
                 system=params.get("system_prompt", "You are a helpful AI assistant specializing in real estate research and analysis."),
@@ -488,7 +488,7 @@ Property Context:
             )
 
             results["steps"]["ai_response"] = {
-                "model": params.get("model", "claude-sonnet-4-20250514"),
+                "model": params.get("model", "claude-3-5-sonnet-20241022"),
                 "prompt": prompt,
                 "response": response.content[0].text,
                 "usage": {

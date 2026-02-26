@@ -37,7 +37,7 @@ class AIResearchRequest(BaseModel):
     """Request for AI-powered custom research"""
     property_id: Optional[int] = None
     prompt: str
-    model: Optional[str] = "claude-sonnet-4-20250514"
+    model: Optional[str] = "claude-3-5-sonnet-20241022"
     max_tokens: Optional[int] = 4096
     temperature: Optional[float] = 1.0
     system_prompt: Optional[str] = None

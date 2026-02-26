@@ -84,7 +84,7 @@ Respond in JSON format:
 
         try:
             text = (await llm_service.agenerate(
-                prompt, model="claude-sonnet-4-5-20250514", max_tokens=1500
+                prompt, model="claude-3-5-sonnet-20241022", max_tokens=1500
             )).strip()
             # Strip markdown code fences if present
             if text.startswith("```"):

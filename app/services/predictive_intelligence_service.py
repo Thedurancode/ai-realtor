@@ -561,7 +561,7 @@ Return ONLY the JSON, no other text."""
 
         try:
             response = await llm_service.agenerate(
-                prompt, model="claude-sonnet-4-20250514", max_tokens=500
+                prompt, model="claude-3-5-sonnet-20241022", max_tokens=500
             )
 
             # Parse JSON from response

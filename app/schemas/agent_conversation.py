@@ -10,7 +10,7 @@ class AgentExecuteRequest(BaseModel):
     task: str
     property_id: Optional[int] = None
     agent_id: Optional[int] = None
-    model: Optional[str] = "claude-sonnet-4-20250514"
+    model: Optional[str] = "claude-3-5-sonnet-20241022"
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = 4096
     system_prompt: Optional[str] = None

@@ -30,5 +30,9 @@ from . import market_watchlist  # noqa: F401
 from . import heartbeat  # noqa: F401
 # New intelligence tools
 from . import intelligence  # noqa: F401
+# Postiz social media integration
+from . import postiz  # noqa: F401
+# VideoGen AI avatar videos
+from . import videogen  # noqa: F401
 # Web scraper tools - TODO: Fix import issues
 # from . import web_scraper  # noqa: F401

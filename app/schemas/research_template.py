@@ -15,7 +15,7 @@ class ResearchTemplateCreate(BaseModel):
     research_type: ResearchType
     ai_prompt_template: Optional[str] = None
     ai_system_prompt: Optional[str] = None
-    ai_model: Optional[str] = "claude-sonnet-4-20250514"
+    ai_model: Optional[str] = "claude-3-5-sonnet-20241022"
     ai_temperature: Optional[str] = "1.0"
     ai_max_tokens: Optional[int] = 4096
     api_endpoints: Optional[List[dict]] = None

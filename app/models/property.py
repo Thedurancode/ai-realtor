@@ -84,3 +84,4 @@ class Property(Base):
     recap = relationship("PropertyRecap", back_populates="property", uselist=False)
     notes = relationship("PropertyNote", back_populates="property", order_by="PropertyNote.created_at.desc()")
     offers = relationship("Offer", back_populates="property")
+    phone_calls = relationship("PhoneCall", back_populates="property")

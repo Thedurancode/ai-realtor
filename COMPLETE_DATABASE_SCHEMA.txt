@@ -1,0 +1,1107 @@
+CREATE TABLE contract_templates (
+	id INTEGER NOT NULL, 
+	name VARCHAR(255) NOT NULL, 
+	description TEXT, 
+	category VARCHAR(10) NOT NULL, 
+	requirement VARCHAR(11), 
+	docuseal_template_id VARCHAR(100), 
+	docuseal_template_name VARCHAR(255), 
+	state VARCHAR(2), 
+	city VARCHAR(100), 
+	property_type_filter JSON, 
+	min_price INTEGER, 
+	max_price INTEGER, 
+	deal_type_filter JSON, 
+	auto_attach_on_create BOOLEAN, 
+	auto_send BOOLEAN, 
+	default_recipient_role VARCHAR(50), 
+	required_signer_roles JSON, 
+	message_template TEXT, 
+	is_active BOOLEAN, 
+	priority INTEGER, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id)
+);
+CREATE INDEX ix_contract_templates_is_active ON contract_templates (is_active);
+CREATE INDEX ix_contract_templates_id ON contract_templates (id);
+CREATE INDEX ix_contract_templates_state ON contract_templates (state);
+CREATE TABLE activity_events (
+	id INTEGER NOT NULL, 
+	timestamp DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	tool_name VARCHAR(255) NOT NULL, 
+	user_source VARCHAR(255), 
+	event_type VARCHAR(13) NOT NULL, 
+	status VARCHAR(7) NOT NULL, 
+	data TEXT, 
+	duration_ms INTEGER, 
+	error_message TEXT, 
+	PRIMARY KEY (id)
+);
+CREATE INDEX ix_activity_events_tool_name ON activity_events (tool_name);
+CREATE INDEX ix_activity_events_timestamp ON activity_events (timestamp);
+CREATE INDEX ix_activity_events_id ON activity_events (id);
+CREATE INDEX ix_activity_events_event_type ON activity_events (event_type);
+CREATE TABLE deal_type_configs (
+	id INTEGER NOT NULL, 
+	name VARCHAR NOT NULL, 
+	display_name VARCHAR NOT NULL, 
+	description TEXT, 
+	is_builtin BOOLEAN, 
+	is_active BOOLEAN, 
+	contract_templates JSON, 
+	required_contact_roles JSON, 
+	checklist JSON, 
+	compliance_tags JSON, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id)
+);
+CREATE INDEX ix_deal_type_configs_id ON deal_type_configs (id);
+CREATE UNIQUE INDEX ix_deal_type_configs_name ON deal_type_configs (name);
+CREATE TABLE research_templates (
+	id INTEGER NOT NULL, 
+	name VARCHAR(200) NOT NULL, 
+	description TEXT, 
+	category VARCHAR(19), 
+	icon VARCHAR(50), 
+	research_type VARCHAR(21) NOT NULL, 
+	ai_prompt_template TEXT, 
+	ai_system_prompt TEXT, 
+	ai_model VARCHAR(100), 
+	ai_temperature VARCHAR(10), 
+	ai_max_tokens INTEGER, 
+	api_endpoints JSON, 
+	research_parameters JSON, 
+	is_system_template BOOLEAN, 
+	is_active BOOLEAN, 
+	execution_count INTEGER, 
+	agent_name VARCHAR(100), 
+	agent_expertise TEXT, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id)
+);
+CREATE INDEX ix_research_templates_id ON research_templates (id);
+CREATE INDEX ix_research_templates_category ON research_templates (category);
+CREATE INDEX ix_research_templates_is_active ON research_templates (is_active);
+CREATE INDEX ix_research_templates_name ON research_templates (name);
+CREATE TABLE compliance_rule_templates (
+	id INTEGER NOT NULL, 
+	name VARCHAR(255) NOT NULL, 
+	description TEXT, 
+	rule_type VARCHAR(50) NOT NULL, 
+	template_json JSON NOT NULL, 
+	category VARCHAR(50), 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id)
+);
+CREATE INDEX ix_compliance_rule_templates_id ON compliance_rule_templates (id);
+CREATE TABLE notifications (
+	id INTEGER NOT NULL, 
+	type VARCHAR(22) NOT NULL, 
+	priority VARCHAR(6), 
+	title VARCHAR(255) NOT NULL, 
+	message TEXT NOT NULL, 
+	property_id INTEGER, 
+	contact_id INTEGER, 
+	contract_id INTEGER, 
+	agent_id INTEGER, 
+	data TEXT, 
+	icon VARCHAR(50), 
+	action_url VARCHAR(500), 
+	is_read BOOLEAN, 
+	is_dismissed BOOLEAN, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	read_at DATETIME, 
+	dismissed_at DATETIME, 
+	auto_dismiss_seconds INTEGER, 
+	PRIMARY KEY (id)
+);
+CREATE INDEX ix_notifications_id ON notifications (id);
+CREATE INDEX ix_notifications_type ON notifications (type);
+CREATE INDEX ix_notifications_created_at ON notifications (created_at);
+CREATE INDEX ix_notifications_is_read ON notifications (is_read);
+CREATE INDEX ix_notifications_is_dismissed ON notifications (is_dismissed);
+CREATE TABLE research_properties (
+	id INTEGER NOT NULL, 
+	stable_key VARCHAR(128) NOT NULL, 
+	raw_address VARCHAR NOT NULL, 
+	normalized_address VARCHAR NOT NULL, 
+	city VARCHAR, 
+	state VARCHAR(2), 
+	zip_code VARCHAR(10), 
+	apn VARCHAR, 
+	geo_lat FLOAT, 
+	geo_lng FLOAT, 
+	latest_profile JSON, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id)
+);
+CREATE INDEX ix_research_properties_id ON research_properties (id);
+CREATE UNIQUE INDEX ix_research_properties_stable_key ON research_properties (stable_key);
+CREATE TABLE portal_cache (
+	id INTEGER NOT NULL, 
+	url_hash VARCHAR(64) NOT NULL, 
+	source_url VARCHAR(1000) NOT NULL, 
+	raw_html TEXT NOT NULL, 
+	captured_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	expires_at DATETIME NOT NULL, 
+	PRIMARY KEY (id)
+);
+CREATE UNIQUE INDEX ix_portal_cache_url_hash ON portal_cache (url_hash);
+CREATE INDEX ix_portal_cache_id ON portal_cache (id);
+CREATE TABLE voice_memory_nodes (
+	id INTEGER NOT NULL, 
+	session_id VARCHAR(128) NOT NULL, 
+	node_type VARCHAR(64) NOT NULL, 
+	node_key VARCHAR(255) NOT NULL, 
+	summary VARCHAR(512), 
+	payload JSON, 
+	importance FLOAT NOT NULL, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	updated_at DATETIME, 
+	last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_voice_memory_node UNIQUE (session_id, node_type, node_key)
+);
+CREATE INDEX ix_voice_memory_nodes_node_type ON voice_memory_nodes (node_type);
+CREATE INDEX ix_voice_memory_nodes_session_type ON voice_memory_nodes (session_id, node_type);
+CREATE INDEX ix_voice_memory_nodes_id ON voice_memory_nodes (id);
+CREATE INDEX ix_voice_memory_nodes_last_seen_at ON voice_memory_nodes (last_seen_at);
+CREATE INDEX ix_voice_memory_nodes_node_key ON voice_memory_nodes (node_key);
+CREATE INDEX ix_voice_memory_nodes_session_id ON voice_memory_nodes (session_id);
+CREATE TABLE workspaces (
+	id INTEGER NOT NULL, 
+	name VARCHAR(100) NOT NULL, 
+	owner_email VARCHAR(255) NOT NULL, 
+	owner_name VARCHAR(255), 
+	api_key_hash VARCHAR(255) NOT NULL, 
+	settings JSON, 
+	is_active BOOLEAN, 
+	subscription_tier VARCHAR(50), 
+	max_agents INTEGER, 
+	max_properties INTEGER, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	deleted_at DATETIME, 
+	PRIMARY KEY (id)
+);
+CREATE INDEX ix_workspaces_owner_email ON workspaces (owner_email);
+CREATE INDEX ix_workspaces_deleted_at ON workspaces (deleted_at);
+CREATE INDEX ix_workspaces_id ON workspaces (id);
+CREATE UNIQUE INDEX ix_workspaces_api_key_hash ON workspaces (api_key_hash);
+CREATE INDEX ix_workspaces_is_active ON workspaces (is_active);
+CREATE TABLE skills (
+	id INTEGER NOT NULL, 
+	name VARCHAR(100) NOT NULL, 
+	slug VARCHAR(100) NOT NULL, 
+	description TEXT NOT NULL, 
+	skill_metadata JSON, 
+	instructions TEXT NOT NULL, 
+	code TEXT, 
+	version VARCHAR(20), 
+	author_name VARCHAR(100), 
+	author_email VARCHAR(100), 
+	license VARCHAR(50), 
+	compatibility JSON, 
+	allowed_tools JSON, 
+	is_public BOOLEAN, 
+	is_verified BOOLEAN, 
+	is_featured BOOLEAN, 
+	category VARCHAR(50), 
+	tags JSON, 
+	github_repo VARCHAR(200), 
+	installation_count INTEGER, 
+	average_rating INTEGER, 
+	rating_count INTEGER, 
+	created_at DATETIME, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id)
+);
+CREATE UNIQUE INDEX ix_skills_name ON skills (name);
+CREATE UNIQUE INDEX ix_skills_slug ON skills (slug);
+CREATE INDEX ix_skills_id ON skills (id);
+CREATE TABLE agents (
+	id INTEGER NOT NULL, 
+	email VARCHAR NOT NULL, 
+	name VARCHAR NOT NULL, 
+	phone VARCHAR, 
+	license_number VARCHAR, 
+	api_key_hash VARCHAR(64), 
+	workspace_id INTEGER, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	UNIQUE (license_number), 
+	FOREIGN KEY(workspace_id) REFERENCES workspaces (id)
+);
+CREATE INDEX ix_agents_id ON agents (id);
+CREATE INDEX ix_agents_api_key_hash ON agents (api_key_hash);
+CREATE UNIQUE INDEX ix_agents_email ON agents (email);
+CREATE INDEX ix_agents_workspace_id ON agents (workspace_id);
+CREATE TABLE agentic_jobs (
+	id INTEGER NOT NULL, 
+	trace_id VARCHAR(64) NOT NULL, 
+	research_property_id INTEGER NOT NULL, 
+	status VARCHAR(11) NOT NULL, 
+	progress INTEGER NOT NULL, 
+	current_step VARCHAR(255), 
+	strategy VARCHAR(32) NOT NULL, 
+	assumptions JSON, 
+	limits JSON, 
+	results JSON, 
+	error_message TEXT, 
+	started_at DATETIME, 
+	completed_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(research_property_id) REFERENCES research_properties (id)
+);
+CREATE UNIQUE INDEX ix_agentic_jobs_trace_id ON agentic_jobs (trace_id);
+CREATE INDEX ix_agentic_jobs_research_property_id ON agentic_jobs (research_property_id);
+CREATE INDEX ix_agentic_jobs_id ON agentic_jobs (id);
+CREATE TABLE voice_memory_edges (
+	id INTEGER NOT NULL, 
+	session_id VARCHAR(128) NOT NULL, 
+	source_node_id INTEGER NOT NULL, 
+	target_node_id INTEGER NOT NULL, 
+	relation VARCHAR(64) NOT NULL, 
+	weight FLOAT NOT NULL, 
+	payload JSON, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_voice_memory_edge UNIQUE (session_id, source_node_id, target_node_id, relation), 
+	FOREIGN KEY(source_node_id) REFERENCES voice_memory_nodes (id) ON DELETE CASCADE, 
+	FOREIGN KEY(target_node_id) REFERENCES voice_memory_nodes (id) ON DELETE CASCADE
+);
+CREATE INDEX ix_voice_memory_edges_session_relation ON voice_memory_edges (session_id, relation);
+CREATE INDEX ix_voice_memory_edges_relation ON voice_memory_edges (relation);
+CREATE INDEX ix_voice_memory_edges_id ON voice_memory_edges (id);
+CREATE INDEX ix_voice_memory_edges_session_id ON voice_memory_edges (session_id);
+CREATE INDEX ix_voice_memory_edges_last_seen_at ON voice_memory_edges (last_seen_at);
+CREATE TABLE properties (
+	id INTEGER NOT NULL, 
+	title VARCHAR NOT NULL, 
+	description VARCHAR, 
+	address VARCHAR NOT NULL, 
+	city VARCHAR NOT NULL, 
+	state VARCHAR NOT NULL, 
+	zip_code VARCHAR NOT NULL, 
+	price FLOAT NOT NULL, 
+	bedrooms INTEGER, 
+	bathrooms FLOAT, 
+	square_feet INTEGER, 
+	lot_size FLOAT, 
+	year_built INTEGER, 
+	property_type VARCHAR(10), 
+	status VARCHAR(21), 
+	deal_type VARCHAR(16), 
+	agent_id INTEGER NOT NULL, 
+	deal_score FLOAT, 
+	score_grade VARCHAR(2), 
+	score_breakdown JSON, 
+	pipeline_status VARCHAR(20), 
+	pipeline_started_at DATETIME, 
+	pipeline_completed_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id)
+);
+CREATE INDEX ix_properties_agent_id ON properties (agent_id);
+CREATE INDEX ix_properties_state_city ON properties (state, city);
+CREATE INDEX ix_properties_id ON properties (id);
+CREATE INDEX ix_properties_status ON properties (status);
+CREATE INDEX ix_properties_pipeline_status ON properties (pipeline_status);
+CREATE INDEX ix_properties_created_at ON properties (created_at);
+CREATE INDEX ix_properties_agent_status ON properties (agent_id, status);
+CREATE TABLE agent_preferences (
+	id INTEGER NOT NULL, 
+	agent_id INTEGER NOT NULL, 
+	"key" VARCHAR NOT NULL, 
+	value TEXT NOT NULL, 
+	description TEXT, 
+	is_active BOOLEAN, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id)
+);
+CREATE INDEX ix_agent_preferences_key ON agent_preferences ("key");
+CREATE INDEX ix_agent_preferences_id ON agent_preferences (id);
+CREATE TABLE compliance_rules (
+	id INTEGER NOT NULL, 
+	state VARCHAR(2) NOT NULL, 
+	city VARCHAR(100), 
+	county VARCHAR(100), 
+	applies_to_all_cities BOOLEAN, 
+	rule_code VARCHAR(50) NOT NULL, 
+	version INTEGER, 
+	parent_rule_id INTEGER, 
+	category VARCHAR(50) NOT NULL, 
+	subcategory VARCHAR(100), 
+	tags JSON, 
+	title VARCHAR(255) NOT NULL, 
+	description TEXT NOT NULL, 
+	legal_citation TEXT, 
+	source_url VARCHAR(500), 
+	rule_type VARCHAR(50) NOT NULL, 
+	field_to_check VARCHAR(100), 
+	condition VARCHAR(255), 
+	threshold_value FLOAT, 
+	allowed_values JSON, 
+	ai_prompt TEXT, 
+	use_ai_fallback BOOLEAN, 
+	requires_document BOOLEAN, 
+	document_type VARCHAR(100), 
+	document_description TEXT, 
+	property_type_filter JSON, 
+	min_price FLOAT, 
+	max_price FLOAT, 
+	min_year_built INTEGER, 
+	max_year_built INTEGER, 
+	severity VARCHAR(20) NOT NULL, 
+	penalty_description TEXT, 
+	fine_amount_min FLOAT, 
+	fine_amount_max FLOAT, 
+	how_to_fix TEXT, 
+	estimated_fix_cost FLOAT, 
+	estimated_fix_time_days INTEGER, 
+	is_active BOOLEAN, 
+	is_draft BOOLEAN, 
+	effective_date DATE, 
+	expiration_date DATE, 
+	created_by INTEGER, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	last_reviewed_at DATETIME, 
+	times_checked INTEGER, 
+	times_violated INTEGER, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(parent_rule_id) REFERENCES compliance_rules (id), 
+	FOREIGN KEY(created_by) REFERENCES agents (id)
+);
+CREATE INDEX ix_compliance_rules_state ON compliance_rules (state);
+CREATE INDEX ix_compliance_rules_city ON compliance_rules (city);
+CREATE INDEX ix_compliance_rules_category ON compliance_rules (category);
+CREATE INDEX ix_compliance_rules_id ON compliance_rules (id);
+CREATE UNIQUE INDEX ix_compliance_rules_rule_code ON compliance_rules (rule_code);
+CREATE INDEX ix_compliance_rules_is_active ON compliance_rules (is_active);
+CREATE TABLE evidence (
+	id INTEGER NOT NULL, 
+	research_property_id INTEGER NOT NULL, 
+	job_id INTEGER NOT NULL, 
+	category VARCHAR(64) NOT NULL, 
+	claim TEXT NOT NULL, 
+	source_url VARCHAR(1000) NOT NULL, 
+	captured_at DATETIME NOT NULL, 
+	raw_excerpt TEXT, 
+	confidence FLOAT, 
+	hash VARCHAR(64) NOT NULL, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(research_property_id) REFERENCES research_properties (id), 
+	FOREIGN KEY(job_id) REFERENCES agentic_jobs (id)
+);
+CREATE UNIQUE INDEX ix_evidence_hash ON evidence (hash);
+CREATE INDEX ix_evidence_id ON evidence (id);
+CREATE INDEX ix_evidence_research_property_id ON evidence (research_property_id);
+CREATE INDEX ix_evidence_job_id ON evidence (job_id);
+CREATE TABLE comps_sales (
+	id INTEGER NOT NULL, 
+	research_property_id INTEGER NOT NULL, 
+	job_id INTEGER NOT NULL, 
+	address VARCHAR NOT NULL, 
+	distance_mi FLOAT, 
+	sale_date DATE, 
+	sale_price FLOAT, 
+	sqft INTEGER, 
+	beds INTEGER, 
+	baths FLOAT, 
+	year_built INTEGER, 
+	similarity_score FLOAT NOT NULL, 
+	source_url VARCHAR(1000) NOT NULL, 
+	details JSON, 
+	is_current BOOLEAN DEFAULT 'true' NOT NULL, 
+	superseded_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(research_property_id) REFERENCES research_properties (id), 
+	FOREIGN KEY(job_id) REFERENCES agentic_jobs (id)
+);
+CREATE INDEX ix_comps_sales_job_id ON comps_sales (job_id);
+CREATE INDEX ix_comps_sales_current ON comps_sales (job_id, is_current);
+CREATE INDEX ix_comps_sales_id ON comps_sales (id);
+CREATE INDEX ix_comps_sales_research_property_id ON comps_sales (research_property_id);
+CREATE TABLE comps_rentals (
+	id INTEGER NOT NULL, 
+	research_property_id INTEGER NOT NULL, 
+	job_id INTEGER NOT NULL, 
+	address VARCHAR NOT NULL, 
+	distance_mi FLOAT, 
+	rent FLOAT, 
+	date_listed DATE, 
+	sqft INTEGER, 
+	beds INTEGER, 
+	baths FLOAT, 
+	similarity_score FLOAT NOT NULL, 
+	source_url VARCHAR(1000) NOT NULL, 
+	details JSON, 
+	is_current BOOLEAN DEFAULT 'true' NOT NULL, 
+	superseded_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(research_property_id) REFERENCES research_properties (id), 
+	FOREIGN KEY(job_id) REFERENCES agentic_jobs (id)
+);
+CREATE INDEX ix_comps_rentals_id ON comps_rentals (id);
+CREATE INDEX ix_comps_rentals_current ON comps_rentals (job_id, is_current);
+CREATE INDEX ix_comps_rentals_job_id ON comps_rentals (job_id);
+CREATE INDEX ix_comps_rentals_research_property_id ON comps_rentals (research_property_id);
+CREATE TABLE underwriting (
+	id INTEGER NOT NULL, 
+	research_property_id INTEGER NOT NULL, 
+	job_id INTEGER NOT NULL, 
+	strategy VARCHAR(32) NOT NULL, 
+	assumptions JSON, 
+	arv_low FLOAT, 
+	arv_base FLOAT, 
+	arv_high FLOAT, 
+	rent_low FLOAT, 
+	rent_base FLOAT, 
+	rent_high FLOAT, 
+	rehab_tier VARCHAR(16) NOT NULL, 
+	rehab_low FLOAT, 
+	rehab_high FLOAT, 
+	offer_low FLOAT, 
+	offer_base FLOAT, 
+	offer_high FLOAT, 
+	fees JSON, 
+	sensitivity JSON, 
+	is_current BOOLEAN DEFAULT 'true' NOT NULL, 
+	superseded_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(research_property_id) REFERENCES research_properties (id), 
+	FOREIGN KEY(job_id) REFERENCES agentic_jobs (id)
+);
+CREATE INDEX ix_underwriting_job_id ON underwriting (job_id);
+CREATE INDEX ix_underwriting_research_property_id ON underwriting (research_property_id);
+CREATE INDEX ix_underwriting_id ON underwriting (id);
+CREATE INDEX ix_underwriting_current ON underwriting (job_id, is_current);
+CREATE TABLE risk_scores (
+	id INTEGER NOT NULL, 
+	research_property_id INTEGER NOT NULL, 
+	job_id INTEGER NOT NULL, 
+	title_risk FLOAT, 
+	data_confidence FLOAT, 
+	compliance_flags JSON, 
+	notes TEXT, 
+	is_current BOOLEAN DEFAULT 'true' NOT NULL, 
+	superseded_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(research_property_id) REFERENCES research_properties (id), 
+	FOREIGN KEY(job_id) REFERENCES agentic_jobs (id)
+);
+CREATE INDEX ix_risk_scores_job_id ON risk_scores (job_id);
+CREATE INDEX ix_risk_scores_current ON risk_scores (job_id, is_current);
+CREATE INDEX ix_risk_scores_research_property_id ON risk_scores (research_property_id);
+CREATE INDEX ix_risk_scores_id ON risk_scores (id);
+CREATE TABLE dossiers (
+	id INTEGER NOT NULL, 
+	research_property_id INTEGER NOT NULL, 
+	job_id INTEGER NOT NULL, 
+	markdown TEXT NOT NULL, 
+	citations JSON, 
+	is_current BOOLEAN DEFAULT 'true' NOT NULL, 
+	superseded_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(research_property_id) REFERENCES research_properties (id), 
+	FOREIGN KEY(job_id) REFERENCES agentic_jobs (id)
+);
+CREATE INDEX ix_dossiers_research_property_id ON dossiers (research_property_id);
+CREATE INDEX ix_dossiers_job_id ON dossiers (job_id);
+CREATE INDEX ix_dossiers_current ON dossiers (job_id, is_current);
+CREATE INDEX ix_dossiers_id ON dossiers (id);
+CREATE TABLE worker_runs (
+	id INTEGER NOT NULL, 
+	job_id INTEGER NOT NULL, 
+	worker_name VARCHAR(128) NOT NULL, 
+	status VARCHAR(32) NOT NULL, 
+	runtime_ms INTEGER NOT NULL, 
+	cost_usd FLOAT NOT NULL, 
+	web_calls INTEGER NOT NULL, 
+	data JSON, 
+	unknowns JSON, 
+	errors JSON, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(job_id) REFERENCES agentic_jobs (id)
+);
+CREATE INDEX ix_worker_runs_job_id ON worker_runs (job_id);
+CREATE INDEX ix_worker_runs_id ON worker_runs (id);
+CREATE TABLE market_watchlists (
+	id INTEGER NOT NULL, 
+	agent_id INTEGER NOT NULL, 
+	name VARCHAR(255) NOT NULL, 
+	description VARCHAR, 
+	criteria JSON NOT NULL, 
+	is_active BOOLEAN, 
+	match_count INTEGER, 
+	last_matched_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id)
+);
+CREATE INDEX ix_market_watchlists_id ON market_watchlists (id);
+CREATE INDEX ix_market_watchlists_is_active ON market_watchlists (is_active);
+CREATE INDEX ix_market_watchlists_agent_id ON market_watchlists (agent_id);
+CREATE TABLE agent_performance_metrics (
+	id INTEGER NOT NULL, 
+	agent_id INTEGER NOT NULL, 
+	period_type VARCHAR(10) NOT NULL, 
+	period_start DATETIME NOT NULL, 
+	period_end DATETIME NOT NULL, 
+	total_deals INTEGER, 
+	closed_deals INTEGER, 
+	closed_won INTEGER, 
+	closing_rate FLOAT, 
+	total_volume FLOAT, 
+	average_deal_size FLOAT, 
+	total_profit FLOAT, 
+	average_days_to_close FLOAT, 
+	average_deal_score FLOAT, 
+	best_property_types JSON, 
+	best_cities JSON, 
+	best_price_ranges JSON, 
+	success_patterns JSON, 
+	failure_patterns JSON, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id)
+);
+CREATE INDEX ix_agent_performance_metrics_id ON agent_performance_metrics (id);
+CREATE TABLE workspace_api_keys (
+	id INTEGER NOT NULL, 
+	workspace_id INTEGER NOT NULL, 
+	agent_id INTEGER, 
+	name VARCHAR(100) NOT NULL, 
+	key_hash VARCHAR(255) NOT NULL, 
+	key_prefix VARCHAR(10) NOT NULL, 
+	scopes JSON, 
+	last_used_at DATETIME, 
+	usage_count INTEGER, 
+	expires_at DATETIME, 
+	revoked_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(workspace_id) REFERENCES workspaces (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id)
+);
+CREATE INDEX ix_workspace_api_keys_revoked_at ON workspace_api_keys (revoked_at);
+CREATE INDEX ix_workspace_api_keys_expires_at ON workspace_api_keys (expires_at);
+CREATE INDEX ix_workspace_api_keys_agent_id ON workspace_api_keys (agent_id);
+CREATE INDEX ix_workspace_api_keys_workspace_id ON workspace_api_keys (workspace_id);
+CREATE INDEX ix_workspace_api_keys_id ON workspace_api_keys (id);
+CREATE UNIQUE INDEX ix_workspace_api_keys_key_hash ON workspace_api_keys (key_hash);
+CREATE TABLE command_permissions (
+	id INTEGER NOT NULL, 
+	workspace_id INTEGER NOT NULL, 
+	agent_id INTEGER, 
+	command_pattern VARCHAR(100) NOT NULL, 
+	permission VARCHAR(20) NOT NULL, 
+	reason TEXT, 
+	created_by INTEGER, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(workspace_id) REFERENCES workspaces (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id), 
+	FOREIGN KEY(created_by) REFERENCES agents (id)
+);
+CREATE INDEX ix_command_permissions_id ON command_permissions (id);
+CREATE INDEX ix_command_permissions_agent_id ON command_permissions (agent_id);
+CREATE INDEX ix_command_permissions_command_pattern ON command_permissions (command_pattern);
+CREATE INDEX ix_command_permissions_workspace_id ON command_permissions (workspace_id);
+CREATE TABLE agent_skills (
+	id INTEGER NOT NULL, 
+	agent_id INTEGER NOT NULL, 
+	skill_id INTEGER NOT NULL, 
+	config JSON, 
+	is_enabled BOOLEAN, 
+	notes TEXT, 
+	installed_at DATETIME, 
+	last_used_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id), 
+	FOREIGN KEY(skill_id) REFERENCES skills (id)
+);
+CREATE INDEX ix_agent_skills_id ON agent_skills (id);
+CREATE TABLE skill_reviews (
+	id INTEGER NOT NULL, 
+	skill_id INTEGER NOT NULL, 
+	agent_id INTEGER NOT NULL, 
+	rating INTEGER NOT NULL, 
+	review TEXT, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(skill_id) REFERENCES skills (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id)
+);
+CREATE INDEX ix_skill_reviews_id ON skill_reviews (id);
+CREATE TABLE skip_traces (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	owner_name VARCHAR, 
+	owner_first_name VARCHAR, 
+	owner_last_name VARCHAR, 
+	phone_numbers JSON, 
+	emails JSON, 
+	mailing_address VARCHAR, 
+	mailing_city VARCHAR, 
+	mailing_state VARCHAR, 
+	mailing_zip VARCHAR, 
+	raw_response JSON, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+CREATE INDEX ix_skip_traces_id ON skip_traces (id);
+CREATE INDEX ix_skip_traces_created_at ON skip_traces (created_at);
+CREATE INDEX ix_skip_traces_property_id ON skip_traces (property_id);
+CREATE TABLE contacts (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	name VARCHAR NOT NULL, 
+	first_name VARCHAR, 
+	last_name VARCHAR, 
+	role VARCHAR(16) NOT NULL, 
+	phone VARCHAR, 
+	email VARCHAR, 
+	company VARCHAR, 
+	notes VARCHAR, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+CREATE INDEX ix_contacts_role ON contacts (role);
+CREATE INDEX ix_contacts_property_role ON contacts (property_id, role);
+CREATE INDEX ix_contacts_id ON contacts (id);
+CREATE INDEX ix_contacts_property_id ON contacts (property_id);
+CREATE TABLE zillow_enrichments (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	zpid INTEGER, 
+	zestimate FLOAT, 
+	zestimate_low FLOAT, 
+	zestimate_high FLOAT, 
+	rent_zestimate FLOAT, 
+	living_area FLOAT, 
+	lot_size FLOAT, 
+	lot_area_units VARCHAR, 
+	year_built INTEGER, 
+	home_type VARCHAR, 
+	home_status VARCHAR, 
+	days_on_zillow INTEGER, 
+	page_view_count INTEGER, 
+	favorite_count INTEGER, 
+	property_tax_rate FLOAT, 
+	annual_tax_amount FLOAT, 
+	hdp_url VARCHAR, 
+	zillow_url VARCHAR, 
+	photos JSON, 
+	description VARCHAR(10000), 
+	schools JSON, 
+	tax_history JSON, 
+	price_history JSON, 
+	reso_facts JSON, 
+	raw_response JSON, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+CREATE INDEX ix_zillow_enrichments_id ON zillow_enrichments (id);
+CREATE INDEX ix_zillow_enrichments_property_id ON zillow_enrichments (property_id);
+CREATE TABLE property_recaps (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	recap_text TEXT NOT NULL, 
+	recap_context JSON NOT NULL, 
+	voice_summary TEXT, 
+	version INTEGER, 
+	last_trigger VARCHAR(100), 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+CREATE INDEX ix_property_recaps_id ON property_recaps (id);
+CREATE UNIQUE INDEX ix_property_recaps_property_id ON property_recaps (property_id);
+CREATE TABLE research (
+	id INTEGER NOT NULL, 
+	research_type VARCHAR(21) NOT NULL, 
+	property_id INTEGER, 
+	agent_id INTEGER, 
+	parameters JSON, 
+	endpoints_to_call JSON, 
+	status VARCHAR(11), 
+	progress INTEGER, 
+	current_step VARCHAR, 
+	results JSON, 
+	error_message TEXT, 
+	started_at DATETIME, 
+	completed_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id)
+);
+CREATE INDEX ix_research_id ON research (id);
+CREATE INDEX ix_research_status ON research (status);
+CREATE INDEX ix_research_agent_id ON research (agent_id);
+CREATE INDEX ix_research_property_id ON research (property_id);
+CREATE TABLE agent_conversations (
+	id INTEGER NOT NULL, 
+	template_id INTEGER, 
+	agent_name VARCHAR(200), 
+	task TEXT NOT NULL, 
+	property_id INTEGER, 
+	agent_id INTEGER, 
+	model VARCHAR(100), 
+	system_prompt TEXT, 
+	temperature VARCHAR(10), 
+	max_tokens INTEGER, 
+	status VARCHAR(9), 
+	iterations INTEGER, 
+	tool_calls_count INTEGER, 
+	final_response TEXT, 
+	tool_calls_made JSON, 
+	execution_trace JSON, 
+	error_message TEXT, 
+	started_at DATETIME, 
+	completed_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(template_id) REFERENCES research_templates (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id)
+);
+CREATE INDEX ix_agent_conversations_status ON agent_conversations (status);
+CREATE INDEX ix_agent_conversations_property_id ON agent_conversations (property_id);
+CREATE INDEX ix_agent_conversations_id ON agent_conversations (id);
+CREATE INDEX ix_agent_conversations_agent_id ON agent_conversations (agent_id);
+CREATE TABLE compliance_checks (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	agent_id INTEGER, 
+	check_type VARCHAR(50), 
+	status VARCHAR(20) NOT NULL, 
+	total_rules_checked INTEGER, 
+	passed_count INTEGER, 
+	failed_count INTEGER, 
+	warning_count INTEGER, 
+	completion_time_seconds FLOAT, 
+	ai_summary TEXT, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	completed_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id)
+);
+CREATE INDEX ix_compliance_checks_id ON compliance_checks (id);
+CREATE INDEX ix_compliance_checks_property_id ON compliance_checks (property_id);
+CREATE TABLE voice_campaigns (
+	id INTEGER NOT NULL, 
+	name VARCHAR(255) NOT NULL, 
+	description TEXT, 
+	status VARCHAR(32) NOT NULL, 
+	call_purpose VARCHAR(64) NOT NULL, 
+	property_id INTEGER, 
+	contact_roles JSON, 
+	max_attempts INTEGER NOT NULL, 
+	retry_delay_minutes INTEGER NOT NULL, 
+	rate_limit_per_minute INTEGER NOT NULL, 
+	assistant_overrides JSON, 
+	last_run_at DATETIME, 
+	started_at DATETIME, 
+	completed_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+CREATE INDEX ix_voice_campaigns_status ON voice_campaigns (status);
+CREATE INDEX ix_voice_campaigns_id ON voice_campaigns (id);
+CREATE INDEX ix_voice_campaigns_property_id ON voice_campaigns (property_id);
+CREATE TABLE conversation_history (
+	id INTEGER NOT NULL, 
+	session_id VARCHAR(128) NOT NULL, 
+	property_id INTEGER, 
+	tool_name VARCHAR(128) NOT NULL, 
+	input_summary TEXT, 
+	output_summary TEXT, 
+	input_data JSON, 
+	output_data JSON, 
+	success INTEGER, 
+	duration_ms INTEGER, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+CREATE INDEX ix_conversation_history_created_at ON conversation_history (created_at);
+CREATE INDEX ix_conversation_history_id ON conversation_history (id);
+CREATE INDEX ix_conversation_history_tool_name ON conversation_history (tool_name);
+CREATE INDEX ix_conversation_history_session_created ON conversation_history (session_id, created_at);
+CREATE INDEX ix_conversation_history_session_id ON conversation_history (session_id);
+CREATE INDEX ix_conversation_history_property_id ON conversation_history (property_id);
+CREATE TABLE property_notes (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	content TEXT NOT NULL, 
+	source VARCHAR(10), 
+	created_by VARCHAR, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+CREATE INDEX ix_property_notes_property_id ON property_notes (property_id);
+CREATE INDEX ix_property_notes_created_at ON property_notes (created_at);
+CREATE INDEX ix_property_notes_id ON property_notes (id);
+CREATE TABLE scheduled_tasks (
+	id INTEGER NOT NULL, 
+	task_type VARCHAR(14) NOT NULL, 
+	status VARCHAR(9) NOT NULL, 
+	title VARCHAR(255) NOT NULL, 
+	description TEXT, 
+	scheduled_at DATETIME NOT NULL, 
+	repeat_interval_hours INTEGER, 
+	last_run_at DATETIME, 
+	next_run_at DATETIME, 
+	property_id INTEGER, 
+	action VARCHAR(100), 
+	action_params JSON, 
+	created_by VARCHAR(50), 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+CREATE INDEX ix_scheduled_tasks_id ON scheduled_tasks (id);
+CREATE INDEX ix_scheduled_tasks_status ON scheduled_tasks (status);
+CREATE INDEX ix_scheduled_tasks_property_id ON scheduled_tasks (property_id);
+CREATE INDEX ix_scheduled_tasks_scheduled_at ON scheduled_tasks (scheduled_at);
+CREATE TABLE deal_outcomes (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	agent_id INTEGER NOT NULL, 
+	status VARCHAR(11), 
+	closed_at DATETIME, 
+	days_to_close INTEGER, 
+	final_sale_price FLOAT, 
+	original_list_price FLOAT, 
+	price_reduction_count INTEGER, 
+	predicted_probability FLOAT, 
+	predicted_days_to_close INTEGER, 
+	prediction_confidence VARCHAR(20), 
+	feature_snapshot JSON, 
+	outcome_reason VARCHAR, 
+	lessons_learned VARCHAR, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id), 
+	FOREIGN KEY(agent_id) REFERENCES agents (id)
+);
+CREATE INDEX ix_deal_outcomes_id ON deal_outcomes (id);
+CREATE TABLE prediction_logs (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	predicted_probability FLOAT NOT NULL, 
+	predicted_days INTEGER NOT NULL, 
+	confidence VARCHAR(20) NOT NULL, 
+	deal_score FLOAT, 
+	completion_rate FLOAT, 
+	has_contacts INTEGER, 
+	has_skip_trace INTEGER, 
+	activity_velocity FLOAT, 
+	feature_snapshot JSON, 
+	actual_outcome VARCHAR(11), 
+	actual_days_to_close INTEGER, 
+	probability_error FLOAT, 
+	was_correct_direction INTEGER, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	outcome_recorded_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+CREATE INDEX ix_prediction_logs_id ON prediction_logs (id);
+CREATE TABLE todos (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	contact_id INTEGER, 
+	title VARCHAR NOT NULL, 
+	description VARCHAR, 
+	status VARCHAR(11), 
+	priority VARCHAR(6), 
+	due_date DATE, 
+	completed_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id), 
+	FOREIGN KEY(contact_id) REFERENCES contacts (id)
+);
+CREATE INDEX ix_todos_priority_created ON todos (priority, created_at);
+CREATE INDEX ix_todos_status ON todos (status);
+CREATE INDEX ix_todos_id ON todos (id);
+CREATE INDEX ix_todos_due_date ON todos (due_date);
+CREATE INDEX ix_todos_property_id ON todos (property_id);
+CREATE INDEX ix_todos_property_status ON todos (property_id, status);
+CREATE TABLE contracts (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	contact_id INTEGER, 
+	name VARCHAR NOT NULL, 
+	description TEXT, 
+	docuseal_template_id VARCHAR, 
+	docuseal_submission_id VARCHAR, 
+	docuseal_url VARCHAR, 
+	status VARCHAR(17), 
+	is_required BOOLEAN, 
+	required_by_date DATETIME, 
+	requirement_source VARCHAR(13), 
+	requirement_reason TEXT, 
+	sent_at DATETIME, 
+	completed_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id), 
+	FOREIGN KEY(contact_id) REFERENCES contacts (id)
+);
+CREATE INDEX ix_contracts_property_status ON contracts (property_id, status);
+CREATE INDEX ix_contracts_id ON contracts (id);
+CREATE INDEX ix_contracts_status ON contracts (status);
+CREATE INDEX ix_contracts_property_id ON contracts (property_id);
+CREATE INDEX ix_contracts_created_at ON contracts (created_at);
+CREATE TABLE compliance_violations (
+	id INTEGER NOT NULL, 
+	check_id INTEGER NOT NULL, 
+	rule_id INTEGER NOT NULL, 
+	status VARCHAR(20) NOT NULL, 
+	severity VARCHAR(20) NOT NULL, 
+	violation_message TEXT NOT NULL, 
+	ai_explanation TEXT, 
+	recommendation TEXT, 
+	expected_value VARCHAR(255), 
+	actual_value VARCHAR(255), 
+	is_resolved BOOLEAN, 
+	resolved_at DATETIME, 
+	resolution_notes TEXT, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(check_id) REFERENCES compliance_checks (id), 
+	FOREIGN KEY(rule_id) REFERENCES compliance_rules (id)
+);
+CREATE INDEX ix_compliance_violations_id ON compliance_violations (id);
+CREATE TABLE voice_campaign_targets (
+	id INTEGER NOT NULL, 
+	campaign_id INTEGER NOT NULL, 
+	contact_id INTEGER, 
+	property_id INTEGER, 
+	contact_name VARCHAR(255), 
+	phone_number VARCHAR(32) NOT NULL, 
+	status VARCHAR(32) NOT NULL, 
+	attempts_made INTEGER NOT NULL, 
+	next_attempt_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	last_attempt_at DATETIME, 
+	last_call_id VARCHAR(128), 
+	last_call_status VARCHAR(64), 
+	last_disposition VARCHAR(64), 
+	last_error TEXT, 
+	last_webhook_payload JSON, 
+	enrolled_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	completed_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_campaign_target_phone UNIQUE (campaign_id, phone_number), 
+	FOREIGN KEY(campaign_id) REFERENCES voice_campaigns (id) ON DELETE CASCADE, 
+	FOREIGN KEY(contact_id) REFERENCES contacts (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+CREATE INDEX ix_voice_campaign_targets_campaign_id ON voice_campaign_targets (campaign_id);
+CREATE INDEX ix_voice_campaign_targets_contact_id ON voice_campaign_targets (contact_id);
+CREATE INDEX ix_voice_campaign_targets_last_call_id ON voice_campaign_targets (last_call_id);
+CREATE INDEX ix_voice_campaign_targets_id ON voice_campaign_targets (id);
+CREATE INDEX ix_voice_campaign_targets_property_id ON voice_campaign_targets (property_id);
+CREATE INDEX ix_voice_campaign_targets_status ON voice_campaign_targets (status);
+CREATE INDEX ix_voice_campaign_targets_next_attempt_at ON voice_campaign_targets (next_attempt_at);
+CREATE TABLE offers (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	buyer_contact_id INTEGER, 
+	parent_offer_id INTEGER, 
+	offer_price FLOAT NOT NULL, 
+	earnest_money FLOAT, 
+	financing_type VARCHAR(16), 
+	closing_days INTEGER, 
+	contingencies JSON, 
+	notes TEXT, 
+	status VARCHAR(9), 
+	is_our_offer BOOLEAN, 
+	mao_low FLOAT, 
+	mao_base FLOAT, 
+	mao_high FLOAT, 
+	submitted_at DATETIME, 
+	expires_at DATETIME, 
+	responded_at DATETIME, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id), 
+	FOREIGN KEY(buyer_contact_id) REFERENCES contacts (id), 
+	FOREIGN KEY(parent_offer_id) REFERENCES offers (id)
+);
+CREATE INDEX ix_offers_status ON offers (status);
+CREATE INDEX ix_offers_property_status ON offers (property_id, status);
+CREATE INDEX ix_offers_property_id ON offers (property_id);
+CREATE INDEX ix_offers_id ON offers (id);
+CREATE TABLE contract_submitters (
+	id INTEGER NOT NULL, 
+	contract_id INTEGER NOT NULL, 
+	contact_id INTEGER, 
+	name VARCHAR NOT NULL, 
+	email VARCHAR NOT NULL, 
+	role VARCHAR NOT NULL, 
+	signing_order INTEGER, 
+	status VARCHAR(9), 
+	sent_at DATETIME, 
+	opened_at DATETIME, 
+	completed_at DATETIME, 
+	docuseal_submitter_id VARCHAR, 
+	docuseal_submitter_slug VARCHAR, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(contract_id) REFERENCES contracts (id), 
+	FOREIGN KEY(contact_id) REFERENCES contacts (id)
+);
+CREATE INDEX ix_contract_submitters_id ON contract_submitters (id);
+CREATE INDEX ix_contract_submitters_contract_id ON contract_submitters (contract_id);
+CREATE INDEX ix_contract_submitters_contact_id ON contract_submitters (contact_id);
+CREATE TABLE alembic_version (
+	version_num VARCHAR(32) NOT NULL, 
+	CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+);
+CREATE TABLE sqlite_stat1(tbl,idx,stat);

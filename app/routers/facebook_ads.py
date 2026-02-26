@@ -192,7 +192,7 @@ def generate_campaign(
         ad_format=campaign_data["ad_format"],
         source_url=request.url,
         generated_by="ai",
-        generation_model="claude-sonnet-4"
+        generation_model="claude-3-5-sonnet-20241022"
     )
 
     db.add(campaign)

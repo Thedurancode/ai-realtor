@@ -1,0 +1,70 @@
+{
+  "campaign_id": 1,
+  "campaign_data": {
+    "agent_id": 3,
+    "campaign_name": "Signature Realty - New York Luxury Property",
+    "campaign_objective": "leads",
+    "property_id": 1,
+    "property_url": "https://signaturerealty.com/properties/1",
+    "daily_budget": 100,
+    "target_audience": {
+      "age_min": 35,
+      "age_max": 65,
+      "genders": [
+        "male",
+        "female"
+      ],
+      "locations": [
+        {
+          "city": "New York",
+          "state": "NY",
+          "radius": 25
+        }
+      ],
+      "interests": [
+        "luxury real estate",
+        "home buying",
+        "investment property"
+      ],
+      "behaviors": [
+        "luxury shoppers",
+        "homeowners"
+      ]
+    },
+    "ad_creative": {
+      "headline": "Luxury 2Bed/2.0Bath Home in New York",
+      "primary_text": "Discover 123 Test St in New York, NY.\n\n2 Bedrooms | 2.0 Bathrooms | 1,200 sq ft\nPrice: $850,000\n\nStunning luxury property with premium finishes and modern amenities.\n\nYour Dream Home Awaits\n\nContact us today for a private showing!",
+      "headline_color": "#B45309",
+      "cta_text": "Learn More",
+      "cta_button_color": "#F59E0B",
+      "display_url": "https://signaturerealty.com",
+      "brand_name": "Signature Realty",
+      "logo_url": "https://signaturerealty.com/logo.png"
+    },
+    "ad_format": "single_image",
+    "ad_placements": [
+      "facebook_feed",
+      "instagram_feed",
+      "facebook_story"
+    ],
+    "campaign_start_date": "2026-02-25",
+    "campaign_end_date": "2026-03-10",
+    "status": "draft"
+  },
+  "property": {
+    "id": 1,
+    "address": "123 Test St",
+    "city": "New York",
+    "state": "NY",
+    "price": 850000.0,
+    "bedrooms": 2,
+    "bathrooms": 2.0,
+    "square_feet": 1200
+  },
+  "brand": {
+    "company_name": "Signature Realty",
+    "tagline": "Your Dream Home Awaits",
+    "primary_color": "#B45309",
+    "secondary_color": "#D97706"
+  }
+}

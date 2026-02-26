@@ -10,7 +10,13 @@ from anthropic import Anthropic, AsyncAnthropic
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
+# Model constants - use specific versions for production consistency
+# See: https://docs.anthropic.com/en/docs/about-claude/models
+MODEL_CLAUDE_35_SONNET = "claude-3-5-sonnet-20241022"  # Most intelligent (default)
+MODEL_CLAUDE_35_HAIKU = "claude-3-5-haiku-20241022"    # Fastest, lowest cost
+MODEL_CLAUDE_35_SONNET_LATEST = "claude-3-5-sonnet-latest"  # Auto-updates (dev only)
+
+DEFAULT_MODEL = MODEL_CLAUDE_35_SONNET
 
 
 class LLMService:

@@ -47,7 +47,7 @@ class AgentConversation(Base):
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
 
     # Model configuration
-    model = Column(String(100), default="claude-sonnet-4-20250514")
+    model = Column(String(100), default="claude-3-5-sonnet-20241022")
     system_prompt = Column(Text, nullable=True)
     temperature = Column(String(10), default="0.7")
     max_tokens = Column(Integer, default=4096)

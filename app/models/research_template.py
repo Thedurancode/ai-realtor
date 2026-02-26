@@ -80,7 +80,7 @@ class ResearchTemplate(Base):
         if self.research_type == ResearchType.AI_RESEARCH:
             params = {
                 "prompt": self.ai_prompt_template,
-                "model": self.ai_model or "claude-sonnet-4-20250514",
+                "model": self.ai_model or "claude-3-5-sonnet-20241022",
                 "temperature": float(self.ai_temperature) if self.ai_temperature else 1.0,
                 "max_tokens": self.ai_max_tokens or 4096,
                 "system_prompt": self.ai_system_prompt,

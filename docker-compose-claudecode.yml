@@ -1,0 +1,113 @@
+# =============================================================================
+# AI REALTOR + NANOBOT with CLAUDE CODE
+# =============================================================================
+# This docker-compose runs AI Realtor and Nanobot with Claude Code pre-installed
+# for container-based development and debugging.
+# =============================================================================
+
+services:
+  # ================================================================
+  # AI REALTOR - SQLite
+  # ================================================================
+  ai-realtor:
+    build:
+      context: .
+      dockerfile: Dockerfile.sqlite
+    container_name: ai-realtor-sqlite
+    restart: unless-stopped
+    ports:
+      - "8000:8000"  # FastAPI backend
+      - "8001:8001"  # MCP Server
+    environment:
+      DATABASE_URL: sqlite:////app/data/ai_realtor.db
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      RAPIDAPI_KEY: ${RAPIDAPI_KEY:-}
+      SKIP_TRACE_API_HOST: ${SKIP_TRACE_API_HOST:-skip-tracing-working-api.p.rapidapi.com}
+      ZILLOW_API_HOST: ${ZILLOW_API_HOST:-private-zillow.p.rapidapi.com}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      EXA_BASE_URL: ${EXA_BASE_URL:-https://api.exa.ai}
+      EXA_SEARCH_TYPE: ${EXA_SEARCH_TYPE:-auto}
+      EXA_TIMEOUT_SECONDS: ${EXA_TIMEOUT_SECONDS:-20}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DOCUSEAL_API_KEY: ${DOCUSEAL_API_KEY:-}
+      DOCUSEAL_API_URL: ${DOCUSEAL_API_URL:-https://api.docuseal.com}
+      VAPI_API_KEY: ${VAPI_API_KEY:-}
+      VAPI_PHONE_NUMBER_ID: ${VAPI_PHONE_NUMBER_ID:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      CAMPAIGN_WORKER_ENABLED: "true"
+      CAMPAIGN_WORKER_INTERVAL_SECONDS: "15"
+      CAMPAIGN_WORKER_MAX_CALLS_PER_TICK: "5"
+      DAILY_DIGEST_ENABLED: "true"
+      DAILY_DIGEST_HOUR: "8"
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ai_realtor_data:/app/data
+      - ./app:/root/ai_realtor:ro  # Mount AI Realtor code for Claude Code
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ai-platform
+
+  # ================================================================
+  # NANOBOT with CLAUDE CODE
+  # ================================================================
+  nanobot:
+    build:
+      context: ./nanobot
+      dockerfile: Dockerfile.claudecode
+    container_name: nanobot-gateway
+    restart: unless-stopped
+    command: ["gateway"]  # Override default "status" command
+    ports:
+      - "18790:18790"  # Nanobot default port
+      - "8080:8080"    # Claude Code (optional - for remote access)
+    environment:
+      # AI Provider Configuration
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ZHIPU_API_KEY: ${ZHIPU_API_KEY:-}
+
+      # Chat Platform Configuration
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ALLOW_FROM: ${TELEGRAM_ALLOW_FROM:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_ALLOW_FROM: ${DISCORD_ALLOW_FROM:-}
+    volumes:
+      # Mount Nanobot config directory (persistent)
+      - nanobot_config:/root/.nanobot
+      # Mount AI Realtor skill from local workspace
+      - ~/.nanobot/workspace/skills:/root/.nanobot/workspace/skills:ro
+      # Mount AI Realtor API key reference
+      - ./scripts:/scripts:ro
+      # Mount AI Realtor code for Claude Code workspace
+      - ./app:/root/ai_realtor:ro
+    depends_on:
+      ai-realtor:
+        condition: service_healthy
+    networks:
+      - ai-platform
+
+# =============================================================================
+# Volumes - Persistent Data Storage
+# =============================================================================
+volumes:
+  ai_realtor_data:
+    driver: local
+    name: ai_realtor_sqlite_data
+
+  nanobot_config:
+    driver: local
+    name: nanobot_config_data
+
+# =============================================================================
+# Networks - Service Communication
+# =============================================================================
+networks:
+  ai-platform:
+    driver: bridge
+    name: ai-platform-network

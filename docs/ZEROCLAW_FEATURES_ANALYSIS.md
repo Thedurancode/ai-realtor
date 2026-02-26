@@ -1220,7 +1220,7 @@ class LLMService:
 
         # Track token usage and cost
         self._log_usage(
-            model="claude-sonnet-4",
+            model="claude-3-5-sonnet",
             prompt_tokens=len(prompt) // 4,
             completion_tokens=len(response) // 4,
             duration_ms=duration * 1000,

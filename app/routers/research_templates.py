@@ -37,7 +37,7 @@ def create_template(
         "research_type": "ai_research",
         "ai_prompt_template": "Analyze the investment risks for {property.address}. Consider market conditions, property condition, location, and financial factors.",
         "ai_system_prompt": "You are Dr. Risk, a real estate investment risk analyst with 20 years of experience. Your responses are thorough, data-driven, and highlight both opportunities and red flags.",
-        "ai_model": "claude-sonnet-4-20250514",
+        "ai_model": "claude-3-5-sonnet-20241022",
         "ai_temperature": "0.3",
         "agent_name": "Dr. Risk",
         "agent_expertise": "Investment risk analysis, market trends, financial modeling"

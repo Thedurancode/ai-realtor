@@ -1,0 +1,130 @@
+name = "sprites-dev-cli"
+description = "Cloud development environment CLI for Sprites.dev - Create, manage, and interact with remote development sprites"
+version = "1.0.0"
+author = "AI Realtor Platform"
+license = "MIT"
+category = "development-tools"
+tags = ["cloud-dev", "sprites", "flyio", "remote-development", "cli"]
+
+# MCP tools this skill can use
+allowed_tools = []
+
+# Instructions file (markdown)
+instructions_file = "INSTRUCTIONS.md"
+
+# Executable code
+code = """
+import subprocess
+import os
+import json
+
+# Sprites CLI binary location
+SPRITE_BIN = os.path.expanduser("~/.local/bin/sprite")
+CONFIG_PATH = os.path.expanduser("~/.sprites/sprites.json")
+
+
+def sprite_login(org: str = None):
+    \"\"\"Authenticate with Fly.io/Sprites.\"\"\"
+    cmd = [SPRITE_BIN, "login"]
+    if org:
+        cmd.extend(["-o", org])
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+
+def sprite_create(name: str, org: str = None):
+    \"\"\"Create a new sprite (cloud dev environment).\"\"\"
+    cmd = [SPRITE_BIN, "create", name]
+    if org:
+        cmd.extend(["-o", org])
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+
+def sprite_list(org: str = None):
+    \"\"\"List all sprites.\"\"\"
+    cmd = [SPRITE_BIN, "list"]
+    if org:
+        cmd.extend(["-o", org])
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "output": result.stdout}
+
+
+def sprite_use(name: str, org: str = None):
+    \"\"\"Activate a sprite for current directory.\"\"\"
+    cmd = [SPRITE_BIN, "use", name]
+    if org:
+        cmd.extend(["-o", org])
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+
+def sprite_exec(command: str, sprite: str = None, org: str = None):
+    \"\"\"Execute a command in the sprite environment.\"\"\"
+    cmd = [SPRITE_BIN, "exec"]
+    if org:
+        cmd.extend(["-o", org])
+    if sprite:
+        cmd.extend(["-s", sprite])
+    cmd.extend(command.split())
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+
+def sprite_console(sprite: str = None, org: str = None):
+    \"\"\"Open interactive shell in sprite (not for automation).\"\"\"
+    return {"error": "Console is interactive - use sprite_exec for automation"}
+
+
+def sprite_checkpoint_create():
+    \"\"\"Create a checkpoint (snapshot) of current sprite.\"\"\"
+    cmd = [SPRITE_BIN, "checkpoint", "create"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+
+def sprite_checkpoint_list():
+    \"\"\"List all checkpoints.\"\"\"
+    cmd = [SPRITE_BIN, "checkpoint", "list"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "output": result.stdout}
+
+
+def sprite_restore(checkpoint_id: str):
+    \"\"\"Restore from a checkpoint.\"\"\"
+    cmd = [SPRITE_BIN, "restore", checkpoint_id]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+
+def sprite_url():
+    \"\"\"Show sprite URL.\"\"\"
+    cmd = [SPRITE_BIN, "url"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "url": result.stdout.strip()}
+
+
+def sprite_destroy(name: str, org: str = None):
+    \"\"\"Destroy a sprite.\"\"\"
+    cmd = [SPRITE_BIN, "destroy", name]
+    if org:
+        cmd.extend(["-o", org])
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+
+def sprite_proxy(*ports):
+    \"\"\"Forward local ports through remote server proxy.\"\"\"
+    cmd = [SPRITE_BIN, "proxy"] + list(ports)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+
+def get_config():
+    \"\"\"Read Sprites configuration.\"\"\"
+    try:
+        with open(CONFIG_PATH, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return None
+"""

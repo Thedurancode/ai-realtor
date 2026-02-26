@@ -1,13 +1,16 @@
-"""Market Watchlist router — CRUD + toggle + manual check."""
+"""Market Watchlist router — CRUD + toggle + manual check + auto-scan."""
 
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services.watchlist_service import watchlist_service
+from app.services.watchlist_scanner_service import watchlist_scanner_service
 
 router = APIRouter(prefix="/watchlists", tags=["watchlists"])
+logger = logging.getLogger(__name__)
 
 
 # ── Schemas ──────────────────────────────────────────────────────────
@@ -108,6 +111,104 @@ def check_property_against_watchlists(property_id: int, db: Session = Depends(ge
     if result.get("error"):
         raise HTTPException(status_code=404, detail=result["error"])
     return result
+
+
+# ── Auto-Scan Endpoints ────────────────────────────────────────────────
+
+@router.post("/scan/all")
+def scan_all_watchlists(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Manually trigger scan of all active watchlists.
+
+    This will:
+    1. Scrape Zillow for each watchlist
+    2. Import new matching properties
+    3. Auto-enrich with Zillow data
+    4. Create notifications for agents
+
+    Returns immediately with scan status. Runs in background.
+    """
+    def run_scan():
+        try:
+            results = watchlist_scanner_service.scan_all_watchlists(db)
+            return results
+        except Exception as e:
+            logger.error(f"Manual watchlist scan failed: {e}")
+            raise
+
+    background_tasks.add_task(run_scan)
+
+    return {
+        "message": "Watchlist scan started",
+        "status": "running_in_background"
+    }
+
+
+@router.post("/scan/{watchlist_id}")
+def scan_single_watchlist(
+    watchlist_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """Manually trigger scan of a specific watchlist.
+
+    Returns immediately with scan status. Runs in background.
+    """
+    from app.models.market_watchlist import MarketWatchlist
+
+    wl = db.query(MarketWatchlist).filter(MarketWatchlist.id == watchlist_id).first()
+    if not wl:
+        raise HTTPException(status_code=404, detail="Watchlist not found")
+
+    def run_scan():
+        try:
+            result = watchlist_scanner_service.scan_watchlist(db, wl)
+            return result
+        except Exception as e:
+            logger.error(f"Manual watchlist scan failed for {watchlist_id}: {e}")
+            raise
+
+    background_tasks.add_task(run_scan)
+
+    return {
+        "message": f"Watchlist '{wl.name}' scan started",
+        "status": "running_in_background"
+    }
+
+
+@router.get("/scan/status")
+def get_scan_status(db: Session = Depends(get_db)):
+    """Get recent scan results from notifications.
+
+    Returns the most recent watchlist scan notifications.
+    """
+    from app.models.notification import Notification
+    from datetime import datetime, timedelta
+
+    # Get recent scan notifications (last 24 hours)
+    since = datetime.utcnow() - timedelta(hours=24)
+
+    notifications = db.query(Notification).filter(
+        Notification.type == "system",
+        Notification.metadata.isnot(None),
+        Notification.created_at >= since
+    ).order_by(Notification.created_at.desc()).limit(10).all()
+
+    scans = []
+    for notif in notifications:
+        metadata = notif.metadata or {}
+        if metadata.get("source") == "watchlist_scanner":
+            scans.append({
+                "notification_id": notif.id,
+                "created_at": notif.created_at.isoformat(),
+                "watchlist_name": metadata.get("watchlist_name"),
+                "property_count": metadata.get("property_count", 0),
+                "property_ids": metadata.get("property_ids", [])
+            })
+
+    return {
+        "recent_scans": scans,
+        "total": len(scans)
+    }
 
 
 # ── Helpers ──────────────────────────────────────────────────────────

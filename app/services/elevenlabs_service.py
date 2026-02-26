@@ -94,7 +94,7 @@ class ElevenLabsService:
         self,
         system_prompt: str = SYSTEM_PROMPT,
         first_message: str = DEFAULT_FIRST_MESSAGE,
-        llm: str = "claude-sonnet-4-5",
+        llm: str = "claude-3-5-sonnet-20241022",
         voice_id: str = "21m00Tcm4TlvDq8ikWAM",
     ) -> dict:
         """Create an ElevenLabs conversational AI agent with MCP tools."""

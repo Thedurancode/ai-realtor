@@ -273,16 +273,16 @@ async def create_ai_research(
     {
         "property_id": 1,
         "prompt": "What are the top 5 risks I should be aware of for this property?",
-        "model": "claude-sonnet-4-20250514",
+        "model": "claude-3-5-sonnet-20241022",
         "temperature": 0.7,
         "property_context": true
     }
 
     Available models:
-    - claude-sonnet-4-20250514 (recommended, latest)
-    - claude-3-5-sonnet-20241022
-    - claude-3-opus-20240229
-    - claude-3-haiku-20240307
+    - claude-3-5-sonnet-20241022 (recommended, latest)
+    - claude-3-5-haiku-20241022 (fastest)
+    - claude-3-opus-20240229 (most capable)
+    - claude-3-haiku-20240307 (legacy)
     """
     # Validate property if provided
     if request.property_id:

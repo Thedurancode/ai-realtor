@@ -251,4 +251,5 @@ class MockSkipTraceService:
         }
 
 
-skip_trace_service = RapidAPISkipTraceService()
+# Use mock service for testing (replace with RapidAPISkipTraceService() when API key is configured)
+skip_trace_service = MockSkipTraceService()

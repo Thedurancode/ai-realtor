@@ -1542,20 +1542,20 @@ GET  /facebook-ads/analytics/account           - Account analytics
 
 **API Endpoints:**
 ```
-POST /postiz/accounts/connect              - Connect social account
-GET  /postiz/accounts                      - List connected accounts
-POST /postiz/posts/create                  - Create post
-POST /postiz/posts/{id}/schedule           - Schedule post
-GET  /postiz/posts                         - List posts
-GET  /postiz/posts/{id}                    - Get post
-PUT  /postiz/posts/{id}                    - Update post
-POST /postiz/ai/generate                   - AI content generation
-POST /postiz/campaigns/create              - Create campaign
-GET  /postiz/campaigns                     - List campaigns
-POST /postiz/templates/create              - Create template
-GET  /postiz/templates                     - List templates
-GET  /postiz/analytics/overview            - Get analytics
-GET  /postiz/calendar                      - Content calendar
+POST /social/accounts/connect              - Connect social account
+GET  /social/accounts                      - List connected accounts
+POST /social/posts/create                  - Create post
+POST /social/posts/{id}/schedule           - Schedule post
+GET  /social/posts                         - List posts
+GET  /social/posts/{id}                    - Get post
+PUT  /social/posts/{id}                    - Update post
+POST /social/ai/generate                   - AI content generation
+POST /social/campaigns/create              - Create campaign
+GET  /social/campaigns                     - List campaigns
+POST /social/templates/create              - Create template
+GET  /social/templates                     - List templates
+GET  /social/analytics/overview            - Get analytics
+GET  /social/calendar                      - Content calendar
 ```
 
 **Voice Commands:**
@@ -1604,7 +1604,7 @@ POST /facebook-ads/campaigns/3/launch
 
 **Step 4: Create Organic Social Posts**
 ```bash
-POST /postiz/posts/create?agent_id=5
+POST /social/posts/create?agent_id=5
 {
   "content_type": "property_promo",
   "caption": "🏠 Stunning luxury condo in NYC!",
@@ -1617,7 +1617,7 @@ POST /postiz/posts/create?agent_id=5
 
 **Step 5: Create Multi-Post Campaign**
 ```bash
-POST /postiz/campaigns/create?agent_id=5
+POST /social/campaigns/create?agent_id=5
 {
   "campaign_name": "Property Launch Campaign",
   "campaign_type": "property_launch",
@@ -1659,7 +1659,7 @@ POST /postiz/campaigns/create?agent_id=5
 ```
 GET /facebook-ads/analytics/campaign/{id}   - Campaign analytics
 GET /facebook-ads/analytics/account         - Account analytics
-GET /postiz/analytics/overview              - Social media analytics
+GET /social/analytics/overview              - Social media analytics
 ```
 
 ---
