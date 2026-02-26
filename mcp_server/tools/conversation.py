@@ -3,6 +3,7 @@ from mcp.types import Tool, TextContent
 
 from ..server import register_tool
 from ..utils.http_client import api_get, api_post, api_delete
+from ..utils.property_resolver import resolve_property_id
 
 
 SESSION_ID = "mcp_session"
@@ -65,9 +66,7 @@ def log_tool_call(tool_name: str, input_summary: str, output_summary: str, succe
 
 async def handle_get_property_history(arguments: dict) -> list[TextContent]:
     """Get full history of actions on a specific property."""
-    property_id = arguments.get("property_id")
-    if not property_id:
-        return [TextContent(type="text", text="Please provide a property_id.")]
+    property_id = resolve_property_id(arguments)
 
     limit = arguments.get("limit", 50)
 
@@ -133,13 +132,17 @@ register_tool(
 register_tool(
     Tool(
         name="get_property_history",
-        description="Get the full history of actions taken on a specific property. Shows a chronological timeline of everything done — enrichment, skip traces, notes, contracts, phone calls, etc. Use when user asks 'what have we done on property 5?' or 'show me the history for 123 Main St'.",
+        description="Get the full history of actions taken on a specific property. Shows a chronological timeline of everything done — enrichment, skip traces, notes, contracts, phone calls, etc. Use when user asks 'what have we done on the Brooklyn property?' or 'show me the history for 123 Main St'.",
         inputSchema={
             "type": "object",
             "properties": {
                 "property_id": {
                     "type": "number",
-                    "description": "The property ID to get history for"
+                    "description": "The property ID to get history for (optional if address provided)"
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
                 },
                 "limit": {
                     "type": "number",
@@ -147,7 +150,6 @@ register_tool(
                     "default": 50
                 }
             },
-            "required": ["property_id"]
         }
     ),
     handle_get_property_history

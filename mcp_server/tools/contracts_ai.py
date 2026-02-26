@@ -3,29 +3,14 @@ from mcp.types import Tool, TextContent
 
 from ..server import register_tool
 from ..utils.http_client import api_post, api_patch
-from ..utils.voice import normalize_voice_query
+from ..utils.property_resolver import find_property_by_address
 
 
 # ── Helpers ──
 
-def _resolve_property_from_address(address_query):
-    from app.database import SessionLocal
-    from app.models.property import Property
-    from sqlalchemy import func, or_
-    db = SessionLocal()
-    try:
-        query_variations = normalize_voice_query(address_query)
-        property_obj = db.query(Property).filter(or_(*[func.lower(Property.address).contains(var) for var in query_variations])).first()
-        if not property_obj:
-            raise ValueError(f"No property found matching: {address_query}")
-        return property_obj.id
-    finally:
-        db.close()
-
-
 async def attach_required_contracts(property_id=None, address_query=None):
     if address_query and not property_id:
-        property_id = _resolve_property_from_address(address_query)
+        property_id = find_property_by_address(address_query)
     if not property_id:
         raise ValueError("Either property_id or address_query must be provided")
     response = api_post(f"/contracts/property/{property_id}/auto-attach")
@@ -35,7 +20,7 @@ async def attach_required_contracts(property_id=None, address_query=None):
 
 async def ai_suggest_contracts_for_property(property_id=None, address_query=None):
     if address_query and not property_id:
-        property_id = _resolve_property_from_address(address_query)
+        property_id = find_property_by_address(address_query)
     if not property_id:
         raise ValueError("Either property_id or address_query must be provided")
     response = api_post(f"/contracts/property/{property_id}/ai-suggest")
@@ -45,7 +30,7 @@ async def ai_suggest_contracts_for_property(property_id=None, address_query=None
 
 async def apply_ai_contract_suggestions(property_id=None, address_query=None, only_required=True):
     if address_query and not property_id:
-        property_id = _resolve_property_from_address(address_query)
+        property_id = find_property_by_address(address_query)
     if not property_id:
         raise ValueError("Either property_id or address_query must be provided")
     response = api_post(f"/contracts/property/{property_id}/ai-apply-suggestions", params={"only_required": only_required})

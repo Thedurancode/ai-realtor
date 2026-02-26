@@ -4,10 +4,14 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
+import logging
 
 from app.database import get_db
 from app.services.telnyx_service import get_telnyx_service
-from app.models import Agent, ScheduledTask, PhoneCall
+from app.models import Agent, ScheduledTask, PhoneCall, Property
+from app.auth import get_current_agent
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/telnyx", tags=["Telnyx Voice"])
@@ -80,6 +84,7 @@ class TelnyxStatusResponse(BaseModel):
 @router.post("/calls", response_model=TelnyxCallResponse)
 async def create_telnyx_call(
     request: TelnyxCallRequest,
+    current_agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db),
 ):
     """
@@ -95,6 +100,14 @@ async def create_telnyx_call(
     """
     service = get_telnyx_service()
 
+    # Verify property ownership if property_id provided
+    if request.property_id:
+        property = db.query(Property).filter(Property.id == request.property_id).first()
+        if not property:
+            raise HTTPException(status_code=404, detail="Property not found")
+        if property.agent_id != current_agent.id:
+            raise HTTPException(status_code=403, detail="Not authorized to call this property")
+
     try:
         result = await service.create_call(
             to=request.to,
@@ -107,9 +120,9 @@ async def create_telnyx_call(
             webhook_url=request.webhook_url,
         )
 
-        # Save call to database
+        # Save call to database with proper agent_id
         phone_call = PhoneCall(
-            agent_id=1,  # TODO: Get from auth
+            agent_id=current_agent.id,  # FIXED: Use authenticated agent's ID
             direction="outbound",
             phone_number=request.to,
             provider="telnyx",
@@ -122,9 +135,18 @@ async def create_telnyx_call(
             recording_url=None,  # Will be updated by webhook
             created_at=datetime.utcnow(),
         )
-        db.add(phone_call)
-        db.commit()
-        db.refresh(phone_call)
+
+        try:
+            db.add(phone_call)
+            db.commit()
+            db.refresh(phone_call)
+        except Exception as db_error:
+            # Call was made but failed to save - log the error
+            logger.error(f"Failed to save Telnyx call to database: {db_error}. Call ID: {result.get('call_id')}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Call initiated but failed to save to database: {str(db_error)}"
+            )
 
         return TelnyxCallResponse(
             call_id=result["call_id"],
@@ -137,6 +159,8 @@ async def create_telnyx_call(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create call: {str(e)}")
 
@@ -293,6 +317,9 @@ async def telnyx_webhook(
     - call.machine.detected
 
     Automatically updates PhoneCall records and stores recordings.
+
+    NOTE: This endpoint does not require authentication as it's called by Telnyx.
+    Webhook signature verification should be implemented for production security.
     """
     event_type = payload.get("event_type", "unknown")
     call_data = payload.get("data", {})
@@ -301,50 +328,62 @@ async def telnyx_webhook(
     if not call_control_id:
         return {"status": "error", "message": "No call_control_id"}
 
-    # Find the call in database
-    phone_call = db.query(PhoneCall).filter(
-        PhoneCall.telnyx_call_id == call_control_id
-    ).first()
+    try:
+        # Find the call in database
+        phone_call = db.query(PhoneCall).filter(
+            PhoneCall.telnyx_call_id == call_control_id
+        ).first()
 
-    if not phone_call:
-        # Call might not be in our system yet
-        return {"status": "ignored", "message": "Call not found in database"}
+        if not phone_call:
+            # Call might not be in our system yet
+            logger.warning(f"Webhook received for unknown call_control_id: {call_control_id}")
+            return {"status": "ignored", "message": "Call not found in database"}
 
-    # Update based on event type
-    if event_type == "call.initiated":
-        phone_call.status = "in_progress"
-        phone_call.started_at = datetime.utcnow()
+        # Update based on event type
+        if event_type == "call.initiated":
+            phone_call.status = "in_progress"
+            phone_call.started_at = datetime.utcnow()
 
-    elif event_type == "call.answered":
-        phone_call.status = "in_progress"
-        phone_call.started_at = datetime.utcnow()
+        elif event_type == "call.answered":
+            phone_call.status = "in_progress"
+            phone_call.started_at = datetime.utcnow()
 
-    elif event_type == "call.hangup":
-        phone_call.status = "completed"
-        phone_call.ended_at = datetime.utcnow()
+        elif event_type == "call.hangup":
+            phone_call.status = "completed"
+            phone_call.ended_at = datetime.utcnow()
 
-        # Calculate duration
-        if phone_call.started_at:
-            duration = (datetime.utcnow() - phone_call.started_at).total_seconds()
-            phone_call.duration_seconds = int(duration)
+            # Calculate duration
+            if phone_call.started_at:
+                duration = (datetime.utcnow() - phone_call.started_at).total_seconds()
+                phone_call.duration_seconds = int(duration)
 
-    elif event_type == "call.recording":
-        # Store recording URL
-        recording_url = call_data.get("recording_url")
-        if recording_url:
-            phone_call.recording_url = recording_url
-            phone_call.recording_transcribed = False
+        elif event_type == "call.recording":
+            # Store recording URL
+            recording_url = call_data.get("recording_url")
+            if recording_url:
+                phone_call.recording_url = recording_url
+                phone_call.recording_transcribed = False
 
-    elif event_type == "call.machine.detected":
-        # Answering machine detected
-        phone_call.status = "no_answer"
-        phone_call.ended_at = datetime.utcnow()
+        elif event_type == "call.machine.detected":
+            # Answering machine detected
+            phone_call.status = "no_answer"
+            phone_call.ended_at = datetime.utcnow()
 
-    db.commit()
+        # Commit with error handling
+        try:
+            db.commit()
+        except Exception as commit_error:
+            db.rollback()
+            logger.error(f"Failed to commit webhook update: {commit_error}")
+            return {"status": "error", "message": f"Database error: {str(commit_error)}"}
 
-    return {
-        "status": "received",
-        "event_type": event_type,
-        "call_control_id": call_control_id,
-        "phone_call_id": phone_call.id,
-    }
+        return {
+            "status": "received",
+            "event_type": event_type,
+            "call_control_id": call_control_id,
+            "phone_call_id": phone_call.id,
+        }
+
+    except Exception as e:
+        logger.error(f"Error processing Telnyx webhook: {e}")
+        return {"status": "error", "message": f"Processing error: {str(e)}"}

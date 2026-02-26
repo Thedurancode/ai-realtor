@@ -3,6 +3,7 @@ from mcp.types import Tool, TextContent
 
 from ..server import register_tool
 from ..utils.http_client import api_get, api_post
+from ..utils.property_resolver import resolve_property_id
 
 
 async def handle_get_follow_up_queue(arguments: dict) -> list[TextContent]:
@@ -48,9 +49,7 @@ async def handle_get_follow_up_queue(arguments: dict) -> list[TextContent]:
 
 async def handle_complete_follow_up(arguments: dict) -> list[TextContent]:
     """Mark a follow-up as completed."""
-    property_id = arguments.get("property_id")
-    if not property_id:
-        return [TextContent(type="text", text="Please provide a property_id.")]
+    property_id = resolve_property_id(arguments)
 
     note = arguments.get("note")
     body = {}
@@ -73,9 +72,7 @@ async def handle_complete_follow_up(arguments: dict) -> list[TextContent]:
 
 async def handle_snooze_follow_up(arguments: dict) -> list[TextContent]:
     """Snooze a follow-up for a specified duration."""
-    property_id = arguments.get("property_id")
-    if not property_id:
-        return [TextContent(type="text", text="Please provide a property_id.")]
+    property_id = resolve_property_id(arguments)
 
     hours = arguments.get("hours", 72)
     response = api_post(f"/follow-ups/{property_id}/snooze", json={"hours": hours})
@@ -126,21 +123,24 @@ register_tool(
         name="complete_follow_up",
         description=(
             "Mark a follow-up as completed. Logs the action and optionally saves a note. "
-            "Voice: 'I handled property 5', 'Mark follow-up for property 3 as done'"
+            "Voice: 'I handled the Brooklyn property', 'Mark follow-up for 123 Main St as done'"
         ),
         inputSchema={
             "type": "object",
             "properties": {
                 "property_id": {
                     "type": "number",
-                    "description": "The property ID to mark as followed up",
+                    "description": "The property ID to mark as followed up (optional if address provided)",
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
                 },
                 "note": {
                     "type": "string",
                     "description": "Optional note about what was done",
                 },
             },
-            "required": ["property_id"],
         },
     ),
     handle_complete_follow_up,
@@ -152,14 +152,18 @@ register_tool(
         description=(
             "Snooze a property's follow-up for a specified duration. The property will "
             "reappear in the queue after the snooze period. "
-            "Voice: 'Snooze property 5 for 3 days', 'Remind me about property 3 in a week'"
+            "Voice: 'Snooze the Brooklyn property for 3 days', 'Remind me about 123 Main St in a week'"
         ),
         inputSchema={
             "type": "object",
             "properties": {
                 "property_id": {
                     "type": "number",
-                    "description": "The property ID to snooze",
+                    "description": "The property ID to snooze (optional if address provided)",
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
                 },
                 "hours": {
                     "type": "number",
@@ -167,7 +171,6 @@ register_tool(
                     "default": 72,
                 },
             },
-            "required": ["property_id"],
         },
     ),
     handle_snooze_follow_up,

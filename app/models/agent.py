@@ -28,3 +28,8 @@ class Agent(Base):
     # Temporarily commented to fix circular import
     # phone_numbers = relationship("PhoneNumber", back_populates="agent")
     # phone_calls = relationship("PhoneCall", back_populates="agent")
+    # Portal users invited by this agent
+    portal_users = relationship("PortalUser", back_populates="agent")
+    # Calendar integrations and events
+    calendar_connections = relationship("CalendarConnection", back_populates="agent")
+    calendar_events = relationship("CalendarEvent", back_populates="agent")

@@ -3,6 +3,7 @@ from mcp.types import Tool, TextContent
 
 from ..server import register_tool
 from ..utils.http_client import api_get
+from ..utils.property_resolver import resolve_property_id
 
 
 def _format_timestamp(ts_str: str) -> str:
@@ -50,9 +51,7 @@ async def handle_get_activity_timeline(arguments: dict) -> list[TextContent]:
 
 async def handle_get_property_timeline(arguments: dict) -> list[TextContent]:
     """Get activity timeline for a specific property."""
-    property_id = arguments.get("property_id")
-    if not property_id:
-        return [TextContent(type="text", text="Please provide a property_id.")]
+    property_id = resolve_property_id(arguments)
 
     params: dict = {"limit": arguments.get("limit", 50)}
     response = api_get(f"/activity-timeline/property/{property_id}", params=params)
@@ -108,7 +107,7 @@ register_tool(
             "Get unified activity timeline — all events from tool calls, notifications, "
             "notes, tasks, contracts, enrichments, and skip traces in chronological order. "
             "Supports filtering by property, event types, and search. "
-            "Voice: 'Show me the timeline', 'What's the activity on property 5?', "
+            "Voice: 'Show me the timeline', 'What's the activity on the Brooklyn property?', "
             "'Show me all contract events', 'Search timeline for Purchase Agreement'"
         ),
         inputSchema={
@@ -116,7 +115,11 @@ register_tool(
             "properties": {
                 "property_id": {
                     "type": "number",
-                    "description": "Filter to specific property (omit for portfolio-wide)",
+                    "description": "Filter to specific property (omit for portfolio-wide, optional if address provided)",
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
                 },
                 "event_types": {
                     "type": "array",
@@ -139,16 +142,19 @@ register_tool(
         name="get_property_timeline",
         description=(
             "Get complete activity timeline for a specific property. "
-            "Voice: 'Show me everything on property 5', 'Timeline for 123 Main St', "
-            "'What happened on property 3?'"
+            "Voice: 'Show me everything on the Brooklyn property', 'Timeline for 123 Main St', "
+            "'What happened on the Miami condo?'"
         ),
         inputSchema={
             "type": "object",
             "properties": {
-                "property_id": {"type": "number", "description": "The property ID"},
+                "property_id": {"type": "number", "description": "The property ID (optional if address provided)"},
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
+                },
                 "limit": {"type": "number", "description": "Max events (default 50)", "default": 50},
             },
-            "required": ["property_id"],
         },
     ),
     handle_get_property_timeline,
@@ -160,12 +166,16 @@ register_tool(
         description=(
             "Get recent activity in last N hours. Quick view of what happened recently. "
             "Voice: 'What happened today?', 'Recent activity', 'What's new?', "
-            "'Show me the last 48 hours'"
+            "'Show me the last 48 hours for the Brooklyn property'"
         ),
         inputSchema={
             "type": "object",
             "properties": {
-                "property_id": {"type": "number", "description": "Filter to specific property (omit for portfolio-wide)"},
+                "property_id": {"type": "number", "description": "Filter to specific property (omit for portfolio-wide, optional if address provided)"},
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
+                },
                 "hours": {"type": "number", "description": "Hours to look back (default 24)", "default": 24},
             },
         },

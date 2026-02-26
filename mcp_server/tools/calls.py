@@ -352,8 +352,8 @@ register_tool(
         description=(
             "Check the status of a previous Q&A call and get the transcript. "
             "Returns status, transcript, and AI-extracted answers. "
-            "Voice: "What's the status of call 12345?", "Get the transcript of the seller call", "
-            "'Did the buyer answer about their move-in date?'"
+            "Voice: \"What's the status of call 12345?\", \"Get the transcript of the seller call\", "
+            "\"Did the buyer answer about their move-in date?\""
         ),
         inputSchema={
             "type": "object",
@@ -381,9 +381,9 @@ register_tool(
         description=(
             "Schedule a Q&A call for a specific time. Creates a scheduled task that "
             "will trigger the call automatically. "
-            "Voice: "Schedule a call to the seller tomorrow at 10am", "
-            "'Set up a reminder to call the buyer on Friday afternoon', "
-            "'Remind me to phone the inspector next Monday morning'"
+            "Voice: \"Schedule a call to the seller tomorrow at 10am\", "
+            "\"Set up a reminder to call the buyer on Friday afternoon\", "
+            "\"Remind me to phone the inspector next Monday morning\""
         ),
         inputSchema={
             "type": "object",
@@ -423,9 +423,9 @@ register_tool(
         description=(
             "Make Q&A calls to multiple contacts at once. Useful for gathering information "
             "from multiple parties simultaneously. "
-            "Voice: "Call all parties for property 5 and ask about availability", "
-            "'Phone the buyer and seller to confirm closing time', "
-            "'Survey all contacts about their preferred meeting time'"
+            "Voice: \"Call all parties for property 5 and ask about availability\", "
+            "\"Phone the buyer and seller to confirm closing time\", "
+            "\"Survey all contacts about their preferred meeting time\""
         ),
         inputSchema={
             "type": "object",

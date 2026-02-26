@@ -3,13 +3,12 @@ from mcp.types import Tool, TextContent
 
 from ..server import register_tool
 from ..utils.http_client import api_get, api_post
+from ..utils.property_resolver import resolve_property_id
 
 
 async def handle_score_property(arguments: dict) -> list[TextContent]:
     """Score a single property."""
-    property_id = arguments.get("property_id")
-    if not property_id:
-        return [TextContent(type="text", text="Please provide a property_id.")]
+    property_id = resolve_property_id(arguments)
 
     response = api_post(f"/scoring/property/{property_id}")
     response.raise_for_status()
@@ -33,9 +32,7 @@ async def handle_score_property(arguments: dict) -> list[TextContent]:
 
 async def handle_get_score_breakdown(arguments: dict) -> list[TextContent]:
     """Get stored score breakdown for a property."""
-    property_id = arguments.get("property_id")
-    if not property_id:
-        return [TextContent(type="text", text="Please provide a property_id.")]
+    property_id = resolve_property_id(arguments)
 
     response = api_get(f"/scoring/property/{property_id}")
     response.raise_for_status()
@@ -119,14 +116,14 @@ register_tool(
         description=(
             "Score a property using the 4-dimension scoring engine (Market, Financial, Readiness, Engagement). "
             "Recalculates and saves the score. "
-            "Voice: 'Score property 5', 'Rate this deal', 'How good is property 5?', 'Grade property 3'"
+            "Voice: 'Score the Brooklyn property', 'Rate 123 Main St', 'How good is the Miami condo?', 'Grade the Austin house'"
         ),
         inputSchema={
             "type": "object",
             "properties": {
-                "property_id": {"type": "number", "description": "The property ID to score"},
+                "property_id": {"type": "number", "description": "The property ID to score (optional if address provided)"},
+                "address": {"type": "string", "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')"},
             },
-            "required": ["property_id"],
         },
     ),
     handle_score_property,
@@ -137,14 +134,14 @@ register_tool(
         name="get_score_breakdown",
         description=(
             "Get the stored score breakdown for a property without recalculating. "
-            "Voice: 'Show me the score breakdown for property 5', 'What's the score on property 3?'"
+            "Voice: 'Show me the score breakdown for 123 Main St', 'What's the score on the Brooklyn property?'"
         ),
         inputSchema={
             "type": "object",
             "properties": {
-                "property_id": {"type": "number", "description": "The property ID"},
+                "property_id": {"type": "number", "description": "The property ID (optional if address provided)"},
+                "address": {"type": "string", "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')"},
             },
-            "required": ["property_id"],
         },
     ),
     handle_get_score_breakdown,

@@ -3,6 +3,7 @@ from mcp.types import Tool, TextContent
 
 from ..server import register_tool
 from ..utils.http_client import api_get, api_post, api_delete
+from ..utils.property_resolver import find_property_by_address
 
 
 async def handle_create_scheduled_task(arguments: dict) -> list[TextContent]:
@@ -15,12 +16,22 @@ async def handle_create_scheduled_task(arguments: dict) -> list[TextContent]:
     if not scheduled_at:
         return [TextContent(type="text", text="Please provide when to schedule this (scheduled_at in ISO format, e.g. '2026-02-15T10:00:00Z').")]
 
+    # Resolve property if address provided
+    property_id = arguments.get("property_id")
+    address = arguments.get("address")
+    if address and not property_id:
+        try:
+            property_id = find_property_by_address(address)
+        except ValueError:
+            # If address doesn't resolve, still create the task (property is optional)
+            pass
+
     payload = {
         "title": title,
         "scheduled_at": scheduled_at,
         "task_type": arguments.get("task_type", "reminder"),
         "description": arguments.get("description"),
-        "property_id": arguments.get("property_id"),
+        "property_id": property_id,
         "repeat_interval_hours": arguments.get("repeat_interval_hours"),
         "created_by": "voice",
     }
@@ -47,6 +58,12 @@ async def handle_list_scheduled_tasks(arguments: dict) -> list[TextContent]:
     if status:
         params["status"] = status
     property_id = arguments.get("property_id")
+    address = arguments.get("address")
+    if address and not property_id:
+        try:
+            property_id = find_property_by_address(address)
+        except ValueError:
+            pass
     if property_id:
         params["property_id"] = property_id
 
@@ -89,7 +106,7 @@ register_tool(
         name="create_scheduled_task",
         description=(
             "Create a scheduled reminder or recurring task. Use for voice commands like "
-            "'Remind me to follow up on property 5 in 2 days', "
+            "'Remind me to follow up on the Brooklyn property in 2 days', "
             "'Schedule a compliance check for Friday', "
             "'Set a daily reminder to check contracts'."
         ),
@@ -98,7 +115,7 @@ register_tool(
             "properties": {
                 "title": {
                     "type": "string",
-                    "description": "Task title (e.g., 'Follow up on property 5')",
+                    "description": "Task title (e.g., 'Follow up on 123 Main St')",
                 },
                 "scheduled_at": {
                     "type": "string",
@@ -116,7 +133,11 @@ register_tool(
                 },
                 "property_id": {
                     "type": "number",
-                    "description": "Optional property to link this task to",
+                    "description": "Optional property ID to link this task to (optional if address provided)",
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
                 },
                 "repeat_interval_hours": {
                     "type": "number",
@@ -146,7 +167,11 @@ register_tool(
                 },
                 "property_id": {
                     "type": "number",
-                    "description": "Filter by property ID",
+                    "description": "Filter by property ID (optional if address provided)",
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Property address to filter by (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
                 },
             },
         },

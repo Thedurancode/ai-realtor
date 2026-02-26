@@ -3,6 +3,7 @@ from mcp.types import Tool, TextContent
 
 from ..server import register_tool
 from ..utils.http_client import api_get
+from ..utils.property_resolver import resolve_property_id
 
 
 async def handle_get_insights(arguments: dict) -> list[TextContent]:
@@ -39,9 +40,7 @@ async def handle_get_insights(arguments: dict) -> list[TextContent]:
 
 async def handle_get_property_insights(arguments: dict) -> list[TextContent]:
     """Get alerts for a specific property."""
-    property_id = arguments.get("property_id")
-    if not property_id:
-        return [TextContent(type="text", text="Please provide a property_id.")]
+    property_id = resolve_property_id(arguments)
 
     response = api_get(f"/insights/property/{property_id}")
     response.raise_for_status()
@@ -92,7 +91,7 @@ register_tool(
         name="get_property_insights",
         description=(
             "Get alerts for a specific property — overdue contracts, missing data, "
-            "stale activity. Voice: 'What's overdue on property 5?', "
+            "stale activity. Voice: 'What's overdue on the Brooklyn property?', "
             "'Any issues with 123 Main St?'"
         ),
         inputSchema={
@@ -100,10 +99,13 @@ register_tool(
             "properties": {
                 "property_id": {
                     "type": "number",
-                    "description": "The property ID to check",
+                    "description": "The property ID to check (optional if address provided)",
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
                 },
             },
-            "required": ["property_id"],
         },
     ),
     handle_get_property_insights,

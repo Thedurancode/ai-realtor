@@ -101,8 +101,8 @@ class TelnyxService:
             json.dumps(client_state).encode()
         ).decode()
 
-        # Make the request
-        async with httpx.AsyncClient() as client:
+        # Make the request with timeout
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
             data = response.json()
@@ -138,7 +138,7 @@ class TelnyxService:
             "Accept": "application/json",
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             data = response.json()
@@ -192,7 +192,7 @@ class TelnyxService:
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, headers=headers, json={})
             response.raise_for_status()
             data = response.json()
@@ -237,7 +237,7 @@ class TelnyxService:
             "voice": voice,
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
             data = response.json()
@@ -285,7 +285,7 @@ class TelnyxService:
             "terminator": "#",
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
             data = response.json()
@@ -315,7 +315,7 @@ class TelnyxService:
             "Accept": "application/json",
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             data = response.json()

@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models.property import Property, PropertyStatus, PropertyType
 from app.models.agent import Agent
 from app.models.phone_call import PhoneCall
+from app.auth import get_current_agent
 from app.schemas.property import (
     PropertyCreate,
     PropertyUpdate,
@@ -374,6 +375,7 @@ def get_property_calls(
     property_id: int,
     limit: int = Query(50, le=100),
     offset: int = Query(0, ge=0),
+    current_agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db),
 ):
     """
@@ -386,14 +388,21 @@ def get_property_calls(
     - AI-generated summaries
 
     This creates an activity feed of all phone interactions for a property.
+
+    SECURITY: Only returns calls for properties owned by the authenticated agent.
     """
-    # Verify property exists
+    # Verify property exists and belongs to agent
     db_property = db.query(Property).filter(Property.id == property_id).first()
     if not db_property:
         raise HTTPException(status_code=404, detail="Property not found")
+    if db_property.agent_id != current_agent.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view calls for this property")
 
-    # Get calls for this property
-    query = db.query(PhoneCall).filter(PhoneCall.property_id == property_id)
+    # Get calls for this property, filtered by agent
+    query = db.query(PhoneCall).filter(
+        PhoneCall.property_id == property_id,
+        PhoneCall.agent_id == current_agent.id  # SECURITY: Agent filtering
+    )
 
     total = query.count()
     calls = query.order_by(PhoneCall.created_at.desc()).offset(offset).limit(limit).all()

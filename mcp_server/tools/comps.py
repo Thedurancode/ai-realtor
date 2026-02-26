@@ -3,6 +3,7 @@ from mcp.types import Tool, TextContent
 
 from ..server import register_tool
 from ..utils.http_client import api_get
+from ..utils.property_resolver import resolve_property_id
 
 
 def _format_comp_sale(i: int, s: dict) -> str:
@@ -32,9 +33,7 @@ def _format_comp_rental(i: int, r: dict) -> str:
 
 async def handle_get_comps_dashboard(arguments: dict) -> list[TextContent]:
     """Get full comp dashboard."""
-    property_id = arguments.get("property_id")
-    if not property_id:
-        return [TextContent(type="text", text="Please provide a property_id.")]
+    property_id = resolve_property_id(arguments)
 
     response = api_get(f"/comps/{property_id}")
     if response.status_code == 404:
@@ -90,9 +89,7 @@ async def handle_get_comps_dashboard(arguments: dict) -> list[TextContent]:
 
 async def handle_get_comp_sales(arguments: dict) -> list[TextContent]:
     """Get sales comps only."""
-    property_id = arguments.get("property_id")
-    if not property_id:
-        return [TextContent(type="text", text="Please provide a property_id.")]
+    property_id = resolve_property_id(arguments)
 
     response = api_get(f"/comps/{property_id}/sales")
     if response.status_code == 404:
@@ -119,9 +116,7 @@ async def handle_get_comp_sales(arguments: dict) -> list[TextContent]:
 
 async def handle_get_comp_rentals(arguments: dict) -> list[TextContent]:
     """Get rental comps only."""
-    property_id = arguments.get("property_id")
-    if not property_id:
-        return [TextContent(type="text", text="Please provide a property_id.")]
+    property_id = resolve_property_id(arguments)
 
     response = api_get(f"/comps/{property_id}/rentals")
     if response.status_code == 404:
@@ -150,18 +145,21 @@ register_tool(
         description=(
             "Get full comparable sales dashboard — comp sales, comp rentals, market metrics, "
             "internal portfolio matches, and AI pricing recommendation. "
-            "Voice: 'Show me comps for property 5', 'What are the comparables?', "
-            "'Compare property 5 to nearby sales', 'Market analysis for property 5'"
+            "Voice: 'Show me comps for 123 Main St', 'What are the comparables for the Brooklyn property?', "
+            "'Compare the Miami condo to nearby sales', 'Market analysis for the Austin house'"
         ),
         inputSchema={
             "type": "object",
             "properties": {
                 "property_id": {
                     "type": "number",
-                    "description": "The property ID to analyze",
+                    "description": "The property ID to analyze (optional if address provided)",
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
                 },
             },
-            "required": ["property_id"],
         },
     ),
     handle_get_comps_dashboard,
@@ -172,18 +170,21 @@ register_tool(
         name="get_comp_sales",
         description=(
             "Get comparable sales for a property with market metrics and pricing recommendation. "
-            "Voice: 'What have similar properties sold for?', 'Nearby sales for property 5', "
-            "'Sales comps'"
+            "Voice: 'What have similar properties sold for?', 'Nearby sales for 123 Main St', "
+            "'Sales comps for the Brooklyn property'"
         ),
         inputSchema={
             "type": "object",
             "properties": {
                 "property_id": {
                     "type": "number",
-                    "description": "The property ID to analyze",
+                    "description": "The property ID to analyze (optional if address provided)",
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
                 },
             },
-            "required": ["property_id"],
         },
     ),
     handle_get_comp_sales,
@@ -194,18 +195,21 @@ register_tool(
         name="get_comp_rentals",
         description=(
             "Get comparable rentals for a property. "
-            "Voice: 'What are similar properties renting for?', 'Rental comps for property 5', "
-            "'What's the rental market like?'"
+            "Voice: 'What are similar properties renting for?', 'Rental comps for 123 Main St', "
+            "'What's the rental market like for the Brooklyn property?'"
         ),
         inputSchema={
             "type": "object",
             "properties": {
                 "property_id": {
                     "type": "number",
-                    "description": "The property ID to analyze",
+                    "description": "The property ID to analyze (optional if address provided)",
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Property address to search for (voice-friendly, e.g., '123 Main Street' or 'the Brooklyn property')",
                 },
             },
-            "required": ["property_id"],
         },
     ),
     handle_get_comp_rentals,

@@ -32,3 +32,8 @@ pyyaml>=6.0.2
 # Remotion Rendering
 redis>=5.2.0
 boto3>=1.35.0
+# NEW: Customer Portal & Document Extraction
+pyjwt>=2.9.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
+pdf2image>=1.16.0
