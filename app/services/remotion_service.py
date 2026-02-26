@@ -180,7 +180,7 @@ class RemotionService:
                 remotion_project = os.path.join(os.path.dirname(__file__), '..', '..', 'remotion')
                 cmd = [
                     'npx', 'remotion', 'render',
-                    f'{remotion_project}/src/index.ts',
+                    f'{remotion_project}/src/index.tsx',
                     composition_id,
                     output_path,
                     '--props', props_path,

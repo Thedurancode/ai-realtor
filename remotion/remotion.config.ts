@@ -1,11 +1,10 @@
-import { Config } from "@remotion/cli/config";
+import { Config, VideoConfig } from "@remotion/cli/config";
 
-export default Config({
+const config: VideoConfig = {
   codec: "h264",
   crf: 23,
   jpegQuality: 80,
   pixelsPerSecond: 1000,
-  proResProfile: undefined,
-  audioCodec: undefined,
-  audioBitrate: undefined,
-});
+};
+
+export default config;

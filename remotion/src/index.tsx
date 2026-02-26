@@ -1,4 +1,4 @@
-import { Composition } from "remotion";
+import { Composition, registerRoot } from "remotion";
 import { CaptionedReel } from "./CaptionedReel";
 import { Slideshow } from "./Slideshow";
 import { TimelineEditor } from "./TimelineEditor";
@@ -55,3 +55,5 @@ export const RemotionVideo: React.FC = () => {
     </>
   );
 };
+
+registerRoot(RemotionVideo);

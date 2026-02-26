@@ -186,7 +186,7 @@ export const TimelineEditor: React.FC<TimelineProps> = ({
         <React.Fragment key={track.id}>
           {renderTrack(track)}
         </React.Fragment>
-      )))}
+      ))}
     </AbsoluteFill>
   );
 };
