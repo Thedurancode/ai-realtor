@@ -47,6 +47,9 @@ COPY scripts ./scripts
 COPY worker.py .
 COPY start.sh .
 
+# Copy static files (timeline editor)
+COPY static ./static
+
 # Create directories
 RUN mkdir -p /app/alembic/versions /app/tmp /app/log
 
