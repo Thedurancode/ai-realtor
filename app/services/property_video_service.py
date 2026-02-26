@@ -75,7 +75,7 @@ class PropertyVideoService:
         total_photos = min(len(photos), 10) if photos else 1
         total_duration = logo_duration + (total_photos * photo_duration) + 30  # +30 for transitions
 
-        # Prepare Remotion props
+        # Prepare Remotion props (WITHOUT audio - we'll add it with ffmpeg)
         remotion_props = {
             "logoUrl": brand.logo_url if brand else None,
             "companyName": brand.company_name if brand else "Your Real Estate Experts",
@@ -91,17 +91,44 @@ class PropertyVideoService:
                 "propertyType": property.property_type.value if property.property_type else "House",
             },
             "propertyPhotos": photos[:10] if photos else [],  # Max 10 photos
-            "audioUrl": audio_path,
+            "audioUrl": None,  # Don't pass audio to Remotion
             "logoDuration": logo_duration,
             "photoDuration": photo_duration,
         }
 
-        # Render video
+        # Render video WITHOUT audio
         video_path = await self._render_video(
             remotion_props,
             total_duration,
             output_path
         )
+
+        # Add audio track using ffmpeg
+        final_video_path = video_path.replace(".mp4", "_with_audio.mp4")
+        ffmpeg_cmd = [
+            "ffmpeg", "-i", video_path, "-i", audio_path,
+            "-c:v", "copy", "-c:a", "aac",
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-shortest",
+            "-y", final_video_path
+        ]
+
+        print(f"🎵 Adding audio track to video...")
+        process = await asyncio.create_subprocess_exec(
+            *ffmpeg_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        await process.communicate()
+
+        if process.returncode != 0:
+            print(f"⚠️  Warning: Failed to add audio track, returning video without audio")
+            final_video_path = video_path
+        else:
+            # Replace original with audio-enabled version
+            import shutil
+            shutil.move(final_video_path, video_path)
+            final_video_path = video_path
 
         return {
             "video_path": video_path,
@@ -186,15 +213,20 @@ class PropertyVideoService:
             client = ElevenLabs(api_key=self.elevenlabs_api_key)
 
             # Generate speech
-            audio = client.text_to_speech.convert(
+            audio_generator = client.text_to_speech.convert(
                 text=script,
                 voice_id=voice_id,
                 model_id="eleven_multilingual_v2"
             )
 
+            # Convert generator to bytes
+            audio_bytes = b""
+            for chunk in audio_generator:
+                audio_bytes += chunk
+
             # Save audio to file
             with open(audio_path, "wb") as f:
-                f.write(audio)
+                f.write(audio_bytes)
 
             return audio_path
 
@@ -251,10 +283,23 @@ class PropertyVideoService:
 
             # Move to final location
             if output_path:
-                os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True)
+                # Check if output_path is a directory or a file path
+                if os.path.exists(output_path) and os.path.isdir(output_path):
+                    # It's a directory, create a filename
+                    filename = f"property_video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+                    final_path = os.path.join(output_path, filename)
+                elif output_path.endswith('/'):
+                    # Ends with /, treat as directory
+                    filename = f"property_video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+                    final_path = os.path.join(output_path, filename)
+                else:
+                    # It's a file path
+                    final_path = output_path
+                    os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True)
+
                 import shutil
-                shutil.copy(video_output, output_path)
-                return output_path
+                shutil.copy(video_output, final_path)
+                return final_path
             else:
                 # Return temp file (caller is responsible for cleanup)
                 import shutil

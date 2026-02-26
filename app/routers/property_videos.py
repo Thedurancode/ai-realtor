@@ -193,3 +193,120 @@ async def generate_script_preview(
             "price": property.price,
         }
     }
+
+
+class GenerateVoiceoverRequest(BaseModel):
+    """Request to generate voiceover audio only (no video)."""
+    property_id: int = Field(..., description="Property ID to generate voiceover for")
+    agent_id: int = Field(..., description="Agent ID (for branding context)")
+    voice_id: Optional[str] = Field(
+        default="21m00Tcm4TlvDq8ikWAM",
+        description="ElevenLabs voice ID (default: male voice)"
+    )
+    output_dir: Optional[str] = Field(
+        default="/tmp",
+        description="Output directory (default: /tmp)"
+    )
+
+
+class VoiceoverResponse(BaseModel):
+    """Response from voiceover generation."""
+    audio_path: str
+    script: str
+    duration_seconds: float
+    word_count: int
+    property_id: int
+    voice_id: str
+    audio_size_bytes: int
+
+
+@router.post("/voiceover", response_model=VoiceoverResponse, status_code=status.HTTP_201_CREATED)
+async def generate_voiceover_only(
+    request: GenerateVoiceoverRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate standalone voiceover audio for a property (no video).
+
+    This endpoint creates ONLY the audio file with ElevenLabs voiceover.
+    Use this to:
+    - Preview the voiceover before generating full video
+    - Generate audio for use in other video editors
+    - Test different voices without re-rendering video
+
+    **Parameters:**
+    - **property_id**: ID of the property
+    - **agent_id**: ID of the agent
+    - **voice_id**: Optional ElevenLabs voice ID
+    - **output_dir**: Optional output directory
+
+    **Example Request:**
+    ```json
+    {
+      "property_id": 3,
+      "agent_id": 5,
+      "voice_id": "21m00Tcm4TlvDq8ikWAM"
+    }
+    ```
+
+    **Returns:**
+    - Audio file path
+    - Generated script text
+    - Audio duration
+    - File size
+    """
+    try:
+        from app.models.property import Property
+        from app.models.zillow_enrichment import ZillowEnrichment
+        import os
+
+        # Fetch property
+        property = db.query(Property).filter_by(id=request.property_id).first()
+        if not property:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Property {request.property_id} not found"
+            )
+
+        # Fetch enrichment
+        enrichment = db.query(ZillowEnrichment).filter_by(property_id=request.property_id).first()
+
+        # Generate voiceover
+        service = PropertyVideoService()
+
+        script = service._generate_script(property, enrichment)
+
+        # Generate audio
+        audio_path = await service._generate_voiceover(
+            script=script,
+            voice_id=request.voice_id,
+            output_dir=request.output_dir
+        )
+
+        # Get file size
+        file_size = os.path.getsize(audio_path) if os.path.exists(audio_path) else 0
+
+        # Calculate duration (word count / 2.5 words per second)
+        word_count = len(script.split())
+        duration_seconds = word_count / 2.5
+
+        return {
+            "audio_path": audio_path,
+            "script": script,
+            "duration_seconds": round(duration_seconds, 1),
+            "word_count": word_count,
+            "property_id": request.property_id,
+            "voice_id": request.voice_id,
+            "audio_size_bytes": file_size
+        }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate voiceover: {str(e)}"
+        )
