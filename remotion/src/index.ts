@@ -1,6 +1,7 @@
 import { Composition } from "remotion";
 import { CaptionedReel } from "./CaptionedReel";
 import { Slideshow } from "./Slideshow";
+import { TimelineEditor } from "./TimelineEditor";
 
 export const RemotionVideo: React.FC = () => {
   return (
@@ -34,6 +35,21 @@ export const RemotionVideo: React.FC = () => {
           showTitle: true,
           title: "Property Tour",
           showMusic: false
+        }}
+      />
+      <Composition
+        id="TimelineEditor"
+        component={TimelineEditor}
+        durationInFrames={900} // 30 seconds default, will be overridden by props
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          tracks: [],
+          duration: 900,
+          fps: 30,
+          width: 1080,
+          height: 1920
         }}
       />
     </>
