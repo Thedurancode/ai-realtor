@@ -27,6 +27,18 @@ class Settings(BaseSettings):
     daily_digest_enabled: bool = True
     daily_digest_hour: int = 8
 
+    # Remotion Rendering
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    worker_concurrency: int = 1
+
+    # AWS S3
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_region: str = "us-east-1"
+    aws_s3_bucket: str = "ai-realtor-renders"
+
     class Config:
         env_file = ".env"
         extra = "ignore"
