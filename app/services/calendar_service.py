@@ -562,22 +562,6 @@ class CalendarSyncService:
             "external_event_id": event.external_event_id,
             "meet_link": meet_link,
         }
-        else:
-            synced_event = SyncedCalendarEvent(
-                calendar_connection_id=connection.id,
-                source_type="manual_event",
-                source_id=event.id,
-                external_event_id=event.external_event_id,
-                title=event.title,
-                description=description,
-                start_time=event.start_time,
-                end_time=event.end_time,
-                reminder_minutes=event.reminder_minutes,
-                sync_status=sync_status,
-            )
-            self.db.add(synced_event)
-            self.db.commit()
-            return synced_event
 
     async def sync_all_pending_items(self, connection: CalendarConnection):
         """

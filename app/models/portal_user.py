@@ -65,9 +65,9 @@ class PropertyAccess(Base):
     portal_user_id = Column(Integer, ForeignKey("portal_users.id"), nullable=False)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)
 
-    # Access level and relationship
+    # Access level and relationship type
     access_level = Column(String, default="view")  # view, sign, full
-    relationship = Column(String, nullable=True)  # buyer, seller, tenant, landlord, co_buyer
+    relationship_type = Column(String, nullable=True)  # buyer, seller, tenant, landlord, co_buyer
 
     # Permissions (granular)
     can_view_details = Column(Boolean, default=True)
@@ -106,7 +106,7 @@ class PortalActivity(Base):
     # Metadata
     ip_address = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
-    metadata = Column(Text, nullable=True)  # JSON string for extra data
+    extra_metadata = Column(Text, nullable=True)  # JSON string for extra data
 
     # Timestamp
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
