@@ -1,0 +1,27 @@
+{
+  "name": "ai-realtor",
+  "version": "1.0.0",
+  "description": "A voice-first AI real estate platform that handles the entire property lifecycle through natural language. From property discovery and agentic research, to deal scoring, offer drafting, contract management, phone call automation, and PDF reporting — all controlled through Claude Desktop via MCP.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Thedurancode/ai-realtor.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Thedurancode/ai-realtor/issues"
+  },
+  "homepage": "https://github.com/Thedurancode/ai-realtor#readme",
+  "dependencies": {
+    "@composio/core": "^0.6.3"
+  }
+}
