@@ -1,0 +1,11 @@
+address,city,state,zip_code,price,bedrooms,bathrooms,square_footage,property_type,description
+"123 Main St","Miami","FL","33101",450000,3,2,1500,"house","Beautiful single-family home in heart of Miami"
+"456 Ocean Drive","Miami Beach","FL","33139",850000,2,2,1200,"condo","Luxury oceanfront condo with stunning views"
+"789 Brickell Ave","Miami","FL","33131",650000,3,3,1800,"condo","Modern condo in Brickell with rooftop pool"
+"321 Coral Way","Coral Gables","FL","33134",725000,4,3,2200,"house","Spacious family home in prestigious Coral Gables"
+"654 Lincoln Rd","Miami Beach","FL","33139",550000,2,2,1400,"condo","Art Deco style condo steps from the beach"
+"987 Miracle Mile","Coral Gables","FL","33134",890000,5,4,3200,"house","Estate home with pool in Coral Gables"
+"147 Biscayne Blvd","Miami","FL","33132",420000,2,2,1350,"condo","Downtown Miami living with city views"
+"258 Sunset Dr","South Miami","FL","33143",575000,4,2,1950,"house","Quiet neighborhood home with large backyard"
+"369 Alton Rd","Miami Beach","FL","33139",975000,3,3,2100,"condo","Penthouse unit with wraparound terrace"
+"741 Ponce De Leon","Coral Gables","FL","33134",1200000,6,5,4500,"house","Luxury estate with Mediterranean architecture"

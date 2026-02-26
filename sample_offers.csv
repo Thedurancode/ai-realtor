@@ -1,0 +1,6 @@
+property_id,offer_amount,buyer_name,buyer_email,earnest_money,contingencies,expiration_date,status
+5,425000,"John Smith","john.smith@email.com",5000,"financing,inspection","2026-03-15","pending"
+2,800000,"Robert Johnson","robert.j@email.com",10000,"none","2026-03-10","pending"
+7,400000,"Emily Davis","emily.d@email.com",5000,"financing,appraisal","2026-03-20","draft"
+3,620000,"Michael Chen","michael.c@email.com",15000,"inspection","2026-03-08","accepted"
+9,950000,"Sarah Williams","sarah.w@email.com",20000,"financing,inspection,appraisal","2026-03-25","pending"

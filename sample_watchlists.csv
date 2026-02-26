@@ -1,0 +1,6 @@
+name,city,state,property_type,min_price,max_price,min_bedrooms,min_bathrooms,min_sqft,is_active
+"Miami Condos Under 400k","Miami","FL","condo",0,400000,0,0,0,true
+"Coral Gables Single Family","Coral Gables","FL","house",500000,2000000,3,2,1500,true
+"Investment Properties","Miami","FL","",0,600000,0,0,0,true
+"Luxury Waterfront","Miami Beach","FL","",1000000,5000000,2,2,1200,true
+"First-Time Buyer Homes","Miami","FL","house",0,450000,2,1,1000,true
