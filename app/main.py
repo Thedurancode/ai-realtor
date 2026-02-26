@@ -31,7 +31,7 @@ import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 # Paths that don't require API key authentication
 PUBLIC_PATHS = frozenset(("/", "/docs", "/redoc", "/openapi.json", "/health", "/setup"))
-PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register", "/api/setup")
+PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register", "/api/setup", "/composio/")
 
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):

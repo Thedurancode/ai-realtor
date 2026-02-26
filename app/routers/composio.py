@@ -1,14 +1,16 @@
 """Composio MCP Integration Router
 
-Manages MCP tool sessions and Composio platform integration.
+Provides endpoints for working with Composio MCP sessions.
+
+IMPORTANT: Composio sessions must be created via the JavaScript/TypeScript SDK.
+This router helps manage existing sessions and provides connection details.
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.composio_service import (
     ComposioService,
-    setup_composio_mcp_session,
-    register_ai_realtor_mcp_server
+    get_current_session_config
 )
 
 router = APIRouter(prefix="/composio", tags=["composio"])
@@ -18,148 +20,167 @@ router = APIRouter(prefix="/composio", tags=["composio"])
 # Request/Response Models
 # ============================================================================
 
-class CreateSessionRequest(BaseModel):
-    external_user_id: str = Field(
-        default="ai-realtor-agent",
-        description="External user ID for Composio session"
-    )
+class SessionValidationRequest(BaseModel):
+    session_id: str = Field(..., description="Composio session ID (e.g., trs_abc123)")
 
 
-class ExecuteToolRequest(BaseModel):
+class ClaudeDesktopConfigRequest(BaseModel):
     session_id: str = Field(..., description="Composio session ID")
-    tool_name: str = Field(..., description="Name of tool to execute")
-    parameters: dict = Field(default_factory=dict, description="Tool parameters")
-
-
-class RegisterServerRequest(BaseModel):
-    server_name: str = Field(..., description="MCP server name")
-    server_command: str = Field(..., description="Command to start server")
-    server_args: list[str] = Field(default_factory=list, description="Server arguments")
 
 
 # ============================================================================
-# Session Endpoints
+# Session Management Endpoints
 # ============================================================================
 
-@router.post("/session/create")
-async def create_composio_session(request: CreateSessionRequest = None):
-    """Create a Composio MCP session
+@router.get("/session/current")
+async def get_current_session():
+    """Get current Composio session configuration
 
-    Creates a new session and returns the MCP server URL.
-    The session connects to Composio's tool routing platform.
+    Returns the session configuration for the pre-configured session ID.
+    The session was created via the JavaScript SDK and is stored in the service.
 
     Returns:
-        Session configuration with MCP server URL for SSE transport
-
-    Example response:
-    {
-        "session_id": "trs_3fgJ0ka6YUtE",
-        "mcp": {...},
-        "mcp_url": "https://backend.composio.dev/tool_router/trs_3fgJ0ka6YUtE/mcp"
-    }
+        {
+            "session_id": "trs_3fgJ0ka6YUtE",
+            "mcp_url": "https://backend.composio.dev/tool_router/trs_3fgJ0ka6YUtE/mcp",
+            "claude_desktop_config": {
+                "mcpServers": {
+                    "composio-ai-realtor": {
+                        "transport": "sse",
+                        "url": "https://backend.composio.dev/tool_router/trs_3fgJ0ka6YUtE/mcp",
+                        "timeout": 60000
+                    }
+                }
+            },
+            "external_user_id": "ai-realtor-agent"
+        }
     """
     try:
-        composio = ComposioService()
-
-        # Use provided external_user_id or default
-        external_id = request.external_user_id if request else "ai-realtor-agent"
-
-        session = await composio.create_session()
-
+        config = get_current_session_config()
         return {
-            "session_id": session["session_id"],
-            "mcp": session["mcp"],
-            "mcp_url": f"https://backend.composio.dev/tool_router/{session['session_id']}/mcp",
-            "external_user_id": session["external_user_id"],
-            "message": "Session created successfully. Use mcp_url to connect via SSE transport."
+            "status": "success",
+            "message": "Current Composio session configuration",
+            **config
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get session config: {str(e)}")
 
 
-@router.get("/session/{session_id}/status")
-async def get_session_status(session_id: str):
-    """Get Composio session status
+@router.post("/session/validate")
+async def validate_session(request: SessionValidationRequest):
+    """Validate a Composio session
 
-    Returns current status and configuration of the session.
+    Checks if the session is accessible and the MCP endpoint is reachable.
+
+    Args:
+        session_id: Composio session ID
+
+    Returns:
+        Validation status with MCP server URL
     """
     try:
         composio = ComposioService()
-        status = await composio.get_session_status(session_id)
-        return status
+        validation = await composio.validate_session(request.session_id)
+
+        return {
+            "status": "validation_complete",
+            **validation
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
 
 
-@router.get("/session/{session_id}/tools")
-async def list_session_tools(session_id: str):
-    """List available MCP tools in session
+@router.get("/session/{session_id}/mcp-url")
+async def get_mcp_url(session_id: str):
+    """Get MCP server URL for a session
 
-    Returns all tools available through this Composio session.
+    Returns the SSE transport URL for connecting to the Composio MCP server.
+
+    Args:
+        session_id: Composio session ID
+
+    Returns:
+        {
+            "session_id": "trs_3fgJ0ka6YUtE",
+            "mcp_url": "https://backend.composio.dev/tool_router/trs_3fgJ0ka6YUtE/mcp",
+            "transport": "sse",
+            "description": "Use this URL in Claude Desktop configuration"
+        }
     """
     try:
         composio = ComposioService()
-        tools = await composio.list_available_tools(session_id)
+        mcp_url = composio.get_mcp_server_url(session_id)
+
         return {
             "session_id": session_id,
-            "total_tools": len(tools),
-            "tools": tools
+            "mcp_url": mcp_url,
+            "transport": "sse",
+            "description": "Use this URL in Claude Desktop configuration",
+            "usage": {
+                "claude_desktop": {
+                    "mcpServers": {
+                        "composio-ai-realtor": {
+                            "transport": "sse",
+                            "url": mcp_url,
+                            "timeout": 60000
+                        }
+                    }
+                }
+            }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to get MCP URL: {str(e)}")
 
 
-@router.post("/tools/execute")
-async def execute_composio_tool(request: ExecuteToolRequest):
-    """Execute an MCP tool through Composio
+@router.post("/session/{session_id}/claude-config")
+async def get_claude_desktop_config(session_id: str):
+    """Get Claude Desktop configuration for a session
 
-    Routes the tool execution through Composio's platform.
+    Returns the complete Claude Desktop configuration for connecting to this session.
+
+    Args:
+        session_id: Composio session ID
+
+    Returns:
+        Claude Desktop MCP server configuration ready to copy-paste
     """
     try:
         composio = ComposioService()
-        result = await composio.execute_tool(
-            session_id=request.session_id,
-            tool_name=request.tool_name,
-            parameters=request.parameters
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        config = composio.get_claude_desktop_config(session_id)
 
-
-@router.post("/server/register")
-async def register_mcp_server(request: RegisterServerRequest):
-    """Register a new MCP server with Composio
-
-    Registers an MCP server that can be managed through Composio.
-    """
-    try:
-        composio = ComposioService()
-        result = await composio.register_mcp_server(
-            server_name=request.server_name,
-            server_command=request.server_command,
-            server_args=request.server_args
-        )
         return {
-            "message": "MCP server registered successfully",
-            "server": result
+            "session_id": session_id,
+            "claude_desktop_config": config,
+            "instructions": {
+                "step_1": "Open Claude Desktop Settings (Developer > Open Config Folder)",
+                "step_2": "Edit claude_desktop_config.json",
+                "step_3": "Add the config below to the 'mcpServers' object",
+                "step_4": "Restart Claude Desktop",
+                "step_5": "Your AI Realtor tools will be available!"
+            },
+            "config_json": config
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to get config: {str(e)}")
 
 
 @router.get("/health")
 async def composio_health():
-    """Check if Composio API is accessible"""
+    """Check Composio service health
+
+    Validates the current session and checks if Composio is accessible.
+    """
     composio = ComposioService()
     try:
-        # Try to create a test session
-        session = await composio.create_session()
+        config = get_current_session_config()
+        validation = await composio.validate_session(config["session_id"])
+
         return {
-            "status": "healthy",
+            "status": "healthy" if validation["valid"] else "degraded",
             "composio_accessible": True,
-            "test_session_id": session.get("session_id"),
-            "mcp_url": composio.get_mcp_server_url(session["session_id"])
+            "session_id": config["session_id"],
+            "mcp_url": config["mcp_url"],
+            "validation": validation
         }
     except Exception as e:
         return {
@@ -169,50 +190,36 @@ async def composio_health():
         }
 
 
-# ============================================================================
-# Quick Setup Endpoints
-# ============================================================================
+@router.get("/")
+async def composio_info():
+    """Composio integration information
 
-@router.post("/setup/ai-realtor")
-async def setup_ai_realtor_composio():
-    """Quick setup for AI Realtor with Composio
-
-    One-time setup that:
-    1. Creates a Composio session
-    2. Returns MCP server URL
-    3. Provides connection instructions
-
-    Returns:
-        Setup configuration and instructions
+    Provides information about the Composio integration and how to use it.
     """
-    try:
-        # Create session
-        composio = ComposioService()
-        session = await composio.create_session()
-
-        # Get MCP URL
-        mcp_url = composio.get_mcp_server_url(session["session_id"])
-
-        return {
-            "status": "success",
-            "session": session,
-            "mcp_url": mcp_url,
-            "instructions": {
-                "step_1": "Copy the MCP server URL below",
-                "step_2": "Open Claude Desktop Settings",
-                "step_3": "Add new MCP server with the URL",
-                "step_4": "Name it 'AI Realtor - Composio'",
-                "step_5": "Connect and enjoy 135+ AI Realtor tools!"
-            },
-            "claude_desktop_config": {
-                "mcpServers": {
-                    "ai-realtor-composio": {
-                        "transport": "sse",
-                        "url": mcp_url,
-                        "timeout": 60000
-                    }
-                }
-            }
+    return {
+        "service": "Composio MCP Integration",
+        "description": "Tool management and routing via Composio platform",
+        "documentation": "https://docs.composio.dev",
+        "important_notes": [
+            "Composio sessions must be created via JavaScript/TypeScript SDK",
+            "Use @composio/core npm package to create sessions",
+            "This API helps manage existing sessions",
+            "Direct MCP connection is also available (135+ tools)"
+        ],
+        "endpoints": {
+            "GET /composio/session/current": "Get current session configuration",
+            "POST /composio/session/validate": "Validate a session",
+            "GET /composio/session/{id}/mcp-url": "Get MCP server URL",
+            "POST /composio/session/{id}/claude-config": "Get Claude Desktop config",
+            "GET /composio/health": "Health check"
+        },
+        "current_session": {
+            "session_id": "trs_3fgJ0ka6YUtE",
+            "created_via": "JavaScript SDK",
+            "external_user_id": "ai-realtor-agent"
+        },
+        "alternative": {
+            "direct_mcp": "Use direct MCP connection for 135+ AI Realtor tools",
+            "config": "See CLAUDE.md for direct connection setup"
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Setup failed: {str(e)}")
+    }
