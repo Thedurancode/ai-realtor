@@ -12,7 +12,7 @@ from datetime import datetime
 
 # revision identifiers, used by Alembic.
 revision = '20250225_add_remotion_render_jobs'
-down_revision = '20250224_voice_assistant_tables'
+down_revision = '20250224_voice_assistant'
 branch_labels = None
 depends_on = None
 
