@@ -7,11 +7,13 @@ app = 'ai-realtor'
 primary_region = 'ewr'
 
 [build]
+  # Build with Remotion support (Node.js + Chromium)
 
 [env]
   PORT = '8000'
   MCP_API_BASE_URL = 'http://localhost:8000'
   MCP_SSE_PORT = '8001'
+  WORKER_ENABLED = '1'  # Enable render worker
 
 [http_service]
   internal_port = 8000
@@ -34,9 +36,14 @@ primary_region = 'ewr'
     hard_limit = 100
     soft_limit = 50
 
+# Add Redis for render queue (Fly.io Redis)
 [[vm]]
-  memory = '1gb'
+  memory = '2gb'  # Increased for Remotion rendering
   cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 1024
+  cpus = 2
+  memory_mb = 2048
 
+# Mount volume for temporary render files
+[mounts]
+  source = "render_cache"
+  destination = "/app/tmp"

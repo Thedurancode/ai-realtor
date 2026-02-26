@@ -11,15 +11,38 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai_realtor_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   app:
     build: .
     container_name: ai_realtor_app
     restart: unless-stopped
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      # Database
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ai_realtor
+
+      # API Keys
       GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
       RAPIDAPI_KEY: ${RAPIDAPI_KEY:-}
       SKIP_TRACE_API_HOST: ${SKIP_TRACE_API_HOST:-skip-tracing-working-api.p.rapidapi.com}
@@ -29,9 +52,25 @@ services:
       EXA_SEARCH_TYPE: ${EXA_SEARCH_TYPE:-auto}
       EXA_TIMEOUT_SECONDS: ${EXA_TIMEOUT_SECONDS:-20}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+      # Remotion Rendering
+      WORKER_ENABLED: "1"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
+
+      # AWS S3 (for video storage)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-ai-realtor-renders}
+
     ports:
       - "8000:8000"
       - "8001:8001"
+    volumes:
+      # Mount logs directory
+      - ./log:/app/log
 
 volumes:
   postgres_data:
