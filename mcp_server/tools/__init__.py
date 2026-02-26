@@ -28,6 +28,7 @@ from . import activity_timeline  # noqa: F401
 from . import property_scoring  # noqa: F401
 from . import market_watchlist  # noqa: F401
 from . import heartbeat  # noqa: F401
+from . import facebook_targeting  # noqa: F401
 # New intelligence tools
 from . import intelligence  # noqa: F401
 # Postiz social media integration
