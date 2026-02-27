@@ -47,9 +47,15 @@ from . import calls  # noqa: F401
 from . import call_history  # noqa: F401
 # Property photo ordering
 from . import photo_orders  # noqa: F401
+# Photo ordering
+from . import photo_orders  # noqa: F401
 # Direct mail tools (Lob.com)
 from . import direct_mail  # noqa: F401
 # Contact lists tools
 from . import contact_lists  # noqa: F401
+# Zuckerbot AI Facebook Ads
+from . import zuckerbot  # noqa: F401
+# Skills System
+from . import skills  # noqa: F401
 # Web scraper tools - TODO: Fix import issues
 # from . import web_scraper  # noqa: F401

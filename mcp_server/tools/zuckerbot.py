@@ -559,3 +559,332 @@ VOICE_EXAMPLES = [
     "Generate an ad creative for this luxury condo",
     "Create an urgency-focused ad for this property"
 ]
+
+
+# ============================================================================
+# MCP Tool Registrations (using standard register_tool pattern)
+# ============================================================================
+
+from mcp.types import Tool, TextContent
+from mcp_server.server import register_tool
+
+# Handler wrappers
+async def handle_preview_facebook_campaign(arguments: dict) -> list[TextContent]:
+    """Preview Facebook ad campaign"""
+    result = await preview_facebook_campaign(
+        url=arguments.get("url"),
+        campaign_type=arguments.get("campaign_type", "lead_generation")
+    )
+    
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+    
+    ads = result.get("ads", [])
+    voice_lines = [
+        f"Campaign preview for {result.get('business_name', 'Unknown')}",
+        f"Description: {result.get('description', '')[:100]}",
+        f"\n{result.get('ad_variants', 0)} ad variants generated:"
+    ]
+    
+    for i, ad in enumerate(ads[:3], 1):
+        voice_lines.append(f"\n{i}. Headline: {ad.get('headline', '')[:60]}")
+        voice_lines.append(f"   Angle: {ad.get('angle', '')}")
+        voice_lines.append(f"   {ad.get('copy', '')[:80]}...")
+    
+    return [TextContent(type="text", text="\n".join(voice_lines))]
+
+async def handle_create_facebook_campaign_zuckerbot(arguments: dict) -> list[TextContent]:
+    """Create AI-generated Facebook ad campaign"""
+    result = await create_facebook_campaign(
+        url=arguments.get("url"),
+        campaign_type=arguments.get("campaign_type", "lead_generation"),
+        budget=arguments.get("budget"),
+        duration_days=arguments.get("duration_days")
+    )
+    
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+    
+    ads = result.get("ads", [])
+    voice_lines = [
+        f"Campaign '{result.get('campaign_id')}' created for {result.get('business_name', 'Unknown')}",
+        f"Objective: {result.get('objective', 'unknown')}",
+        f"Status: {result.get('status', 'draft')}",
+        f"\n{result.get('ad_variants', 0)} ad variants generated"
+    ]
+    
+    if result.get('recommended_budget'):
+        budget_cents = result['recommended_budget']
+        voice_lines.append(f"Recommended budget: ${budget_cents/100:.2f}/day")
+    
+    if result.get('projected_leads'):
+        voice_lines.append(f"Projected leads: {result['projected_leads']}/month")
+    
+    return [TextContent(type="text", text="\n".join(voice_lines))]
+
+async def handle_launch_facebook_campaign_zuckerbot(arguments: dict) -> list[TextContent]:
+    """Launch campaign to Meta"""
+    result = await launch_facebook_campaign(
+        campaign_id=arguments.get("campaign_id"),
+        meta_access_token=arguments.get("meta_access_token"),
+        ad_account_id=arguments.get("ad_account_id")
+    )
+    
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+    
+    return [TextContent(
+        type="text",
+        text=f"Campaign {result.get('campaign_id')} launched to Meta Ads Manager! "
+             f"Meta Campaign ID: {result.get('meta_campaign_id', 'Pending')}"
+    )]
+
+async def handle_get_campaign_performance_zuckerbot(arguments: dict) -> list[TextContent]:
+    """Get campaign performance"""
+    result = await get_campaign_performance(arguments.get("campaign_id"))
+    
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+    
+    metrics = result.get("metrics", {})
+    voice_lines = [
+        f"Campaign {arguments.get('campaign_id')} Performance:",
+        f"Impressions: {metrics.get('impressions', 'N/A')}",
+        f"Clicks: {metrics.get('clicks', 'N/A')}",
+        f"Spend: ${metrics.get('spend', 'N/A')}",
+        f"Conversions: {metrics.get('conversions', 'N/A')}"
+    ]
+    
+    return [TextContent(type="text", text="\n".join(voice_lines))]
+
+async def handle_analyze_competitors_zuckerbot(arguments: dict) -> list[TextContent]:
+    """Analyze competitors"""
+    result = await analyze_competitors(
+        url=arguments.get("url"),
+        location=arguments.get("location"),
+        industry=arguments.get("industry", "real_estate")
+    )
+    
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+    
+    competitors = result.get("competitors", [])
+    voice_lines = [
+        f"Competitor Analysis for {result.get('location')}:",
+        f"Competitors found: {result.get('competitors_found', 0)}",
+        f"Market saturation: {result.get('market_saturation', 'Unknown')}"
+    ]
+    
+    if competitors:
+        voice_lines.append("\nTop competitors:")
+        for c in competitors[:3]:
+            voice_lines.append(f"- {c.get('name', 'Unknown')}: Ads running: {c.get('has_ads', False)}")
+    
+    gaps = result.get("market_gaps", [])
+    if gaps:
+        voice_lines.append("\nMarket opportunities:")
+        for gap in gaps[:3]:
+            voice_lines.append(f"- {gap}")
+    
+    return [TextContent(type="text", text="\n".join(voice_lines))]
+
+async def handle_analyze_market_zuckerbot(arguments: dict) -> list[TextContent]:
+    """Analyze market"""
+    result = await analyze_market(
+        business_type=arguments.get("business_type"),
+        location=arguments.get("location"),
+        industry=arguments.get("industry", "real_estate")
+    )
+    
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+    
+    voice_lines = [
+        f"Market Analysis for {result.get('location')}:",
+        f"Market size: {result.get('market_size', 'Unknown')}",
+        f"Growth trend: {result.get('growth_trend', 'Unknown')}",
+        f"Competition: {result.get('competition_level', 'Unknown')}"
+    ]
+    
+    if result.get('recommended_budget'):
+        budget_cents = result['recommended_budget']
+        voice_lines.append(f"Recommended budget: ${budget_cents/100:.2f}/day")
+    
+    return [TextContent(type="text", text="\n".join(voice_lines))]
+
+async def handle_extract_reviews_zuckerbot(arguments: dict) -> list[TextContent]:
+    """Extract reviews"""
+    result = await extract_reviews(
+        business_name=arguments.get("business_name"),
+        location=arguments.get("location")
+    )
+    
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+    
+    voice_lines = [
+        f"Review Analysis for {result.get('business_name')}:",
+        f"Rating: {result.get('rating', 'N/A')}",
+        f"Reviews: {result.get('review_count', 'N/A')}",
+        f"Sentiment: {result.get('sentiment_summary', 'Unknown')[:100]}"
+    ]
+    
+    return [TextContent(type="text", text="\n".join(voice_lines))]
+
+async def handle_generate_ad_creative_zuckerbot(arguments: dict) -> list[TextContent]:
+    """Generate ad creative"""
+    result = await generate_ad_creative(
+        description=arguments.get("description"),
+        angle=arguments.get("angle", "value"),
+        format=arguments.get("format", "image_ad")
+    )
+    
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+    
+    voice_lines = [
+        f"Ad Creative Generated:",
+        f"Headline: {result.get('headline')}",
+        f"Copy: {result.get('copy')[:150]}...",
+        f"CTA: {result.get('cta')}",
+        f"Angle: {result.get('angle')}"
+    ]
+    
+    if result.get('image_prompt'):
+        voice_lines.append(f"\nImage prompt: {result['image_prompt'][:100]}...")
+    
+    return [TextContent(type="text", text="\n".join(voice_lines))]
+
+# Register tools
+register_tool(
+    Tool(
+        name="preview_facebook_campaign_zuckerbot",
+        description="Preview a Facebook ad campaign without creating it. Voice: 'Preview a Facebook ad for this property' or 'Generate ad preview for 123 Main St'.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Property or landing page URL"},
+                "campaign_type": {"type": "string", "description": "Campaign type", "default": "lead_generation"}
+            },
+            "required": ["url"]
+        }
+    ),
+    handle_preview_facebook_campaign
+)
+
+register_tool(
+    Tool(
+        name="create_facebook_campaign_zuckerbot",
+        description="Create AI-generated Facebook ad campaign with strategy and 3 ad variants. Voice: 'Create a Facebook ad campaign for property 5' or 'Generate lead generation campaign for this listing'.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Property or landing page URL"},
+                "campaign_type": {"type": "string", "description": "Campaign type", "default": "lead_generation"},
+                "budget": {"type": "number", "description": "Daily budget in dollars"},
+                "duration_days": {"type": "number", "description": "Campaign duration in days"}
+            },
+            "required": ["url"]
+        }
+    ),
+    handle_create_facebook_campaign_zuckerbot
+)
+
+register_tool(
+    Tool(
+        name="launch_facebook_campaign_zuckerbot",
+        description="Launch campaign to Meta Ads Manager. Voice: 'Launch my Facebook campaign to Meta' or 'Push campaign to Facebook Ads'.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "campaign_id": {"type": "string", "description": "Campaign ID"},
+                "meta_access_token": {"type": "string", "description": "Meta API access token"},
+                "ad_account_id": {"type": "string", "description": "Meta ad account ID (act_XXXXXXXXX)"}
+            },
+            "required": ["campaign_id", "meta_access_token", "ad_account_id"]
+        }
+    ),
+    handle_launch_facebook_campaign_zuckerbot
+)
+
+register_tool(
+    Tool(
+        name="get_facebook_campaign_performance",
+        description="Get campaign performance metrics. Voice: 'How is my Facebook campaign performing?' or 'Show campaign stats for campaign XYZ'.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "campaign_id": {"type": "string", "description": "Campaign ID"}
+            },
+            "required": ["campaign_id"]
+        }
+    ),
+    handle_get_campaign_performance_zuckerbot
+)
+
+register_tool(
+    Tool(
+        name="analyze_facebook_competitors",
+        description="Analyze competitors in the market. Voice: 'Analyze competitors in Miami real estate' or 'Who are my competitors in NYC?'",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Business URL"},
+                "location": {"type": "string", "description": "City, State"},
+                "industry": {"type": "string", "description": "Industry vertical", "default": "real_estate"}
+            },
+            "required": ["url", "location"]
+        }
+    ),
+    handle_analyze_competitors_zuckerbot
+)
+
+register_tool(
+    Tool(
+        name="analyze_facebook_market",
+        description="Get market research and insights. Voice: 'What's the market like for luxury condos in NYC?' or 'Analyze the Miami real estate market'.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "business_type": {"type": "string", "description": "Business type"},
+                "location": {"type": "string", "description": "City, State"},
+                "industry": {"type": "string", "description": "Industry vertical", "default": "real_estate"}
+            },
+            "required": ["business_type", "location"]
+        }
+    ),
+    handle_analyze_market_zuckerbot
+)
+
+register_tool(
+    Tool(
+        name="extract_business_reviews",
+        description="Extract review insights from Google/Yelp. Voice: 'Extract reviews for Emprezario in New York' or 'What are people saying about my business?'",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "business_name": {"type": "string", "description": "Business name"},
+                "location": {"type": "string", "description": "City, State"}
+            },
+            "required": ["business_name", "location"]
+        }
+    ),
+    handle_extract_reviews_zuckerbot
+)
+
+register_tool(
+    Tool(
+        name="generate_facebook_ad_creative",
+        description="Generate ad creative with AI. Voice: 'Generate an ad creative for this luxury condo' or 'Create an urgency-focused ad for this property'.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "description": {"type": "string", "description": "Product or property description"},
+                "angle": {"type": "string", "description": "value, urgency, social_proof, luxury", "default": "value"},
+                "format": {"type": "string", "description": "image_ad, video_ad, carousel", "default": "image_ad"}
+            },
+            "required": ["description"]
+        }
+    ),
+    handle_generate_ad_creative_zuckerbot
+)
