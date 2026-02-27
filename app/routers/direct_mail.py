@@ -690,11 +690,17 @@ async def import_contacts_csv(
     "Jane Smith","456 Oak Ave","Miami","FL","33102","(555) 987-6543","jane@example.com"
     ```
 
+    Campaign Naming:
+    - If campaign_name is provided: Uses that name
+    - If campaign_name is omitted and create_campaign=true: Auto-generates from CSV filename
+      Example: "miami_condo_leads.csv" → "Miami Condo Leads - 2026-02-26"
+
     Returns:
         - contacts_created: Number of contacts imported
         - contacts_failed: Number of contacts that failed to import
         - contact_ids: List of created contact IDs
         - campaign_id: Campaign ID if create_campaign=true
+        - campaign_name: Name of the created campaign (if applicable)
         - errors: List of validation errors
     """
     # Default to agent_id=1 if not provided
@@ -707,6 +713,15 @@ async def import_contacts_csv(
             status_code=400,
             detail="File must be a CSV file"
         )
+
+    # Auto-generate campaign name from filename if not provided
+    if not campaign_name and create_campaign:
+        # Extract filename without .csv extension
+        filename_base = file.filename.replace('.csv', '').replace('_', ' ').replace('-', ' ')
+        # Capitalize first letter of each word
+        campaign_name = filename_base.title()
+        # Add timestamp for uniqueness
+        campaign_name = f"{campaign_name} - {datetime.now().strftime('%Y-%m-%d')}"
 
     # Read CSV content
     contents = await file.read()
@@ -807,7 +822,7 @@ async def import_contacts_csv(
 
             campaign = DirectMailCampaign(
                 agent_id=agent_id,
-                name=campaign_name or f"CSV Import Campaign {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                name=campaign_name,
                 description=f"Campaign created from CSV upload with {len(contact_ids)} contacts",
                 campaign_type=template,
                 mail_type=MailType.POSTCARD,
@@ -841,6 +856,7 @@ async def import_contacts_csv(
             "contact_ids": [c["contact_id"] for c in contacts_imported],
             "contacts": contacts_imported,
             "campaign_id": campaign_id,
+            "campaign_name": campaign.name if create_campaign and campaign_id else None,
             "errors": errors[:10],  # Return first 10 errors
             "message": f"Imported {len(contacts_imported)} contacts successfully. {len(contacts_failed)} failed."
         }
@@ -865,6 +881,7 @@ async def get_csv_import_template():
         - optional_columns: List of optional column names
         - example_csv: Example CSV data
         - instructions: How to format the CSV
+        - campaign_naming: How campaigns are auto-named
     """
     return {
         "required_columns": [
@@ -891,10 +908,20 @@ async def get_csv_import_template():
             "2. Include at minimum: name, address, city, state, zip_code",
             "3. Optional: phone, email, property_address, notes",
             "4. Save as UTF-8 encoded CSV file",
-            "5. Upload to POST /direct-mail/import-csv",
-            "6. Optionally set create_campaign=true to auto-create campaign",
-            "7. Optionally set send_immediately=true to send right away"
+            "5. Name your CSV file descriptively (e.g., 'miami_condo_leads.csv')",
+            "6. Upload to POST /direct-mail/import-csv",
+            "7. Optionally set create_campaign=true to auto-create campaign",
+            "8. Optionally set send_immediately=true to send right away"
         ],
+        "campaign_naming": {
+            "description": "Campaigns are automatically named based on your CSV filename",
+            "examples": [
+                "miami_condo_leads.csv → Miami Condo Leads - 2026-02-26",
+                "expired_listings_march.csv → Expired Listings March - 2026-02-26",
+                "fsbo_brooklyn.csv → Fsbo Brooklyn - 2026-02-26"
+            ],
+            "custom_name": "Override by adding ?campaign_name=My Custom Name to the URL"
+        },
         "use_cases": [
             "Import leads from web scraping tools",
             "Upload FSBO (For Sale By Owner) leads",
