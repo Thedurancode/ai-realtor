@@ -44,7 +44,8 @@ from app.models.phone_call import PhoneCall
 # VideoGen AI Avatar Videos
 from app.models.videogen import VideoGenVideo, VideoGenAvatar, VideoGenScriptTemplate, VideoGenSettings
 from app.models.postiz import PostizAccount, PostizPost, PostizCalendar, PostizTemplate, PostizAnalytics, PostizCampaign
-from app.models.facebook_ads import FacebookCampaign, FacebookAdSet, FacebookCreative, MarketResearch, CompetitorAnalysis, ReviewIntelligence
+# Temporarily disabled - has table definition conflict
+# from app.models.facebook_ads import FacebookCampaign, FacebookAdSet, FacebookCreative, MarketResearch, CompetitorAnalysis, ReviewIntelligence
 from app.models.render_job import RenderJob
 from app.models.timeline_project import TimelineProject
 # ZeroClaw-inspired features
@@ -58,5 +59,10 @@ from app.models.photo_order import (
     PhotoOrder, PhotoOrderItem, PhotoOrderDeliverable, PhotoOrderTemplate,
     PhotoProvider, PhotoOrderStatus, PhotoServiceType
 )
+# AI Website Builder
+from app.models.property_website import PropertyWebsite, WebsiteAnalytics
+# Enhanced Video Generation
+from app.models.agent_video_profile import AgentVideoProfile
+from app.models.property_video import PropertyVideo, VideoTypeEnum, VideoGenerationStatus
 
-__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge", "VoiceCampaign", "VoiceCampaignTarget", "Offer", "OfferStatus", "FinancingType", "ConversationHistory", "PropertyNote", "NoteSource", "ScheduledTask", "TaskType", "TaskStatus", "MarketWatchlist", "DealOutcome", "OutcomeStatus", "AgentPerformanceMetrics", "PredictionLog", "PhoneNumber", "PhoneCall", "Workspace", "WorkspaceAPIKey", "CommandPermission", "API_SCOPES", "Skill", "AgentSkill", "SkillReview", "VideoGenVideo", "VideoGenAvatar", "VideoGenScriptTemplate", "VideoGenSettings", "PostizAccount", "PostizPost", "PostizCalendar", "PostizTemplate", "PostizAnalytics", "PostizCampaign", "FacebookAdCampaign", "FacebookAdSet", "FacebookAd", "FacebookAdCreative", "FacebookAudience", "FacebookAdMetrics", "RenderJob", "TimelineProject", "PortalUser", "PropertyAccess", "PortalActivity", "AgentBrand", "CalendarConnection", "SyncedCalendarEvent", "CalendarEvent", "PhotoOrder", "PhotoOrderItem", "PhotoOrderDeliverable", "PhotoOrderTemplate", "PhotoProvider", "PhotoOrderStatus", "PhotoServiceType"]
+__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge", "VoiceCampaign", "VoiceCampaignTarget", "Offer", "OfferStatus", "FinancingType", "ConversationHistory", "PropertyNote", "NoteSource", "ScheduledTask", "TaskType", "TaskStatus", "MarketWatchlist", "DealOutcome", "OutcomeStatus", "AgentPerformanceMetrics", "PredictionLog", "PhoneNumber", "PhoneCall", "Workspace", "WorkspaceAPIKey", "CommandPermission", "API_SCOPES", "Skill", "AgentSkill", "SkillReview", "VideoGenVideo", "VideoGenAvatar", "VideoGenScriptTemplate", "VideoGenSettings", "PostizAccount", "PostizPost", "PostizCalendar", "PostizTemplate", "PostizAnalytics", "PostizCampaign", "RenderJob", "TimelineProject", "PortalUser", "PropertyAccess", "PortalActivity", "AgentBrand", "CalendarConnection", "SyncedCalendarEvent", "CalendarEvent", "PhotoOrder", "PhotoOrderItem", "PhotoOrderDeliverable", "PhotoOrderTemplate", "PhotoProvider", "PhotoOrderStatus", "PhotoServiceType", "PropertyWebsite", "WebsiteAnalytics", "AgentVideoProfile", "PropertyVideo", "VideoTypeEnum", "VideoGenerationStatus"]

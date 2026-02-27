@@ -89,3 +89,5 @@ class Property(Base):
     access_list = relationship("PropertyAccess", back_populates="property", cascade="all, delete-orphan")
     # Calendar events for this property
     calendar_events = relationship("CalendarEvent", back_populates="property")
+    # AI-generated websites for this property
+    websites = relationship("PropertyWebsite", back_populates="property", cascade="all, delete-orphan")

@@ -53,9 +53,13 @@ from . import photo_orders  # noqa: F401
 from . import direct_mail  # noqa: F401
 # Contact lists tools
 from . import contact_lists  # noqa: F401
+# Property Website Builder
+from . import property_websites  # noqa: F401
 # Zuckerbot AI Facebook Ads
 from . import zuckerbot  # noqa: F401
 # Skills System
 from . import skills  # noqa: F401
+# Enhanced Property Videos
+from . import enhanced_property_videos  # noqa: F401
 # Web scraper tools - TODO: Fix import issues
 # from . import web_scraper  # noqa: F401

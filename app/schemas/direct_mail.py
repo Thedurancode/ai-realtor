@@ -60,7 +60,7 @@ class DirectMailBase(BaseModel):
 
 class PostcardCreate(DirectMailBase):
     """Create a new postcard"""
-    mail_type: MailType = Field(default=MailType.POSTCARD, const=True)
+    mail_type: MailType = Field(default=MailType.POSTCARD)
     to_address: AddressSchema
     from_address: Optional[AddressSchema] = None  # Uses agent's default if not provided
     front_html: str = Field(..., description="HTML for front of postcard")
@@ -75,7 +75,7 @@ class PostcardCreate(DirectMailBase):
 
 class LetterCreate(DirectMailBase):
     """Create a new letter"""
-    mail_type: MailType = Field(default=MailType.LETTER, const=True)
+    mail_type: MailType = Field(default=MailType.LETTER)
     to_address: AddressSchema
     from_address: Optional[AddressSchema] = None
     file_url: str = Field(..., description="URL to PDF file for letter content")
@@ -91,7 +91,7 @@ class LetterCreate(DirectMailBase):
 
 class CheckCreate(DirectMailBase):
     """Create a new check"""
-    mail_type: MailType = Field(default=MailType.CHECK, const=True)
+    mail_type: MailType = Field(default=MailType.CHECK)
     to_address: AddressSchema
     from_address: Optional[AddressSchema] = None
     check_amount: float = Field(..., gt=0, description="Amount of check")
@@ -174,7 +174,7 @@ class DirectMailTemplateCreate(BaseModel):
     """Create a new template"""
     name: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = None
-    template_type: str = Field(..., regex="^(postcard|letter)$")
+    template_type: str = Field(..., pattern="^(postcard|letter)$")
     campaign_type: Optional[str] = None
     front_html_template: str = Field(..., description="HTML template with {{variables}}")
     back_html_template: Optional[str] = None

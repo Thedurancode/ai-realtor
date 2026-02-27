@@ -539,12 +539,12 @@ def test_lob_webhook():
             "check.*"
         ],
         "configuration_steps": [
-            "1": "Go to lob.com/dashboard -> Webhooks",
-            "2": "Add webhook URL: https://your-domain.com/webhooks/lob",
-            "3": "Select events to subscribe to",
-            "4": "Copy the webhook signing key",
-            "5": "Set LOB_WEBHOOK_SECRET environment variable to the signing key",
-            "6": "Webhook signatures will be automatically verified"
+            "Go to lob.com/dashboard -> Webhooks",
+            "Add webhook URL: https://your-domain.com/webhooks/lob",
+            "Select events to subscribe to",
+            "Copy the webhook signing key",
+            "Set LOB_WEBHOOK_SECRET environment variable to the signing key",
+            "Webhook signatures will be automatically verified"
         ],
         "signature_format": "x-lob-signature: sha256=<hmac_hash>",
         "signature_algorithm": "HMAC-SHA256",
@@ -573,38 +573,6 @@ def test_lob_webhook():
                     "expected_delivery_date": "2026-03-01",
                     "tracking_url": "https://lob.com/tracking/lob_def456"
                 }
-            }
-        }
-    }
-            "letter.delivered",
-            "letter.cancelled",
-            "letter.production_failed"
-        ],
-        "instructions": {
-            "1": "Go to lob.com/dashboard -> Webhooks",
-            "2": "Add webhook URL: https://your-domain.com/webhooks/lob",
-            "3": "Select events to subscribe to (postcard.mailed, postcard.delivered, etc.)",
-            "4": "Lob sends events as JSON POST requests",
-            "5": "No authentication required (consider using HTTPS + secret path)"
-        },
-        "event_payload_example": {
-            "event_type": "postcard.delivered",
-            "id": "evt_1234567890",
-            "resource": {
-                "type": "postcard",
-                "id": "lob_abc123"
-            },
-            "data": {
-                "id": "lob_abc123",
-                "status": "delivered",
-                "tracking_events": [
-                    {
-                        "status": "delivered",
-                        "timestamp": "2026-02-26T10:30:00Z",
-                        "location": "ZIP_CODE"
-                    }
-                ],
-                "tracking_url": "https://lob.com/tracking/lob_abc123"
             }
         }
     }

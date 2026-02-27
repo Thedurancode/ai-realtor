@@ -628,16 +628,6 @@ class PhotoOrderService:
         except Exception as e:
             logger.error(f"Failed to sync order {order_id}: {e}")
             raise
-                    await self._fetch_deliverables(order)
-
-                if status.get("photographer"):
-                    order.photographer_assigned = status["photographer"].get("name")
-                    order.photographer_phone = status["photographer"].get("phone")
-
-                if status.get("scheduled_at"):
-                    order.scheduled_at = datetime.fromisoformat(status["scheduled_at"])
-
-            self.db.commit()
             self.db.refresh(order)
 
             return order

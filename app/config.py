@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     lob_webhook_secret: str = ""
     lob_test_mode: bool = False
 
+    # Enhanced Video Generation
+    heygen_api_key: str = ""  # HeyGen API for avatar videos
+    replicate_api_key: str = ""  # Replicate API for PixVerse footage
+    elevenlabs_api_key: str = ""  # ElevenLabs for text-to-speech
+    openrouter_api_key: str = ""  # OpenRouter for Claude AI script generation
+
     class Config:
         env_file = ".env"
         extra = "ignore"

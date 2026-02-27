@@ -98,7 +98,7 @@ class DirectMail(Base):
     campaign_name = Column(String(200))
     campaign_type = Column(String(50))  # just_sold, open_house, market_update, etc.
     description = Column(Text)
-    metadata = Column(JSON)  # Additional campaign data
+    campaign_metadata = Column(JSON)  # Additional campaign data (renamed from metadata to avoid SQLAlchemy reserved word)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default="now()", nullable=False)

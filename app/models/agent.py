@@ -36,3 +36,5 @@ class Agent(Base):
     # Calendar integrations and events
     calendar_connections = relationship("CalendarConnection", back_populates="agent")
     calendar_events = relationship("CalendarEvent", back_populates="agent")
+    # AI-generated websites
+    websites = relationship("PropertyWebsite", back_populates="agent")

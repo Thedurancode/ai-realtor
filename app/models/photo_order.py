@@ -5,7 +5,7 @@ Integrates with ProxyPics API for ordering professional property photography.
 Supports multiple photo types, scheduling, and deliverable tracking.
 """
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum, JSON, Text, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum, JSON, Text, Boolean, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
