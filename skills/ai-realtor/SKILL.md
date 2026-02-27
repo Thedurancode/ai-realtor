@@ -22,7 +22,7 @@ metadata:
 
 **Complete backend for AI-powered real estate operations.**
 
-The AI Realtor API is a production-ready platform that turns any AI assistant into a full real estate operations center. Built for Clawbot/OpenClaw with 200+ endpoints, 135 voice commands, and 40 feature categories.
+The AI Realtor API is a production-ready platform that turns any AI assistant into a full real estate operations center. Built for Clawbot/OpenClaw with 200+ endpoints, 145 voice commands, and 41 feature categories.
 
 ## 🚀 Quick Start
 
@@ -95,7 +95,7 @@ Every property has a heartbeat showing:
 
 ---
 
-## 📱 Voice Commands (135 Total)
+## 📱 Voice Commands (145 Total)
 
 ### Property Management (7 commands)
 
@@ -298,6 +298,21 @@ Every property has a heartbeat showing:
 "Show me properties from this Zillow search"
 "Import these 10 listings"
 "Scrape this Redfin property"
+```
+
+### Property Photo Ordering (10 commands)
+
+```
+"Order photos for property 5 with the premium package"
+"Order a basic photo shoot for 123 Main St"
+"Submit my photo order to ProxyPics"
+"What's the status of my photo order?"
+"Sync my photo order for property 5"
+"Cancel my photo order for property 5"
+"What photo services are available for property 5?"
+"What's the photo history for property 5?"
+"Show my photo templates"
+"Create a premium listing photo template"
 ```
 
 ### Predictive Intelligence (6 commands)
