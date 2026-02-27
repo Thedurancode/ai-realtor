@@ -91,6 +91,14 @@ def _log_conversation(tool_name: str, arguments: Any, result: list[TextContent] 
         if isinstance(arguments, dict):
             property_id = arguments.get("property_id")
 
+            # For direct mail tools, try to resolve address to property_id
+            if not property_id and arguments.get("address"):
+                from .utils.property_resolver import find_property_by_address
+                try:
+                    property_id = find_property_by_address(arguments.get("address"))
+                except:
+                    pass  # Address resolution failed, continue without property_id
+
         payload = {
             "session_id": "mcp_session",
             "tool_name": tool_name,
@@ -215,6 +223,38 @@ def _summarize_input(tool_name: str, arguments: Any) -> str:
         return f"Get recording for call {arguments.get('call_id')}"
     if tool_name == "call_summary":
         return f"Call summary for property {arguments.get('property_id')}"
+
+    # Direct mail tools
+    if tool_name == "send_postcard":
+        address = arguments.get('address')
+        property_id = arguments.get('property_id')
+        template = arguments.get('template', 'postcard')
+        if address:
+            return f"Send {template} postcard to {address}"
+        elif property_id:
+            return f"Send {template} postcard to property #{property_id}"
+        return f"Send {template} postcard"
+    if tool_name == "send_letter":
+        contact_id = arguments.get('contact_id')
+        return f"Send letter to contact #{contact_id}"
+    if tool_name == "check_mail_status":
+        return f"Check status for mailpiece #{arguments.get('mailpiece_id')}"
+    if tool_name == "list_mailpieces":
+        status = arguments.get('status')
+        return f"List mailpieces (status: {status})" if status else "List all mailpieces"
+    if tool_name == "create_direct_mail_campaign":
+        name = arguments.get('name', 'campaign')
+        city = arguments.get('city')
+        if city:
+            return f"Create direct mail campaign '{name}' for {city}"
+        return f"Create direct mail campaign '{name}'"
+    if tool_name == "get_direct_mail_templates":
+        return "List available direct mail templates"
+    if tool_name == "verify_address":
+        address = arguments.get('address_line1', '')
+        return f"Verify address: {address}"
+    if tool_name == "cancel_mailpiece":
+        return f"Cancel mailpiece #{arguments.get('mailpiece_id')}"
 
     # Default
     return f"Called {tool_name}"

@@ -298,3 +298,230 @@ def test_docuseal_webhook():
             "4": "DocuSeal will send X-DocuSeal-Signature header for verification"
         }
     }
+
+
+# =========================================================================
+# LOB WEBHOOKS
+# =========================================================================
+
+@router.post("/lob")
+async def lob_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Receive Lob.com webhook events for mailpiece tracking.
+
+    Lob Event Types:
+    - postcard.processed: Postcard has been processed
+    - postcard.mailed: Postcard has been mailed
+    - postcard.in_transit: Postcard is in transit
+    - postcard.delivered: Postcard has been delivered
+    - letter.processed: Letter has been processed
+    - letter.mailed: Letter has been mailed
+    - letter.in_transit: Letter is in transit
+    - letter.delivered: Letter has been delivered
+    - check.*: Check events
+
+    Webhook Configuration in Lob Dashboard:
+    1. Go to lob.com/dashboard -> Webhooks
+    2. Add webhook URL: https://your-domain.com/webhooks/lob
+    3. Select events to subscribe to
+    4. Lob sends events as JSON POST requests
+
+    Returns:
+        dict: Status message
+    """
+    try:
+        event_data = await request.json()
+    except Exception as e:
+        logger.error(f"Failed to parse Lob webhook payload: {e}")
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    event_type = event_data.get('event_type')
+    event_id = event_data.get('id')
+    resource_type = event_data.get('resource', {}).get('type')
+    resource_data = event_data.get('data', {})
+
+    logger.info(f"Received Lob webhook: event_type={event_type}, resource_type={resource_type}, id={event_id}")
+
+    # Extract mailpiece ID
+    mailpiece_id = resource_data.get('id')
+    lob_object_id = event_id
+
+    if not mailpiece_id:
+        logger.warning(f"No mailpiece ID in webhook event {event_id}")
+        return {"status": "received", "message": "No mailpiece ID found"}
+
+    # Find our direct mail record
+    from app.models.direct_mail import DirectMail, MailType, MailStatus
+
+    # Try to find by lob_mailpiece_id or lob_object_id
+    mailpiece = db.query(DirectMail).filter(
+        DirectMail.lob_mailpiece_id == mailpiece_id
+    ).first()
+
+    if not mailpiece:
+        # Try to find by lob_object_id
+        mailpiece = db.query(DirectMail).filter(
+            DirectMail.lob_object_id == lob_object_id
+        ).first()
+
+    if not mailpiece:
+        logger.warning(f"No direct mail record found for Lob mailpiece {mailpiece_id}")
+        return {"status": "received", "message": "Mailpiece not found in database"}
+
+    # Process event
+    try:
+        if event_type == 'postcard.delivered' or event_type == 'letter.delivered':
+            mailpiece.mail_status = MailStatus.DELIVERED
+            mailpiece.delivered_at = None  # Will be set from event data if available
+
+            # Extract tracking events
+            tracking_events = resource_data.get('tracking_events', [])
+            if tracking_events:
+                mailpiece.tracking_events = tracking_events
+
+            # Get tracking URL
+            mailpiece.tracking_url = resource_data.get('tracking_url')
+
+            logger.info(f"Mailpiece {mailpiece.id} marked as delivered")
+
+            # Create notification
+            try:
+                from app.models.notification import Notification
+                from app.models.activity_event import ActivityEvent
+
+                notification = Notification(
+                    agent_id=mailpiece.agent_id,
+                    title=f"Direct Mail Delivered",
+                    message=f"Your {mailpiece.mail_type.value} to {mailpiece.to_address.get('name', 'Recipient')} has been delivered.",
+                    notification_type="direct_mail_delivered",
+                    priority="low",
+                    metadata={
+                        "mailpiece_id": mailpiece.id,
+                        "mail_type": mailpiece.mail_type.value,
+                        "property_id": mailpiece.property_id,
+                        "contact_id": mailpiece.contact_id
+                    }
+                )
+                db.add(notification)
+
+                # Log activity
+                activity = ActivityEvent(
+                    event_type="direct_mail_delivered",
+                    tool_name="lob_webhook",
+                    user_source="Lob Webhook",
+                    description=f"{mailpiece.mail_type.value} delivered via Lob (Mailpiece ID: {mailpiece.id})",
+                    status="success",
+                    metadata={
+                        "mailpiece_id": mailpiece.id,
+                        "property_id": mailpiece.property_id,
+                        "contact_id": mailpiece.contact_id
+                    }
+                )
+                db.add(activity)
+
+            except Exception as e:
+                logger.warning(f"Failed to create notification/activity: {e}")
+
+        elif event_type == 'postcard.in_transit' or event_type == 'letter.in_transit':
+            mailpiece.mail_status = MailStatus.IN_TRANSIT
+
+            # Update tracking events
+            tracking_events = resource_data.get('tracking_events', [])
+            if tracking_events:
+                mailpiece.tracking_events = tracking_events
+
+            logger.info(f"Mailpiece {mailpiece.id} marked as in transit")
+
+        elif event_type == 'postcard.mailed' or event_type == 'letter.mailed':
+            mailpiece.mail_status = MailStatus.MAILED
+
+            # Update expected delivery if available
+            expected_delivery = resource_data.get('expected_delivery_date')
+            if expected_delivery:
+                from datetime import datetime
+                try:
+                    mailpiece.expected_delivery_date = datetime.fromisoformat(expected_delivery)
+                except:
+                    pass
+
+            logger.info(f"Mailpiece {mailpiece.id} marked as mailed")
+
+        elif event_type == 'postcard.processed' or event_type == 'letter.processed':
+            mailpiece.mail_status = MailStatus.PROCESSING
+            logger.info(f"Mailpiece {mailpiece.id} marked as processed")
+
+        elif event_type == 'postcard.cancelled' or event_type == 'letter.cancelled':
+            mailpiece.mail_status = MailStatus.CANCELLED
+            logger.info(f"Mailpiece {mailpiece.id} marked as cancelled")
+
+        elif event_type == 'postcard.production_failed' or event_type == 'letter.production_failed':
+            mailpiece.mail_status = MailStatus.FAILED
+            logger.error(f"Mailpiece {mailpiece.id} production failed")
+
+        db.commit()
+
+    except Exception as e:
+        logger.error(f"Failed to process Lob webhook event: {e}")
+        db.rollback()
+
+    return {
+        "status": "received",
+        "event_type": event_type,
+        "message": "Webhook processed successfully"
+    }
+
+
+@router.get("/lob/test")
+def test_lob_webhook():
+    """
+    Test endpoint to verify Lob webhook configuration.
+    Returns webhook URL and configuration instructions.
+    """
+    return {
+        "webhook_url": "/webhooks/lob",
+        "supported_events": [
+            "postcard.processed",
+            "postcard.mailed",
+            "postcard.in_transit",
+            "postcard.delivered",
+            "postcard.cancelled",
+            "postcard.production_failed",
+            "letter.processed",
+            "letter.mailed",
+            "letter.in_transit",
+            "letter.delivered",
+            "letter.cancelled",
+            "letter.production_failed"
+        ],
+        "instructions": {
+            "1": "Go to lob.com/dashboard -> Webhooks",
+            "2": "Add webhook URL: https://your-domain.com/webhooks/lob",
+            "3": "Select events to subscribe to (postcard.mailed, postcard.delivered, etc.)",
+            "4": "Lob sends events as JSON POST requests",
+            "5": "No authentication required (consider using HTTPS + secret path)"
+        },
+        "event_payload_example": {
+            "event_type": "postcard.delivered",
+            "id": "evt_1234567890",
+            "resource": {
+                "type": "postcard",
+                "id": "lob_abc123"
+            },
+            "data": {
+                "id": "lob_abc123",
+                "status": "delivered",
+                "tracking_events": [
+                    {
+                        "status": "delivered",
+                        "timestamp": "2026-02-26T10:30:00Z",
+                        "location": "ZIP_CODE"
+                    }
+                ],
+                "tracking_url": "https://lob.com/tracking/lob_abc123"
+            }
+        }
+    }
