@@ -68,8 +68,8 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 from fastapi.openapi.utils import get_openapi
 
 app = FastAPI(
-    title="Real Estate API",
-    description="API for real estate agents to manage properties (voice-optimized)",
+    title="RealtorClaw API",
+    description="AI-powered real estate platform with voice-controlled operations, property management, direct mail automation, and intelligent analytics",
     version="1.0.0",
 )
 
@@ -277,7 +277,22 @@ async def send_display_command(command: dict):
 
 @app.get("/")
 def root():
-    return {"message": "Real Estate API", "docs": "/docs"}
+    return {
+        "message": "RealtorClaw API - AI-Powered Real Estate Platform",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "mcp_tools": 162,
+        "features": [
+            "Property Management",
+            "Direct Mail Automation",
+            "Voice-Controlled Operations",
+            "AI-Powered Analytics",
+            "Marketing Hub",
+            "Contract Management",
+            "Skip Tracing",
+            "Calendar Integration"
+        ]
+    }
 
 
 @app.get("/health")
@@ -336,7 +351,7 @@ async def startup_event():
     from app.models.scheduled_task import ScheduledTask
 
     logger = logging.getLogger(__name__)
-    logger.info("Starting AI Realtor Platform...")
+    logger.info("Starting RealtorClaw Platform...")
 
     # Start cron scheduler in background
     from app.services.cron_scheduler import cron_scheduler
@@ -425,7 +440,7 @@ async def startup_event():
     finally:
         db.close()
 
-    logger.info("AI Realtor Platform startup complete")
+    logger.info("RealtorClaw Platform startup complete")
 
 
 @app.on_event("shutdown")
@@ -434,7 +449,7 @@ async def shutdown_event():
     import logging
 
     logger = logging.getLogger(__name__)
-    logger.info("Shutting down AI Realtor Platform...")
+    logger.info("Shutting down RealtorClaw Platform...")
 
     # Stop cron scheduler
     from app.services.cron_scheduler import cron_scheduler
@@ -448,7 +463,7 @@ async def shutdown_event():
     hybrid_search.close()
     logger.info("Hybrid search closed")
 
-    logger.info("AI Realtor Platform shutdown complete")
+    logger.info("RealtorClaw Platform shutdown complete")
 
 
 # --- Cache management endpoints ---

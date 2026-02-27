@@ -1306,9 +1306,10 @@ POST /scrape/scrape-and-enrich-batch - Bulk import with enrichment
 - ElevenLabs API (voice synthesis)
 - Exa API (research)
 - Anthropic Claude (AI analysis)
+- Lob.com API (direct mail automation)
 
 **Voice & Communication:**
-- MCP Server (Claude Desktop integration) — 154 tools
+- MCP Server (Claude Desktop integration) — 162 tools
 - VAPI (voice AI platform)
 - ElevenLabs (text-to-speech)
 - WebSocket (real-time updates)
@@ -1822,6 +1823,183 @@ GET /social/analytics/overview              - Social media analytics
 
 ---
 
+### 34. 📬 Direct Mail System (Lob.com Integration)
+
+**Physical mail automation for real estate marketing**
+
+Send professional postcards, letters, and checks via Lob.com API. Full voice control with address-based commands, template system, and bulk campaigns.
+
+**Three Mail Types:**
+- **Postcards** - 4x6, 6x9, 6x11 sizes with full-color printing
+- **Letters** - Legal/letter size with PDF attachments, certified mail option
+- **Checks** - AP automation with check printing
+
+**Key Features:**
+- Address-based voice commands (say the address, no ID needed)
+- 6 pre-built real estate templates (just sold, open house, market update, new listing, price reduction, hello/farming)
+- Bulk campaigns with city-based targeting
+- USPS address verification (CASS-certified)
+- Real-time tracking via Lob webhooks
+- Jinja2 template variable substitution
+- Background async processing
+- HMAC-SHA256 webhook security
+
+**API Endpoints:**
+```
+POST   /direct-mail/postcards              - Send postcard
+POST   /direct-mail/letters                - Send letter
+POST   /direct-mail/checks                 - Send check
+POST   /direct-mail/campaigns              - Create bulk campaign
+GET    /direct-mail/postcards/{id}         - Get mailpiece status
+POST   /direct-mail/postcards/{id}/cancel  - Cancel mailpiece
+GET    /direct-mail/letters/{id}           - Get letter status
+GET    /direct-mail/campaigns              - List campaigns
+GET    /direct-mail/campaigns/{id}         - Get campaign details
+GET    /direct-mail/templates              - List templates
+POST   /direct-mail/templates              - Create template
+GET    /direct-mail/templates/{id}         - Get template details
+POST   /direct-mail/verify-address         - Verify USPS address
+GET    /direct-mail/stats                  - Usage statistics
+POST   /webhooks/lob                       - Lob webhook handler
+```
+
+**MCP Tools (8 voice commands):**
+- `send_postcard` - Voice: "Send a just sold postcard to 123 Main St" or "Mail an open house card to the Miami property"
+- `send_letter` - Voice: "Send a letter to contact 5"
+- `check_mail_status` - Voice: "Check the status of mailpiece 5"
+- `list_mailpieces` - Voice: "Show me all my mailpieces"
+- `create_direct_mail_campaign` - Voice: "Create a just sold campaign for all properties in Miami"
+- `get_direct_mail_templates` - Voice: "Show me available templates"
+- `verify_address` - Voice: "Verify the address 123 Main St, Anytown, CA 90210"
+- `cancel_mailpiece` - Voice: "Cancel mailpiece 5"
+
+**Address-Based Voice Commands:**
+
+The system understands flexible address matching:
+- **Full addresses**: "123 Main Street, New York, NY 10001"
+- **Street + City**: "123 Main St, New York"
+- **City only**: "Send to the Miami property"
+- **Street names**: "The Broadway property"
+- **ZIP codes**: "The property in 90210"
+
+**Pre-Built Templates:**
+
+1. **Just Sold** - Announce recently sold property to neighborhood
+   - Variables: property_address, sold_price, agent_name, agent_phone, property_photo
+   - Gradient purple design with property photo
+
+2. **Open House** - Invite neighbors to open house event
+   - Variables: property_address, date, time, agent_name, agent_phone
+   - Event-focused design with date/time prominent
+
+3. **Market Update** - Quarterly market statistics
+   - Variables: neighborhood, avg_price, days_on_market, inventory, agent_name
+   - Data-driven design with charts/stats
+
+4. **New Listing** - Announce new property listing
+   - Variables: property_address, price, bedrooms, bathrooms, features, agent_name
+   - Feature-focused layout
+
+5. **Price Reduction** - Notify of price drop
+   - Variables: property_address, old_price, new_price, savings, agent_name
+   - Urgency-driven design
+
+6. **Hello/Farming** - Agent introduction/farming
+   - Variables: agent_name, title, company, phone, email, website
+   - Professional branding card
+
+**Bulk Campaigns:**
+
+Create campaigns targeting all properties in a city:
+```python
+POST /direct-mail/campaigns
+{
+  "name": "Miami Just Sold Campaign",
+  "campaign_type": "just_sold",
+  "mail_type": "postcard",
+  "city": "Miami",  # Auto-finds all Miami properties
+  "send_immediately": false
+}
+```
+
+**Address Verification:**
+
+USPS CASS-certified address verification before sending:
+```python
+POST /direct-mail/verify-address
+{
+  "address_line1": "123 Main St",
+  "city": "Anytown",
+  "state": "CA",
+  "zip_code": "90210"
+}
+# Returns: standardized address + deliverability score
+```
+
+**Tracking & Webhooks:**
+
+Real-time status updates via Lob.com webhooks:
+- `postcard.processed` - Postcard has been processed
+- `postcard.mailed` - Postcard has been mailed
+- `postcard.in_transit` - Postcard is in transit
+- `postcard.delivered` - Postcard has been delivered
+- `letter.*` - Letter lifecycle events
+- `check.*` - Check events
+
+Webhook signature verification (HMAC-SHA256) prevents spoofing.
+
+**Database Tables (3 tables):**
+- `direct_mail` - Mailpiece tracking with Lob integration
+- `direct_mail_templates` - Reusable HTML templates
+- `direct_mail_campaigns` - Bulk campaign management
+
+**Voice Examples:**
+```
+"Send a just sold postcard to 123 Main St in Miami"
+"Create an open house campaign for all Brooklyn properties"
+"Mail a price reduction card to the Hillsborough property"
+"Verify the address 456 Oak Avenue, Austin, TX"
+"Check the status of mailpiece 5"
+"List all my sent mailpieces"
+"Create a new listing campaign for Austin"
+"Cancel mailpiece 10"
+```
+
+**Setup:**
+
+1. **Get Lob.com API key**: https://lob.com/signup
+2. **Set environment variables**:
+   ```bash
+   LOB_API_KEY=your_lob_api_key
+   LOB_WEBHOOK_SECRET=your_webhook_signing_key
+   LOB_TEST_MODE=false  # Set true for testing
+   ```
+3. **Configure webhook** in Lob dashboard:
+   - URL: `https://your-domain.com/webhooks/lob`
+   - Events: postcard.*, letter.*, check.*
+4. **Templates auto-seed** on first startup
+
+**Pricing** (via Lob.com):
+- 4x6 Postcards: ~$0.50-0.80 each
+- 6x9 Postcards: ~$0.70-1.10 each
+- 6x11 Postcards: ~$0.90-1.40 each
+- Letters: ~$1.00-2.00 each
+- Checks: ~$1.50-3.00 each
+
+**Use Cases:**
+- Just sold announcements to neighborhood
+- Open house invitations to nearby properties
+- Market updates to farm area
+- Price reduction notifications
+- New listing announcements
+- Agent introduction/farming
+- Holiday cards to clients
+- Check payments for closing costs
+
+**Total Direct Mail Endpoints: 13**
+
+---
+
 ## Recent Updates (Feb 2026)
 
 ### 🎨 NEW: Complete Marketing Hub (Agent Branding + Facebook Ads + Postiz)
@@ -1844,6 +2022,31 @@ Voice examples:
 - "Schedule social posts for next week"
 - "Generate Instagram content with AI"
 - "Get my marketing analytics"
+
+### 📬 NEW: Direct Mail System (Lob.com Integration)
+
+**Physical mail automation powered by Lob.com:**
+- **3 Mail Types** - Postcards (4x6, 6x9, 6x11), Letters, Checks
+- **Address-Based Voice Commands** - Say addresses naturally, no ID needed
+- **6 Pre-Built Templates** - Just sold, open house, market update, new listing, price reduction, hello/farming
+- **Bulk Campaigns** - City-based targeting for multi-property mailings
+- **USPS Address Verification** - CASS-certified address validation
+- **Real-Time Tracking** - Lob webhook integration with HMAC-SHA256 security
+- **Jinja2 Templates** - Variable substitution for personalization
+- **Background Processing** - Async mail sending without blocking
+- **Webhook Security** - Signature verification prevents spoofing
+- **Auto-Seeding** - Templates automatically created on startup
+- **13 New Endpoints** across 1 router
+- **8 New MCP Tools** for voice control
+- **3 New Database Tables** for mailpieces, templates, campaigns
+- ~3,400 lines of production code
+
+Voice examples:
+- "Send a just sold postcard to 123 Main St"
+- "Create an open house campaign for all Miami properties"
+- "Mail a price reduction card to the Brooklyn property"
+- "Verify the address 456 Oak Avenue, Austin, TX"
+- "Check the status of mailpiece 5"
 
 ### 🌐 NEW: Web Scraper (Automated Property Data Extraction)
 
@@ -1973,7 +2176,7 @@ Voice examples:
 - **3 New Database Tables** for outcome tracking and learning
 - **~4,000+ Lines of Code** in production-ready services
 
-**Total MCP Tools: 154** (129 intelligence + 15 calendar with AI optimization + 6 web scraper + 4 Q&A calls)
+**Total MCP Tools: 162** (129 intelligence + 15 calendar with AI optimization + 6 web scraper + 4 Q&A calls + 8 direct mail)
 
 ---
 
