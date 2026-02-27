@@ -2221,6 +2221,109 @@ input[data-autocomplete-enabled]:focus {
     margin-bottom: 2rem;
 }
 
+.deployment-status {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border: 2px solid rgba(34, 197, 94, 0.3);
+    border-radius: 1rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    text-align: left;
+}
+
+.deployment-icon {
+    color: var(--success);
+    margin-bottom: 1rem;
+}
+
+.deployment-content {
+    margin-bottom: 1.5rem;
+}
+
+.deployment-content h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.75rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.deployment-content p {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.deployment-progress {
+    margin-top: 1rem;
+}
+
+.deployment-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 1rem;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.deployment-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success), #16a34a);
+    border-radius: 1rem;
+    width: 15%;
+    animation: deployment-progress-pulse 2s ease-in-out infinite;
+    background-size: 200% 100%;
+    background-position: 100% 0;
+}
+
+@keyframes deployment-progress-pulse {
+    0% {
+        width: 15%;
+        background-position: 100% 0;
+    }
+    50% {
+        width: 45%;
+        background-position: 0% 0;
+    }
+    100% {
+        width: 15%;
+        background-position: 100% 0;
+    }
+}
+
+.deployment-status-text {
+    font-size: 0.875rem;
+    color: var(--success);
+    font-weight: 500;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.deployment-status-text::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--success);
+    border-radius: 50%;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
 .magic-link-warning {
     background: rgba(245, 158, 11, 0.1);
     border: 2px solid rgba(245, 158, 11, 0.3);
@@ -2409,6 +2512,24 @@ input[data-autocomplete-enabled]:focus {
     }
 
     .magic-link-content h2 {
+        font-size: 1.5rem;
+    }
+
+    .deployment-status {
+        padding: 1.5rem;
+    }
+
+    .deployment-icon {
+        display: none;
+    }
+
+    .deployment-content h3 {
+        font-size: 1.125rem;
+    }
+
+    .deployment-content p {
+        font-size: 0.813rem;
+    }
         font-size: 1.5rem;
     }
 
