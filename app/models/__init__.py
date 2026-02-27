@@ -1,4 +1,5 @@
 from app.models.agent import Agent
+from app.models.agent_onboarding import AgentOnboarding
 from app.models.agent_brand import AgentBrand
 from app.models.property import Property
 # Customer Portal

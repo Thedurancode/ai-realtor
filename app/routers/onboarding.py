@@ -151,3 +151,45 @@ async def preview_onboarding_questions():
         "categories": categories,
         "questions_by_category": grouped
     }
+
+
+class CompleteOnboardingRequest(BaseModel):
+    """Complete onboarding request from landing page wizard."""
+    first_name: str
+    last_name: str
+    age: Optional[int] = None
+    city: str
+    address: Optional[str] = None
+    phone: str
+    email: str
+    schedule: Optional[Dict[str, Dict[str, str]]] = None
+    weekend_schedule: Optional[Dict[str, Dict[str, str]]] = None
+    business_name: str
+    logo: Optional[str] = None
+    colors: Optional[Dict[str, str]] = None
+    contacts_file: Optional[str] = None
+    social_media: Optional[Dict[str, str]] = None
+    music_preferences: Optional[List[str]] = None
+    contracts: Optional[List[str]] = None
+    connect_calendar: Optional[bool] = False
+    primary_market: str
+    secondary_markets: Optional[str] = None
+    service_radius: Optional[str] = None
+    office_locations: Optional[str] = None
+    assistant_name: str
+    assistant_style: str
+    personality: Optional[Dict[str, int]] = None
+
+
+@router.post("/complete")
+async def complete_onboarding(
+    data: CompleteOnboardingRequest,
+    db: Session = Depends(get_db)
+):
+    """Complete onboarding from landing page wizard and create agent account."""
+
+    try:
+        result = await onboarding_service.complete_onboarding_wizard(db=db, data=data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

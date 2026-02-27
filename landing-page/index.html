@@ -1,0 +1,2740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RealtorClaw API - AI-Powered Real Estate Platform</title>
+    <meta name="description" content="Complete AI-powered real estate platform with 585+ API endpoints, voice control, direct mail automation, and intelligent analytics. One-time payment, lifetime updates.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Stripe.js -->
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-content">
+                <div class="logo">
+                    <span class="logo-icon">🦞</span>
+                    <span class="logo-text">RealtorClaw<span class="logo-api">API</span></span>
+                </div>
+                <div class="nav-links">
+                    <a href="#features" class="nav-link">Features</a>
+                    <a href="#benefits" class="nav-link">Benefits</a>
+                    <a href="#pricing" class="nav-link">Pricing</a>
+                    <a href="#faq" class="nav-link">FAQ</a>
+                </div>
+                <a href="onboarding.html" class="btn btn-primary">Get Started</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <!-- Animated background elements -->
+        <div class="hero-bg-gradient"></div>
+        <div class="hero-grid"></div>
+        <div class="hero-animation-blobs">
+            <div class="blob blob-1"></div>
+            <div class="blob blob-2"></div>
+            <div class="blob blob-3"></div>
+        </div>
+
+        <div class="container">
+            <div class="hero-content">
+                <!-- Single badge centered -->
+                <div class="hero-badge-container">
+                    <span class="hero-badge">The Perfect Companion for Openclaw</span>
+                    <span class="hero-badge hero-badge-accent">v1.0</span>
+                </div>
+
+                <!-- Main headline -->
+                <h1 class="hero-title">
+                    OpenClaw for
+                    <span class="gradient-text">Real Estate Agents</span>
+                </h1>
+
+                <!-- Subtitle -->
+                <p class="hero-subtitle">
+                    The complete AI-powered real estate API platform with 585+ endpoints.
+                    Property management, voice control, direct mail, and intelligent analytics.
+                </p>
+
+                <!-- CTA buttons -->
+                <div class="hero-cta">
+                    <a href="onboarding.html" class="btn btn-primary btn-large">
+                        Get Started
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </a>
+                    <a href="https://ai-realtor.fly.dev/docs" target="_blank" class="btn btn-secondary btn-large">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="16,18 22,12 16,6"/>
+                            <polyline points="8,6 2,12 8,18"/>
+                        </svg>
+                        View Full API
+                    </a>
+                </div>
+
+                <!-- Stats grid -->
+                <div class="hero-stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-number">585+</div>
+                        <div class="stat-text">API Endpoints</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">262</div>
+                        <div class="stat-text">Voice Commands</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">15+</div>
+                        <div class="stat-text">Integrations</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">∞</div>
+                        <div class="stat-text">Lifetime Updates</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stop Banner -->
+    <section class="stop-banner">
+        <div class="container">
+            <div class="stop-banner-content">
+                <div class="stop-badge">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span>Important Notice</span>
+                </div>
+                <div class="stop-message">
+                    <h2>Don't Install OpenClaw Manually</h2>
+                    <p>Everything is already set up and ready to use. Just start the API and go.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Powerful Features</h2>
+                <p class="section-subtitle">Everything you need to automate your real estate business</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                            <polyline points="9,22 9,12 15,12 15,22"/>
+                        </svg>
+                    </div>
+                    <h3>Smart Property Management</h3>
+                    <p>Automatically enrich properties with Zillow data, score deals, and track owners. Know exactly which properties deserve your attention.</p>
+                    <ul class="feature-list">
+                        <li>🏠 Auto-enrich with Zillow data</li>
+                        <li>🔍 Skip trace to find owners</li>
+                        <li>📊 AI deal scoring engine</li>
+                        <li>💓 Property health monitoring</li>
+                        <li>🎯 Focus on best deals first</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10,9 9,9 8,9"/>
+                        </svg>
+                    </div>
+                    <h3>Smart Contract Automation</h3>
+                    <p>Create, send, and track contracts effortlessly. Get instant notifications when documents are signed and never miss a deadline again.</p>
+                    <ul class="feature-list">
+                        <li>📝 Create contracts in seconds with templates</li>
+                        <li>📤 Send for e-signature via DocuSeal</li>
+                        <li>🔔 Instant notifications when signed</li>
+                        <li>🤖 AI suggests required contracts automatically</li>
+                        <li>📊 Track all contracts in one dashboard</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                            <line x1="8" y1="21" x2="16" y2="21"/>
+                            <line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                    </div>
+                    <h3>Complete Voice Control</h3>
+                    <p>Run your entire business by voice. 262 commands let you create properties, send contracts, make calls, and more—without typing a thing.</p>
+                    <ul class="feature-list">
+                        <li>🎤 262 voice commands</li>
+                        <li>🤖 Claude Desktop integration</li>
+                        <li>📞 Automated phone calls via VAPI</li>
+                        <li>🗣️ Natural voice synthesis</li>
+                        <li>✋ True hands-free operation</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+                        </svg>
+                    </div>
+                    <h3>All-in-One Marketing Hub</h3>
+                    <p>Run Facebook Ads, schedule social posts, and manage your brand—all from one place. AI generates content that converts.</p>
+                    <ul class="feature-list">
+                        <li>📱 AI-generated Facebook Ads</li>
+                        <li>📲 Schedule posts across 5+ platforms</li>
+                        <li>🎨 Unified brand management</li>
+                        <li>✍️ AI writes your content</li>
+                        <li>📈 Unified analytics dashboard</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="4" width="20" height="16" rx="2"/>
+                            <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/>
+                        </svg>
+                    </div>
+                    <h3>Automated Direct Mail</h3>
+                    <p>Send postcards, letters, and checks automatically. Just sold? Price drop? We'll mail the neighborhood while you focus on closing.</p>
+                    <ul class="feature-list">
+                        <li>📬 Send postcards & letters automatically</li>
+                        <li>🎨 7 ready-to-use templates</li>
+                        <li>📋 Bulk import via CSV</li>
+                        <li>📍 Real-time USPS tracking</li>
+                        <li>💳 Even print checks automatically</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                        </svg>
+                    </div>
+                    <h3>AI-Powered Intelligence</h3>
+                    <p>Predict which deals will close, find opportunities in your market, and get AI-powered negotiation advice. Work smarter, not harder.</p>
+                    <ul class="feature-list">
+                        <li>🔮 Predict closing probability</li>
+                        <li>🎯 Find hidden market opportunities</li>
+                        <li>💬 Score relationship health</li>
+                        <li>🤝 AI negotiation coach</li>
+                        <li>📊 Learn from your successes</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                    </div>
+                    <h3>Smart Calendar Sync</h3>
+                    <p>Automatically sync tasks, appointments, and follow-ups to Google Calendar. AI finds the best times and predicts meeting success.</p>
+                    <ul class="feature-list">
+                        <li>📅 Auto-sync to Google Calendar</li>
+                        <li>⚡ Detects conflicts instantly</li>
+                        <li>🧠 AI finds optimal meeting times</li>
+                        <li>🎯 Predicts meeting success</li>
+                        <li>👥 Auto-invite all parties</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="2" y1="12" x2="22" y2="12"/>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                    </div>
+                    <h3>Powerful Web Scraper</h3>
+                    <p>Import properties from any website instantly. Zillow, Redfin, Realtor.com—or paste any URL and our AI extracts the data automatically.</p>
+                    <ul class="feature-list">
+                        <li>🔗 One-click import from Zillow/Redfin</li>
+                        <li>🌐 Works with any website URL</li>
+                        <li>🤖 AI extracts property data</li>
+                        <li>📦 Batch import 100+ properties</li>
+                        <li>✅ Auto-enrich after importing</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Media Section -->
+    <section class="social-section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Finally, a Real Social Media Manager</h2>
+                <p class="section-subtitle">Post to all your platforms with one command. 30+ integrations, zero hassle.</p>
+            </div>
+
+            <div class="platforms-grid">
+                <!-- X (Twitter) -->
+                <div class="platform-card" style="--platform-color: #000000;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/x" alt="X">
+                    <span class="platform-name">X</span>
+                </div>
+
+                <!-- LinkedIn -->
+                <div class="platform-card" style="--platform-color: #0077b5;">
+                    <img class="platform-icon" src="https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png" alt="LinkedIn">
+                    <span class="platform-name">LinkedIn</span>
+                </div>
+
+                <!-- LinkedIn Page -->
+                <div class="platform-card" style="--platform-color: #0077b5;">
+                    <img class="platform-icon" src="https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png" alt="LinkedIn Page">
+                    <span class="platform-name">LinkedIn Page</span>
+                </div>
+
+                <!-- Reddit -->
+                <div class="platform-card" style="--platform-color: #ff4500;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/reddit" alt="Reddit">
+                    <span class="platform-name">Reddit</span>
+                </div>
+
+                <!-- Instagram (Facebook Business) -->
+                <div class="platform-card" style="--platform-color: #e1306c;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/instagram" alt="Instagram">
+                    <span class="platform-name">Instagram</span>
+                </div>
+
+                <!-- Facebook Page -->
+                <div class="platform-card" style="--platform-color: #1877f2;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/facebook" alt="Facebook Page">
+                    <span class="platform-name">Facebook Page</span>
+                </div>
+
+                <!-- Threads -->
+                <div class="platform-card" style="--platform-color: #000000;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/threads" alt="Threads">
+                    <span class="platform-name">Threads</span>
+                </div>
+
+                <!-- YouTube -->
+                <div class="platform-card" style="--platform-color: #ff0000;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/youtube" alt="YouTube">
+                    <span class="platform-name">YouTube</span>
+                </div>
+
+                <!-- Google My Business -->
+                <div class="platform-card" style="--platform-color: #4285f4;">
+                    <img class="platform-icon" src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Business">
+                    <span class="platform-name">Google Business</span>
+                </div>
+
+                <!-- TikTok -->
+                <div class="platform-card" style="--platform-color: #00f2ea;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/tiktok" alt="TikTok">
+                    <span class="platform-name">TikTok</span>
+                </div>
+
+                <!-- Pinterest -->
+                <div class="platform-card" style="--platform-color: #e60023;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/pinterest" alt="Pinterest">
+                    <span class="platform-name">Pinterest</span>
+                </div>
+
+                <!-- Dribbble -->
+                <div class="platform-card" style="--platform-color: #ea4c89;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/dribbble" alt="Dribbble">
+                    <span class="platform-name">Dribbble</span>
+                </div>
+
+                <!-- Discord -->
+                <div class="platform-card" style="--platform-color: #5865f2;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/discord" alt="Discord">
+                    <span class="platform-name">Discord</span>
+                </div>
+
+                <!-- Slack -->
+                <div class="platform-card" style="--platform-color: #4a154b;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/slack" alt="Slack">
+                    <span class="platform-name">Slack</span>
+                </div>
+
+                <!-- Twitch -->
+                <div class="platform-card" style="--platform-color: #9146ff;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/twitch" alt="Twitch">
+                    <span class="platform-name">Twitch</span>
+                </div>
+
+                <!-- Mastodon -->
+                <div class="platform-card" style="--platform-color: #6364ff;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/mastodon" alt="Mastodon">
+                    <span class="platform-name">Mastodon</span>
+                </div>
+
+                <!-- Bluesky -->
+                <div class="platform-card" style="--platform-color: #0085ff;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/bluesky" alt="Bluesky">
+                    <span class="platform-name">Bluesky</span>
+                </div>
+
+                <!-- Telegram -->
+                <div class="platform-card" style="--platform-color: #0088cc;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/telegram" alt="Telegram">
+                    <span class="platform-name">Telegram</span>
+                </div>
+
+                <!-- Medium -->
+                <div class="platform-card" style="--platform-color: #000000;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/medium" alt="Medium">
+                    <span class="platform-name">Medium</span>
+                </div>
+
+                <!-- Dev.to -->
+                <div class="platform-card" style="--platform-color: #0a0a0a;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/devdotto" alt="Dev.to">
+                    <span class="platform-name">Dev.to</span>
+                </div>
+
+                <!-- WordPress -->
+                <div class="platform-card" style="--platform-color: #21759b;">
+                    <img class="platform-icon" src="https://cdn.simpleicons.org/wordpress" alt="WordPress">
+                    <span class="platform-name">WordPress</span>
+                </div>
+            </div>
+
+            <div class="social-cta">
+                <p class="social-cta-text">One command. All platforms. Instantly.</p>
+                <a href="onboarding.html" class="btn btn-primary">Get Started</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Direct Mail Section -->
+    <section class="direct-mail">
+        <div class="container">
+            <div class="section-header">
+                <div class="powered-by-lob">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                    </svg>
+                    <span>Powered by Lob.com</span>
+                </div>
+                <h2 class="section-title">Send Direct Mail in One Command</h2>
+                <p class="section-subtitle">Automatically mail postcards, letters, and checks. No stamps, no envelopes, no hassle.</p>
+            </div>
+
+            <div class="direct-mail-content">
+                <div class="envelope-graphic">
+                    <div class="envelope">
+                        <div class="envelope-flap"></div>
+                        <div class="envelope-window">
+                            <div class="envelope-address">
+                                <div class="address-line"></div>
+                                <div class="address-line short"></div>
+                                <div class="address-line short"></div>
+                            </div>
+                        </div>
+                        <div class="envelope-stamp">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                <path d="M3 9l9 6 9-6"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="postcard-preview">
+                        <div class="postcard-front">
+                            <div class="postcard-image"></div>
+                            <div class="postcard-content">
+                                <div class="postcard-badge">Just Sold</div>
+                                <div class="postcard-title">123 Main Street</div>
+                                <div class="postcard-price">$485,000</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="direct-mail-features">
+                    <div class="mail-feature">
+                        <div class="mail-feature-icon">✉️</div>
+                        <div class="mail-feature-content">
+                            <h3>7 Templates Ready</h3>
+                            <p>Just Sold, Open House, Market Update, New Listing, Price Reduction, Hello/Farming, and Lead Generation postcards.</p>
+                        </div>
+                    </div>
+
+                    <div class="mail-feature">
+                        <div class="mail-feature-icon">📮</div>
+                        <div class="mail-feature-content">
+                            <h3>USPS Tracking</h3>
+                            <p>Real-time tracking via Lob webhooks. Know exactly when your mail is processed, mailed, in transit, and delivered.</p>
+                        </div>
+                    </div>
+
+                    <div class="mail-feature">
+                        <div class="mail-feature-icon">📊</div>
+                        <div class="mail-feature-content">
+                            <h3>CSV Import</h3>
+                            <p>Upload a list of addresses and automatically mail to all of them. Perfect for farming and bulk campaigns.</p>
+                        </div>
+                    </div>
+
+                    <div class="mail-feature">
+                        <div class="mail-feature-icon">💰</div>
+                        <div class="mail-feature-content">
+                            <h3>Checks Too</h3>
+                            <p>Send checks for closing costs, commissions, and refunds. Full AP automation with check printing via Lob.com.</p>
+                        </div>
+                    </div>
+
+                    <div class="direct-mail-cta">
+                        <p class="direct-mail-cta-text">Voice command: "Send a just sold postcard to 123 Main St"</p>
+                        <a href="#pricing" class="btn btn-primary">Start Mailing</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Phone Calling Section -->
+    <section class="phone-calling">
+        <div class="container">
+            <div class="section-header">
+                <div class="powered-by-vapi">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.44-.99-.99-.99z"/>
+                    </svg>
+                    <span>Powered by VAPI & ElevenLabs</span>
+                </div>
+                <h2 class="section-title">Your AI Agent Gets Its Own Phone Number</h2>
+                <p class="section-subtitle">Make and receive calls naturally. Your AI agent handles inbound inquiries and outbound outreach with human-like voice.</p>
+            </div>
+
+            <div class="phone-calling-content">
+                <div class="phone-graphic">
+                    <div class="phone-container">
+                        <div class="phone-device">
+                            <div class="phone-screen">
+                                <div class="phone-notch"></div>
+                                <div class="phone-call-ui">
+                                    <div class="caller-avatar">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+                                            <path d="M12 6v6l4 2"/>
+                                        </svg>
+                                    </div>
+                                    <div class="caller-name">AI Assistant</div>
+                                    <div class="caller-number">+1 (555) 123-4567</div>
+                                    <div class="call-status">Calling...</div>
+                                    <div class="call-animation">
+                                        <div class="wave wave-1"></div>
+                                        <div class="wave wave-2"></div>
+                                        <div class="wave wave-3"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="phone-badge">
+                            <div class="phone-badge-content">
+                                <span class="phone-badge-icon">📞</span>
+                                <div>
+                                    <div class="phone-badge-title">Your Dedicated Number</div>
+                                    <div class="phone-badge-desc">Clients can call anytime</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="phone-calling-features">
+                    <div class="call-direction-header">
+                        <div class="call-direction">
+                            <div class="call-direction-icon outbound">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3>Outbound Calls</h3>
+                                <p>AI initiates calls to property owners, buyers, and contacts</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="call-features-list">
+                        <div class="call-feature">
+                            <div class="call-feature-icon">🎯</div>
+                            <div class="call-feature-content">
+                                <h4>Voice Commands to Call</h4>
+                                <p>"Call the seller about property 5" — AI makes the call instantly</p>
+                            </div>
+                        </div>
+
+                        <div class="call-feature">
+                            <div class="call-feature-icon">📋</div>
+                            <div class="call-feature-content">
+                                <h4>Q&A Calls</h4>
+                                <p>Ask questions, get answers. "Ask if they're flexible on price" — AI calls and reports back</p>
+                            </div>
+                        </div>
+
+                        <div class="call-feature">
+                            <div class="call-feature-icon">🔄</div>
+                            <div class="call-feature-content">
+                                <h4>Batch Calling</h4>
+                                <p>"Call all parties for property 5" — Multiple calls, one command</p>
+                            </div>
+                        </div>
+
+                        <div class="call-feature">
+                            <div class="call-feature-icon">📝</div>
+                            <div class="call-feature-content">
+                                <h4>Full Transcripts</h4>
+                                <p>Every call recorded with AI-extracted answers and insights</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="call-direction-header" style="margin-top: 2rem;">
+                        <div class="call-direction">
+                            <div class="call-direction-icon inbound">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                    <path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3>Inbound Calls</h3>
+                                <p>Give clients your AI agent's number — they can call anytime</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="call-features-list">
+                        <div class="call-feature">
+                            <div class="call-feature-icon">📱</div>
+                            <div class="call-feature-content">
+                                <h4>Dedicated Phone Number</h4>
+                                <p>Your AI agent gets its own real phone number that clients can call</p>
+                            </div>
+                        </div>
+
+                        <div class="call-feature">
+                            <div class="call-feature-icon">🤖</div>
+                            <div class="call-feature-content">
+                                <h4>Natural Conversations</h4>
+                                <p>Powered by GPT-4, your AI sounds natural and handles any question</p>
+                            </div>
+                        </div>
+
+                        <div class="call-feature">
+                            <div class="call-feature-icon">🎤</div>
+                            <div class="call-feature-content">
+                                <h4>Human-Like Voice</h4>
+                                <p>ElevenLabs synthesis creates realistic, expressive speech</p>
+                            </div>
+                        </div>
+
+                        <div class="call-feature">
+                            <div class="call-feature-icon">💬</div>
+                            <div class="call-feature-content">
+                                <h4>Property Context</h4>
+                                <p>AI knows all property details and can answer any question about listings</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="phone-calling-cta">
+                        <p class="phone-calling-cta-text">Voice command: "Call the owner of property 5 and ask if they want to sell"</p>
+                        <a href="#pricing" class="btn btn-primary">Get Your AI Number</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contract Automation Section -->
+    <section class="contract-automation">
+        <div class="container">
+            <div class="section-header">
+                <div class="powered-by-docuseal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14,2 14,8 20,8" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <path d="M16 13H8" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <path d="M16 17H8" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <path d="M10 9H8" fill="none" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    <span>Powered by DocuSeal</span>
+                </div>
+                <h2 class="section-title">Contract Automation Made Simple</h2>
+                <p class="section-subtitle">Attach, send, and track contracts with voice commands. E-signatures integrated, zero hassle.</p>
+            </div>
+
+            <div class="contract-content">
+                <div class="contract-graphic">
+                    <div class="document-stack">
+                        <div class="document doc-1">
+                            <div class="document-lines">
+                                <div class="doc-line"></div>
+                                <div class="doc-line"></div>
+                                <div class="doc-line short"></div>
+                            </div>
+                            <div class="doc-badge">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="document doc-2">
+                            <div class="document-lines">
+                                <div class="doc-line"></div>
+                                <div class="doc-line"></div>
+                                <div class="doc-line"></div>
+                            </div>
+                            <div class="doc-badge pending">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12,6 12,12 16,14"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="document doc-3">
+                            <div class="document-lines">
+                                <div class="doc-line"></div>
+                                <div class="doc-line short"></div>
+                            </div>
+                            <div class="doc-badge signed">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 12l2 2 4-4"/>
+                                    <circle cx="12" cy="12" r="10"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="signature-trail">
+                        <svg class="pen-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+                            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+                            <path d="M2 2l7.586 7.586"/>
+                            <circle cx="11" cy="11" r="2"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="contract-features">
+                    <div class="contract-steps">
+                        <div class="step-card">
+                            <div class="step-number">1</div>
+                            <div class="step-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17,8 12,3 7,8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                            </div>
+                            <h3>Attach Contracts</h3>
+                            <p>Auto-attach from 15+ templates or let AI suggest the right contracts</p>
+                            <div class="voice-cmd">"Attach required contracts to property 5"</div>
+                        </div>
+
+                        <div class="step-card">
+                            <div class="step-number">2</div>
+                            <div class="step-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="22" y1="2" x2="11" y2="13"/>
+                                    <polygon points="22,2 15,22 11,13 11,13"/>
+                                    <path d="M11 13L9 9l-4 4"/>
+                                </svg>
+                            </div>
+                            <h3>Send for Signature</h3>
+                            <p>One command sends contracts to all parties. Each person gets their personalized signing link</p>
+                            <div class="voice-cmd">"Send the Purchase Agreement for signing"</div>
+                        </div>
+
+                        <div class="step-card">
+                            <div class="step-number">3</div>
+                            <div class="step-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+                                </svg>
+                            </div>
+                            <h3>Track Status</h3>
+                            <p>Real-time updates when anyone signs. Webhook alerts keep you informed instantly</p>
+                            <div class="voice-cmd">"Check signing status for property 5"</div>
+                        </div>
+                    </div>
+
+                    <div class="contract-highlights">
+                        <div class="highlight-item">
+                            <div class="highlight-icon">🎯</div>
+                            <div class="highlight-content">
+                                <h4>Smart Contract Matching</h4>
+                                <p>AI analyzes property type, location, price and suggests required contracts automatically</p>
+                            </div>
+                        </div>
+
+                        <div class="highlight-item">
+                            <div class="highlight-icon">📋</div>
+                            <div class="highlight-content">
+                                <h4>15+ Pre-Built Templates</h4>
+                                <p>Purchase agreements, disclosures, leases — state-specific templates ready to use</p>
+                            </div>
+                        </div>
+
+                        <div class="highlight-item">
+                            <div class="highlight-icon">🔔</div>
+                            <div class="highlight-content">
+                                <h4>Instant Notifications</h4>
+                                <p>Get alerted the moment someone signs. Never miss a critical signature again</p>
+                            </div>
+                        </div>
+
+                        <div class="highlight-item">
+                            <div class="highlight-icon">✅</div>
+                            <div class="highlight-content">
+                                <h4>Readiness Checker</h4>
+                                <p>"Is property 5 ready to close?" — AI checks all required contracts are signed</p>
+                            </div>
+                        </div>
+
+                        <div class="highlight-item">
+                            <div class="highlight-icon">👥</div>
+                            <div class="highlight-content">
+                                <h4>Multi-Party Signing</h4>
+                                <p>Buyers, sellers, attorneys — everyone signs in the right order, automatically</p>
+                            </div>
+                        </div>
+
+                        <div class="highlight-item">
+                            <div class="highlight-icon">🔒</div>
+                            <div class="highlight-content">
+                                <h4>Legally Binding</h4>
+                                <p>DocuSeal e-signatures are legally binding in all 50 states</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contract Templates Section -->
+    <section class="contract-templates">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">15+ Pre-Built Contract Templates</h2>
+                <p class="section-subtitle">State-specific templates you can customize instantly. Or create your own from scratch.</p>
+            </div>
+
+            <div class="templates-content">
+                <div class="templates-showcase">
+                    <div class="template-grid">
+                        <!-- Template Items - No state grouping -->
+                        <div class="template-item">
+                            <div class="template-icon">📄</div>
+                            <div class="template-info">
+                                <div class="template-name">Purchase Agreement</div>
+                                <div class="template-type">Residential</div>
+                            </div>
+                        </div>
+                        <div class="template-item">
+                            <div class="template-icon">📋</div>
+                            <div class="template-info">
+                                <div class="template-name">Seller Disclosure</div>
+                                <div class="template-type">Required</div>
+                            </div>
+                        </div>
+                        <div class="template-item">
+                            <div class="template-icon">⚠️</div>
+                            <div class="template-info">
+                                <div class="template-name">TDS</div>
+                                <div class="template-type">Disclosure</div>
+                            </div>
+                        </div>
+                        <div class="template-item">
+                            <div class="template-icon">🏢</div>
+                            <div class="template-info">
+                                <div class="template-name">Lease Agreement</div>
+                                <div class="template-type">Commercial</div>
+                            </div>
+                        </div>
+                        <div class="template-item">
+                            <div class="template-icon">🏠</div>
+                            <div class="template-info">
+                                <div class="template-name">Property Disclosure</div>
+                                <div class="template-type">Required</div>
+                            </div>
+                        </div>
+                        <div class="template-item">
+                            <div class="template-icon">💰</div>
+                            <div class="template-info">
+                                <div class="template-name">Closing Statement</div>
+                                <div class="template-type">Financial</div>
+                            </div>
+                        </div>
+                        <div class="template-item">
+                            <div class="template-icon">🔍</div>
+                            <div class="template-info">
+                                <div class="template-name">Inspection Contingency</div>
+                                <div class="template-type">Addendum</div>
+                            </div>
+                        </div>
+                        <div class="template-item">
+                            <div class="template-icon">🏦</div>
+                            <div class="template-info">
+                                <div class="template-name">Financing Addendum</div>
+                                <div class="template-type">Addendum</div>
+                            </div>
+                        </div>
+                        <div class="template-item">
+                            <div class="template-icon">🎨</div>
+                            <div class="template-info">
+                                <div class="template-name">Lead Paint Disclosure</div>
+                                <div class="template-type">Federal</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="templates-features">
+                    <div class="template-feature-list">
+                        <div class="template-feature-item">
+                            <div class="template-feature-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-7"/>
+                                    <path d="M15 11h-5"/>
+                                    <path d="M9 11h6"/>
+                                </svg>
+                            </div>
+                            <div class="template-feature-content">
+                                <h4>Pre-Configured & Ready</h4>
+                                <p>15+ templates for NY, CA, FL, TX with state-specific requirements already built-in</p>
+                            </div>
+                        </div>
+
+                        <div class="template-feature-item">
+                            <div class="template-feature-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-7"/>
+                                    <path d="M15 11h-5"/>
+                                    <path d="M9 11h6"/>
+                                </svg>
+                            </div>
+                            <div class="template-feature-content">
+                                <h4>Full Customization</h4>
+                                <p>Edit any template — add clauses, modify terms, adjust for your business needs</p>
+                            </div>
+                        </div>
+
+                        <div class="template-feature-item">
+                            <div class="template-feature-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7,10 12,15 8,12"/>
+                                </svg>
+                            </div>
+                            <div class="template-feature-content">
+                                <h4>Signer Roles</h4>
+                                <p>Define who signs what — buyer, seller, attorney, witness. Auto-ordered for proper workflow</p>
+                            </div>
+                        </div>
+
+                        <div class="template-feature-item">
+                            <div class="template-feature-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2v20M2 12h20"/>
+                                    <path d="M7 7l10 10 5-5"/>
+                                </svg>
+                            </div>
+                            <div class="template-feature-content">
+                                <h4>Jinja2 Templates</h4>
+                                <p>Use variables like {{property_address}}, {{buyer_name}}, {{price}} for dynamic content</p>
+                            </div>
+                        </div>
+
+                        <div class="template-feature-item">
+                            <div class="template-feature-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/>
+                                    <line x1="14" y1="2" x2="14" y2="8"/>
+                                    <line x1="2" y1="12" x2="22" y2="12"/>
+                                    <path d="M6 18h4"/>
+                                </svg>
+                            </div>
+                            <div class="template-feature-content">
+                                <h4>Property & Price Filters</h4>
+                                <p>Templates auto-attach based on property type, price range, and location</p>
+                            </div>
+                        </div>
+
+                        <div class="template-feature-item">
+                            <div class="template-feature-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 2-2z"/>
+                                    <polyline points="10,12 14,16 6,12"/>
+                                </svg>
+                            </div>
+                            <div class="template-feature-content">
+                                <h4>Create Your Own</h4>
+                                <p>"Create a new lease template for commercial properties" — build from scratch or clone existing</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="template-commands">
+                        <h3>Voice Commands for Templates</h3>
+                        <div class="command-list">
+                            <div class="command-item">
+                                <span class="command-prompt">></span>
+                                <span class="command-text">"List all contract templates"</span>
+                            </div>
+                            <div class="command-item">
+                                <span class="command-prompt">></span>
+                                <span class="command-text">"Create a template for NY leases"</span>
+                            </div>
+                            <div class="command-item">
+                                <span class="command-prompt">></span>
+                                <span class="command-text">"Clone the purchase agreement and customize it"</span>
+                            </div>
+                            <div class="command-item">
+                                <span class="command-prompt">></span>
+                                <span class="command-text">"Add a required signer role for attorney"</span>
+                            </div>
+                            <div class="command-item">
+                                <span class="command-prompt">></span>
+                                <span class="command-text">"Set a deadline of 30 days for this template"</span>
+                            </div>
+                            <div class="command-item">
+                                <span class="command-prompt">></span>
+                                <span class="command-text">"Mark this template as required for all properties over $1M"</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="template-stats" style="display: none;">
+                <div class="template-stat">
+                    <div class="stat-number">15+</div>
+                    <div class="stat-text">Pre-Built Templates</div>
+                </div>
+                <div class="template-stat">
+                    <div class="stat-number">4</div>
+                    <div class="stat-text">States Covered</div>
+                </div>
+                <div class="template-stat">
+                    <div class="stat-number">∞</div>
+                    <div class="stat-text">Customizable</div>
+                </div>
+                <div class="template-stat">
+                    <div class="stat-number">AI</div>
+                    <div class="stat-text">Powered Matching</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Property Research Section -->
+    <section class="property-research">
+        <div class="container">
+            <div class="section-header">
+                <div class="powered-by-exa">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="11" cy="11" r="8"/>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <span>Powered by Exa API</span>
+                </div>
+                <h2 class="section-title">Deep Property Research in Seconds</h2>
+                <p class="section-subtitle">AI-powered research uncovers property details, market analysis, and comparable sales automatically.</p>
+            </div>
+
+            <div class="research-content">
+                <div class="research-features">
+                    <div class="research-feature-card primary">
+                        <div class="research-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M16.2 7.8l-2.4 2.4"/>
+                                <path d="M12 16.2l-2.4-2.4"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </div>
+                        <h3>Deep Property Dossiers</h3>
+                        <p>Comprehensive research reports with property history, market analysis, neighborhood insights, and more</p>
+                        <div class="voice-cmd">"Research property 5 in depth"</div>
+                    </div>
+
+                    <div class="research-feature-card">
+                        <div class="research-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                <polyline points="3.27,6.96 12,12.01 20.73,6.96"/>
+                                <line x1="12" y1="22.08" x2="12" y2="12"/>
+                            </svg>
+                        </div>
+                        <h3>Comparable Sales</h3>
+                        <p>Find similar properties, analyze recent sales, and get pricing recommendations automatically</p>
+                        <div class="voice-cmd">"Show me comps for property 5"</div>
+                    </div>
+
+                    <div class="research-feature-card">
+                        <div class="research-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="2" y1="12" x2="22" y2="12"/>
+                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                            </svg>
+                        </div>
+                        <h3>Semantic Search</h3>
+                        <p>Search across all properties using natural language. "Show me 3-bed houses in Miami under $500k"</p>
+                        <div class="voice-cmd">"Find properties similar to 123 Main St"</div>
+                    </div>
+
+                    <div class="research-feature-card">
+                        <div class="research-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                <line x1="3" y1="9" x2="21" y2="9"/>
+                                <line x1="9" y1="21" x2="9" y2="9"/>
+                            </svg>
+                        </div>
+                        <h3>Background Research</h3>
+                        <p>Run research in the background. Check status anytime and get the full dossier when ready</p>
+                        <div class="voice-cmd">"Start research on property 5 in background"</div>
+                    </div>
+                </div>
+
+                <div class="research-visual">
+                    <div class="research-dashboard">
+                        <div class="dashboard-header">
+                            <div class="dashboard-title">Property Research Dossier</div>
+                            <div class="dashboard-status">
+                                <span class="status-dot"></span>
+                                Complete
+                            </div>
+                        </div>
+
+                        <div class="dashboard-content">
+                            <div class="research-section">
+                                <div class="section-label">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                        <polyline points="9,22 9,12 15,12 15,22"/>
+                                    </svg>
+                                    Property Details
+                                </div>
+                                <div class="section-content">
+                                    <div class="data-row">
+                                        <span class="data-label">Address:</span>
+                                        <span class="data-value">123 Main Street, Miami, FL 33101</span>
+                                    </div>
+                                    <div class="data-row">
+                                        <span class="data-label">Type:</span>
+                                        <span class="data-value">Single Family Home</span>
+                                    </div>
+                                    <div class="data-row">
+                                        <span class="data-label">Year Built:</span>
+                                        <span class="data-value">2018</span>
+                                    </div>
+                                    <div class="data-row">
+                                        <span class="data-label">Lot Size:</span>
+                                        <span class="data-value">8,712 sqft</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="research-section">
+                                <div class="section-label">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="20" x2="12" y2="10"/>
+                                        <line x1="18" y1="20" x2="18" y2="4"/>
+                                        <line x1="6" y1="20" x2="6" y2="16"/>
+                                    </svg>
+                                    Market Analysis
+                                </div>
+                                <div class="section-content">
+                                    <div class="market-metric">
+                                        <span class="metric-label">Avg. Sale Price</span>
+                                        <span class="metric-value">$425,000</span>
+                                    </div>
+                                    <div class="market-metric">
+                                        <span class="metric-label">Price/SqFt</span>
+                                        <span class="metric-value">$285</span>
+                                    </div>
+                                    <div class="market-metric">
+                                        <span class="metric-label">Days on Market</span>
+                                        <span class="metric-value">32 days</span>
+                                    </div>
+                                    <div class="market-metric positive">
+                                        <span class="metric-label">6-Mo Trend</span>
+                                        <span class="metric-value">↑ 5.2%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="research-section">
+                                <div class="section-label">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                        <circle cx="9" cy="7" r="4"/>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                    </svg>
+                                    Comparable Sales
+                                </div>
+                                <div class="section-content">
+                                    <div class="comp-item">
+                                        <div class="comp-address">456 Oak Ave</div>
+                                        <div class="comp-details">3bd • 2ba • Sold $418,000</div>
+                                    </div>
+                                    <div class="comp-item">
+                                        <div class="comp-address">789 Pine Rd</div>
+                                        <div class="comp-details">3bd • 2ba • Sold $432,000</div>
+                                    </div>
+                                    <div class="comp-item">
+                                        <div class="comp-address">321 Elm St</div>
+                                        <div class="comp-details">4bd • 3ba • Sold $445,000</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="research-badges">
+                        <div class="research-badge">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+                            </svg>
+                            <span>Real-time Data</span>
+                        </div>
+                        <div class="research-badge">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                <polyline points="22,4 12,14.01 9,11.01"/>
+                            </svg>
+                            <span>Verified Sources</span>
+                        </div>
+                        <div class="research-badge">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-1.3z"/>
+                            </svg>
+                            <span>AI Analysis</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="research-highlights">
+                <div class="research-highlight-item">
+                    <div class="highlight-number">50+</div>
+                    <div class="highlight-text">Data Points Analyzed</div>
+                </div>
+                <div class="research-highlight-item">
+                    <div class="highlight-number">3</div>
+                    <div class="highlight-text">Data Sources Cross-Referenced</div>
+                </div>
+                <div class="research-highlight-item">
+                    <div class="highlight-number">< 30s</div>
+                    <div class="highlight-text">Average Research Time</div>
+                </div>
+                <div class="research-highlight-item">
+                    <div class="highlight-number">100%</div>
+                    <div class="highlight-text">Source Attribution</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tasks & Reminders Section -->
+    <section class="tasks-reminders">
+        <div class="container">
+            <div class="section-header">
+                <div class="powered-by-tasks">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2l3.09 6.26L22 9.27l-1 4.14-9 1.25-9 1.25-1-4.14L13.91 8.26 17 2z"/>
+                    </svg>
+                    <span>Smart Task Automation</span>
+                </div>
+                <h2 class="section-title">Never Miss a Follow-Up Again</h2>
+                <p class="section-subtitle">Set reminders, schedule alerts, and automate follow-ups with simple voice commands.</p>
+            </div>
+
+            <div class="tasks-content">
+                <div class="tasks-visual">
+                    <div class="task-calendar">
+                        <div class="calendar-header">
+                            <div class="calendar-title">February 2026</div>
+                            <div class="calendar-nav">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="15,18 9,12 3,6"/>
+                                    <polyline points="9,18 3,12 15,6"/>
+                                </svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="9,18 15,12 21,6"/>
+                                    <polyline points="15,18 9,12 3,6"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="calendar-grid">
+                            <div class="calendar-day">Sun</div>
+                            <div class="calendar-day">Mon</div>
+                            <div class="calendar-day">Tue</div>
+                            <div class="calendar-day">Wed</div>
+                            <div class="calendar-day">Thu</div>
+                            <div class="calendar-day">Fri</div>
+                            <div class="calendar-day">Sat</div>
+                            <div class="calendar-date">23</div>
+                            <div class="calendar-date">24</div>
+                            <div class="calendar-date">25</div>
+                            <div class="calendar-date">26</div>
+                            <div class="calendar-date">27</div>
+                            <div class="calendar-date">28</div>
+                            <div class="calendar-date">29</div>
+                            <div class="calendar-date">1</div>
+                            <div class="calendar-date">2</div>
+                            <div class="calendar-date">3</div>
+                            <div class="calendar-date">4</div>
+                            <div class="calendar-date has-task">5
+                                <div class="task-dot"></div>
+                            </div>
+                            <div class="calendar-date">6</div>
+                            <div class="calendar-date has-task">7
+                                <div class="task-dot"></div>
+                            </div>
+                            <div class="calendar-date">8</div>
+                        </div>
+                        <div class="task-preview">
+                            <div class="task-preview-header">Upcoming Tasks</div>
+                            <div class="task-preview-item">
+                                <div class="task-time">9:00 AM</div>
+                                <div class="task-info">
+                                    <div class="task-title">Follow up with seller</div>
+                                    <div class="task-property">Property #5 - 123 Main St</div>
+                                </div>
+                                <div class="task-type reminder">🔔</div>
+                            </div>
+                            <div class="task-preview-item">
+                                <div class="task-time">2:00 PM</div>
+                                <div class="task-info">
+                                    <div class="task-title">Contract check</div>
+                                    <div class="task-property">Property #3 - Oak Avenue</div>
+                                </div>
+                                <div class="task-type recurring">🔄</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tasks-features">
+                    <div class="task-feature-group">
+                        <div class="task-feature-card">
+                            <div class="task-icon large">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 8A6 6 0 0 0 6 2c0 4.97-7 14-7 14a7 7 0 0 0 0-14c0-6 7-9 7-14h6"/>
+                                    <polyline points="10,12 14,16 18,12"/>
+                                </svg>
+                            </div>
+                            <h3>Voice-Powered Scheduling</h3>
+                            <p>Create reminders and schedule tasks with natural commands</p>
+                            <div class="task-examples">
+                                <div class="task-example">
+                                    <span class="example-cmd">"Remind me to follow up on property 5 in 3 days"</span>
+                                </div>
+                                <div class="task-example">
+                                    <span class="example-cmd">"Schedule a showing for tomorrow at 2pm"</span>
+                                </div>
+                                <div class="task-example">
+                                    <span class="example-cmd">"Check contracts every Friday at 10am"</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="task-feature-card">
+                            <div class="task-icon large">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 8A6 6 0 0 0 6 2c0 4.97-7 14-7 14a7 7 0 0 0 0-14c0-6 7-9 7-14h6"/>
+                                    <path d="M12 22v-6"/>
+                                    <path d="M9 19h6"/>
+                                </svg>
+                            </div>
+                            <h3>Four Task Types</h3>
+                            <div class="task-types-grid">
+                                <div class="task-type-badge">
+                                    <div class="task-type-icon">🔔</div>
+                                    <div class="task-type-info">
+                                        <div class="task-type-name">Reminders</div>
+                                        <div class="task-type-desc">One-time alerts</div>
+                                    </div>
+                                </div>
+                                <div class="task-type-badge">
+                                    <div class="task-type-icon">🔄</div>
+                                    <div class="task-type-info">
+                                        <div class="task-type-name">Recurring</div>
+                                        <div class="task-type-desc">Daily/weekly tasks</div>
+                                    </div>
+                                </div>
+                                <div class="task-type-badge">
+                                    <div class="task-type-icon">👥</div>
+                                    <div class="task-type-info">
+                                        <div class="task-type-name">Follow-ups</div>
+                                        <div class="task-type-desc">Property-based</div>
+                                    </div>
+                                </div>
+                                <div class="task-type-badge">
+                                    <div class="task-type-icon">📄</div>
+                                    <div class="task-type-info">
+                                        <div class="task-type-name">Contract Checks</div>
+                                        <div class="task-type-desc">Deadline alerts</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="task-automation-features">
+                        <div class="automation-item">
+                            <div class="automation-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12,6 12,12 16,14"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                            </div>
+                            <div class="automation-content">
+                                <h4>Smart Notifications</h4>
+                                <p>Automatic alerts when tasks are due. Never miss an important follow-up or contract deadline.</p>
+                            </div>
+                        </div>
+
+                        <div class="automation-item">
+                            <div class="automation-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                    <polyline points="22,6 12,11 18,11"/>
+                                    <polyline points="22,12 18,17 18,17"/>
+                                </svg>
+                            </div>
+                            <div class="automation-content">
+                                <h4>Property-Linked Context</h4>
+                                <p>Tasks automatically tied to properties. AI knows exactly what needs attention when the alert fires.</p>
+                            </div>
+                        </div>
+
+                        <div class="automation-item">
+                            <div class="automation-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="23,4 23,10 17,10"/>
+                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                                    <line x1="13" y1="6" x2="13" y2="15"/>
+                                </svg>
+                            </div>
+                            <div class="automation-content">
+                                <h4>One-Touch Snooze</h4>
+                                <p>Need more time? "Snooze property 5 for 48 hours" — task reschedules automatically with a single command.</p>
+                            </div>
+                        </div>
+
+                        <div class="automation-item">
+                            <div class="automation-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                    <line x1="16" y1="2" x2="16" y2="6"/>
+                                    <line x1="8" y1="2" x2="8" y2="6"/>
+                                    <line x1="3" y1="10" x2="21" y2="10"/>
+                                </svg>
+                            </div>
+                            <div class="automation-content">
+                                <h4>Background Task Runner</h4>
+                                <p>60-second loop monitors all tasks. Automatic notifications and recurring task creation — zero manual effort.</p>
+                            </div>
+                        </div>
+
+                        <div class="automation-item">
+                            <div class="automation-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="9" cy="7" r="4"/>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                </svg>
+                            </div>
+                            <div class="automation-content">
+                                <h4>Multi-Party Coordination</h4>
+                                <p>"Set up a closing meeting with all parties" — task coordinates schedules for buyers, sellers, and attorneys automatically.</p>
+                            </div>
+                        </div>
+
+                        <div class="automation-item">
+                            <div class="automation-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3 3l-6.91-6.91a6 6 0 0 1 7.94-7.94l3.76-3.76a1 1 0 0 0-1.4-1.4l-1.6 1.6a1 1 0 0 0 0 1.4z"/>
+                                </svg>
+                            </div>
+                            <div class="automation-content">
+                                <h4>Daily Digest Integration</h4>
+                                <p>Tasks appear in your AI-generated morning briefing. Start each day knowing exactly what needs attention.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tasks-stats">
+                <div class="task-stat">
+                    <div class="stat-value">0s</div>
+                    <div class="stat-label">Manual Entry</div>
+                </div>
+                <div class="task-stat">
+                    <div class="stat-value">60s</div>
+                    <div class="stat-label">Task Check Interval</div>
+                </div>
+                <div class="task-stat">
+                    <div class="stat-value">4</div>
+                    <div class="stat-label">Task Types</div>
+                </div>
+                <div class="task-stat">
+                    <div class="stat-value">∞</div>
+                    <div class="stat-label">Auto-Recur</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section id="benefits" class="benefits">
+        <div class="container">
+            <div class="benefits-content">
+                <div class="benefits-text">
+                    <h2 class="section-title">Why RealtorClaw API?</h2>
+                    <p class="section-subtitle">Stop wasting time on repetitive tasks. Let AI handle the heavy lifting.</p>
+
+                    <div class="benefit-list">
+                        <div class="benefit-item">
+                            <div class="benefit-check">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h4>Save 20+ Hours Per Week</h4>
+                                <p>Automate property enrichment, contract management, follow-ups, and more.</p>
+                            </div>
+                        </div>
+                        <div class="benefit-item">
+                            <div class="benefit-check">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h4>Voice-Controlled Operations</h4>
+                                <p>262 voice commands let you manage everything hands-free while driving or showing properties.</p>
+                            </div>
+                        </div>
+                        <div class="benefit-item">
+                            <div class="benefit-check">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h4>AI-Powered Insights</h4>
+                                <p>Predict closing probability, score deals, and get actionable recommendations.</p>
+                            </div>
+                        </div>
+                        <div class="benefit-item">
+                            <div class="benefit-check">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h4>One-Time Payment, Lifetime Updates</h4>
+                                <p>No subscriptions. Pay once, get free updates forever. Your API, your rules.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="benefits-visual">
+                    <div class="integration-grid">
+                        <div class="integration-item">
+                            <span class="integration-icon">🏠</span>
+                            <span>Zillow</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">✍️</span>
+                            <span>DocuSeal</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">📞</span>
+                            <span>VAPI</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">🎤</span>
+                            <span>ElevenLabs</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">📬</span>
+                            <span>Lob.com</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">📘</span>
+                            <span>Facebook Ads</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">📱</span>
+                            <span>Google Calendar</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">🔍</span>
+                            <span>Exa Research</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">🤖</span>
+                            <span>Anthropic Claude</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">📊</span>
+                            <span>Postiz Social</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">📍</span>
+                            <span>Google Places</span>
+                        </div>
+                        <div class="integration-item">
+                            <span class="integration-icon">🎯</span>
+                            <span>Skip Tracing</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Phone Number Section -->
+    <section class="ai-phone-section">
+        <div class="container">
+            <div class="ai-phone-content">
+                <div class="ai-phone-text">
+                    <h2 class="section-title">Your AI Gets Its Own Phone Number 📞</h2>
+                    <p class="section-subtitle">Out of the box. No setup required. Start making and receiving calls instantly.</p>
+
+                    <div class="phone-feature-grid">
+                        <div class="phone-feature">
+                            <div class="phone-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                </svg>
+                            </div>
+                            <h3>Inbound & Outbound Calls</h3>
+                            <p>Your AI can make calls to sellers, buyers, and contacts — and receive calls too. Full two-way communication.</p>
+                        </div>
+
+                        <div class="phone-feature">
+                            <div class="phone-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                </svg>
+                            </div>
+                            <h3>VAPI + Telnyx Integration</h3>
+                            <p>Powered by VAPI AI for natural conversations and Telnyx for reliable call routing. Crystal clear voice quality.</p>
+                        </div>
+
+                        <div class="phone-feature">
+                            <div class="phone-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12,6 12,12 16,14"/>
+                                </svg>
+                            </div>
+                            <h3>24/7 Availability</h3>
+                            <p>Your AI never sleeps. Take calls at 2 AM or on holidays. Never miss a lead while you're busy.</p>
+                        </div>
+
+                        <div class="phone-feature">
+                            <div class="phone-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                                    <line x1="12" y1="18" x2="12.01" y2="18"/>
+                                </svg>
+                            </div>
+                            <h3>Full Call Context</h3>
+                            <p>Every call includes full property context. Your AI knows everything about the deal before answering.</p>
+                        </div>
+
+                        <div class="phone-feature">
+                            <div class="phone-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                </svg>
+                            </div>
+                            <h3>Q&A Calls</h3>
+                            <p>Ask questions and get answers automatically. "Call the seller and ask if they're flexible on price" — done.</p>
+                        </div>
+
+                        <div class="phone-feature">
+                            <div class="phone-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                                </svg>
+                            </div>
+                            <h3>Call Recording & Transcripts</h3>
+                            <p>Every call is recorded and transcribed. Review conversations anytime. Full audit trail.</p>
+                        </div>
+                    </div>
+
+                    <div class="phone-demo">
+                        <div class="phone-demo-header">
+                            <h4>Voice Command Examples</h4>
+                        </div>
+                        <div class="phone-commands">
+                            <div class="phone-command">
+                                <span class="command-prompt">❯</span>
+                                <span>"Call the owner of 123 Main St and ask if they want to sell"</span>
+                            </div>
+                            <div class="phone-command">
+                                <span class="command-prompt">❯</span>
+                                <span>"Phone the buyer and ask their preferred move-in date"</span>
+                            </div>
+                            <div class="phone-command">
+                                <span class="command-prompt">❯</span>
+                                <span>"Call all parties for property 5 and confirm closing time"</span>
+                            </div>
+                            <div class="phone-command">
+                                <span class="command-prompt">❯</span>
+                                <span>"Schedule a call to the seller tomorrow at 10am"</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ai-phone-visual">
+                    <div class="phone-mockup">
+                        <div class="phone-screen">
+                            <div class="phone-status">
+                                <span>📶</span>
+                                <span>5G</span>
+                                <span>100%</span>
+                            </div>
+                            <div class="phone-display">
+                                <div class="incoming-call">
+                                    <div class="caller-avatar">
+                                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+                                            <path d="M12 6v6l4 2"/>
+                                        </svg>
+                                    </div>
+                                    <div class="caller-info">
+                                        <h4>AI Assistant</h4>
+                                        <p>(555) 123-4567</p>
+                                        <span>Incoming Call...</span>
+                                    </div>
+                                </div>
+                                <div class="call-actions">
+                                    <button class="call-button decline">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M23 17l-5-3v-4l5-3v10z"/>
+                                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                                        </svg>
+                                    </button>
+                                    <button class="call-button accept">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="phone-notch"></div>
+                    </div>
+                    <div class="phone-number-card">
+                        <h4>Your AI's Phone Number</h4>
+                        <div class="phone-number-display">(555) 123-4567</div>
+                        <p>Instantly activated. Ready to make & receive calls.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Email Address Section -->
+    <section class="ai-email-section">
+        <div class="container">
+            <div class="ai-email-content">
+                <div class="ai-email-visual">
+                    <div class="email-mockup">
+                        <div class="email-header">
+                            <div class="email-header-bar">
+                                <span class="email-dots">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </span>
+                                <span class="email-title">Inbox (3)</span>
+                            </div>
+                        </div>
+                        <div class="email-list">
+                            <div class="email-item unread">
+                                <div class="email-avatar">🏠</div>
+                                <div class="email-info">
+                                    <div class="email-sender">John Smith</div>
+                                    <div class="email-subject">Re: Property at 123 Main St</div>
+                                    <div class="email-preview">Yes, I'm interested in scheduling a viewing...</div>
+                                    <div class="email-time">2 min ago</div>
+                                </div>
+                            </div>
+                            <div class="email-item unread">
+                                <div class="email-avatar">📋</div>
+                                <div class="email-info">
+                                    <div class="email-sender">Sarah Johnson</div>
+                                    <div class="email-subject">Contract Documents Ready</div>
+                                    <div class="email-preview">I've signed all the documents, let me know...</div>
+                                    <div class="email-time">15 min ago</div>
+                                </div>
+                            </div>
+                            <div class="email-item unread">
+                                <div class="email-avatar">🔑</div>
+                                <div class="email-info">
+                                    <div class="email-sender">Mike Davis</div>
+                                    <div class="email-subject">Offer Accepted!</div>
+                                    <div class="email-preview">Great news! My client accepts the offer...</div>
+                                    <div class="email-time">1 hour ago</div>
+                                </div>
+                            </div>
+                            <div class="email-item">
+                                <div class="email-avatar">📊</div>
+                                <div class="email-info">
+                                    <div class="email-sender">AI Assistant</div>
+                                    <div class="email-subject">Daily Digest - 5 New Leads</div>
+                                    <div class="email-preview">Here's your morning summary with 5 new...</div>
+                                    <div class="email-time">8:00 AM</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="email-address-card">
+                        <h4>Your AI's Email Address</h4>
+                        <div class="email-address-display">ai@emprezario.com</div>
+                        <p>Send & receive emails automatically.</p>
+                    </div>
+                </div>
+
+                <div class="ai-email-text">
+                    <h2 class="section-title">Your AI Has Its Own Email Address 📧</h2>
+                    <p class="section-subtitle">Send and receive emails automatically. Out of the box. No setup required.</p>
+
+                    <div class="email-feature-grid">
+                        <div class="email-feature">
+                            <div class="email-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                    <polyline points="22,6 12,13 2,6"/>
+                                </svg>
+                            </div>
+                            <h3>Send Automated Emails</h3>
+                            <p>Email contracts, follow-ups, and updates automatically. "Email the Purchase Agreement to the buyer" — done.</p>
+                        </div>
+
+                        <div class="email-feature">
+                            <div class="email-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7,10 12,15 17,10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                            </div>
+                            <h3>Receive & Process Emails</h3>
+                            <p>Your AI reads incoming emails, extracts key information, and takes action. Auto-updates properties, contacts, and tasks.</p>
+                        </div>
+
+                        <div class="email-feature">
+                            <div class="email-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26 12,2"/>
+                                </svg>
+                            </div>
+                            <h3>Smart Email Parsing</h3>
+                            <p>AI extracts property details, offer amounts, contact info, and important dates from email content automatically.</p>
+                        </div>
+
+                        <div class="email-feature">
+                            <div class="email-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12,6 12,12 16,14"/>
+                                </svg>
+                            </div>
+                            <h3>Instant Notifications</h3>
+                            <p>Get notified the moment important emails arrive. Your AI flags urgent messages and summarizes content.</p>
+                        </div>
+
+                        <div class="email-feature">
+                            <div class="email-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14,2 14,8 20,8"/>
+                                    <line x1="16" y1="13" x2="8" y2="13"/>
+                                    <line x1="16" y1="17" x2="8" y2="17"/>
+                                    <polyline points="10,9 9,9 8,9"/>
+                                </svg>
+                            </div>
+                            <h3>Contract & Document Delivery</h3>
+                            <p>Email contracts, disclosures, and documents directly from DocuSeal. Track opens and signatures automatically.</p>
+                        </div>
+
+                        <div class="email-feature">
+                            <div class="email-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                    <path d="M22 6l-10 7L2 6"/>
+                                </svg>
+                            </div>
+                            <h3>Email Templates</h3>
+                            <p>Use AI-generated email templates for common scenarios: follow-ups, offer submissions, appointment confirmations, and more.</p>
+                        </div>
+                    </div>
+
+                    <div class="email-demo">
+                        <div class="email-demo-header">
+                            <h4>Voice Command Examples</h4>
+                        </div>
+                        <div class="email-commands">
+                            <div class="email-command">
+                                <span class="command-prompt">❯</span>
+                                <span>"Email the Purchase Agreement to john@example.com"</span>
+                            </div>
+                            <div class="email-command">
+                                <span class="command-prompt">❯</span>
+                                <span>"Send a follow-up email to the seller about property 5"</span>
+                            </div>
+                            <div class="email-command">
+                                <span class="command-prompt">❯</span>
+                                <span>"Check if there are any new emails from buyers"</span>
+                            </div>
+                            <div class="email-command">
+                                <span class="command-prompt">❯</span>
+                                <span>"Email the closing checklist to all parties"</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Simple, Transparent Pricing</h2>
+                <p class="section-subtitle">One-time payment. Lifetime updates. No hidden fees.</p>
+            </div>
+            <div class="pricing-grid">
+                <!-- Starter Plan -->
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Starter</h3>
+                        <div class="pricing-price">
+                            <span class="price-currency">$</span>
+                            <span class="price-value">99</span>
+                        </div>
+                        <p class="pricing-period">One-time payment</p>
+                    </div>
+                    <div class="pricing-features">
+                        <ul class="feature-checklist">
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                Complete API access (585+ endpoints)
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                262 voice commands (MCP)
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                All integrations included
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>You host</strong> the API
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>You install</strong> the platform
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>Free lifetime updates</strong>
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>Self-hosted documentation</strong>
+                            </li>
+                        </ul>
+                    </div>
+                    <button
+                        class="btn btn-outline stripe-checkout-button"
+                        data-plan="starter"
+                        data-price="99"
+                        data-currency="usd"
+                        onclick="handleStripeCheckout('starter', 99)"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                            <line x1="1" y1="10" x2="23" y2="10"/>
+                        </svg>
+                        Pay $99 with Stripe
+                    </button>
+                </div>
+
+                <!-- Professional Plan -->
+                <div class="pricing-card featured">
+                    <div class="pricing-badge">Most Popular</div>
+                    <div class="pricing-header">
+                        <h3>Professional</h3>
+                        <div class="pricing-price">
+                            <span class="price-currency">$</span>
+                            <span class="price-value">299</span>
+                        </div>
+                        <p class="pricing-period">One-time payment</p>
+                    </div>
+                    <div class="pricing-features">
+                        <ul class="feature-checklist">
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                Everything in Starter
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>We help you install</strong>
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>You host</strong> the API
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>Free lifetime updates</strong>
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>Email support</strong>
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                Setup assistance
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                Configuration guidance
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                Integration help
+                            </li>
+                        </ul>
+                    </div>
+                    <button
+                        class="btn btn-primary stripe-checkout-button"
+                        data-plan="professional"
+                        data-price="299"
+                        data-currency="usd"
+                        onclick="handleStripeCheckout('professional', 299)"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                            <line x1="1" y1="10" x2="23" y2="10"/>
+                        </svg>
+                        Pay $299 with Stripe
+                    </button>
+                </div>
+
+                <!-- Enterprise Plan -->
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Enterprise</h3>
+                        <div class="pricing-price">
+                            <span class="price-currency">$</span>
+                            <span class="price-value">500</span>
+                        </div>
+                        <p class="pricing-period">Per year</p>
+                    </div>
+                    <div class="pricing-features">
+                        <ul class="feature-checklist">
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                Everything in Professional
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>We host</strong> everything
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>We install</strong> & maintain
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>Priority support</strong>
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                <strong>Free lifetime updates</strong>
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                Managed infrastructure
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                Automatic backups
+                            </li>
+                            <li>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                                99.9% uptime SLA
+                            </li>
+                        </ul>
+                    </div>
+                    <button
+                        class="btn btn-outline stripe-checkout-button"
+                        data-plan="enterprise"
+                        data-price="500"
+                        data-currency="usd"
+                        onclick="handleStripeCheckout('enterprise', 500)"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                            <line x1="1" y1="10" x2="23" y2="10"/>
+                        </svg>
+                        Pay $500 with Stripe
+                    </button>
+                </div>
+            </div>
+            <div class="pricing-note">
+                <p>💡 <strong>All plans include:</strong> Full source code access, 585+ API endpoints, 262 voice commands, 15+ integrations, and free lifetime updates.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="faq">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Frequently Asked Questions</h2>
+                <p class="section-subtitle">Everything you need to know about RealtorClaw API</p>
+            </div>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>What do I get with my purchase?</h3>
+                    <p>You get the complete RealtorClaw API platform with full source code, 585+ API endpoints, 262 voice commands, 15+ integrations, and all documentation. Plus free lifetime updates.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What does "lifetime updates" mean?</h3>
+                    <p>Whenever we add new features, endpoints, or integrations, you get them for free. Forever. No subscription fees, no upgrade costs.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Can I host this myself?</h3>
+                    <p>Absolutely! The Starter plan is designed for self-hosting. You get full control over your data and infrastructure. We provide comprehensive documentation and setup guides.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What's included in the Professional plan?</h3>
+                    <p>In addition to everything in Starter, we help you install and configure the platform. You still host it yourself, but we're there to help via email support.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What does the Enterprise plan include?</h3>
+                    <p>We handle everything: hosting, installation, maintenance, updates, and priority support. You just use the API. Perfect for teams that want a hands-off solution.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What integrations are included?</h3>
+                    <p>Zillow, DocuSeal, VAPI, ElevenLabs, Lob.com, Facebook Ads, Postiz, Google Calendar, Anthropic Claude, Exa Research, Google Places, Skip Tracing, and more.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Is there a free trial?</h3>
+                    <p>The complete code is open source on GitHub. You can try it yourself before buying. When you're ready, purchase a plan for official support and updates.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What if I need help?</h3>
+                    <p>Starter includes self-serve documentation. Professional adds email support. Enterprise includes priority support with SLA guarantees.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Ready to Transform Your Real Estate Business?</h2>
+                <p>Join hundreds of agents and teams already using RealtorClaw API</p>
+                <div class="cta-buttons">
+                    <a href="#pricing" class="btn btn-primary btn-large">
+                        Get Started Now
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </a>
+                    <a href="https://ai-realtor.fly.dev/docs" target="_blank" class="btn btn-secondary btn-large">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="16,18 22,12 16,6"/>
+                            <polyline points="8,6 2,12 8,18"/>
+                        </svg>
+                        View Full API
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <span class="logo-icon">🦞</span>
+                        <span class="logo-text">RealtorClaw<span class="logo-api">API</span></span>
+                    </div>
+                    <p>The complete AI-powered real estate platform.</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Product</h4>
+                        <a href="#features">Features</a>
+                        <a href="#benefits">Benefits</a>
+                        <a href="#pricing">Pricing</a>
+                        <a href="https://ai-realtor.fly.dev/docs">Full API</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Resources</h4>
+                        <a href="https://ai-realtor.fly.dev/docs">Documentation</a>
+                        <a href="https://ai-realtor.fly.dev/docs">API Reference</a>
+                        <a href="https://github.com/Thedurancode/ai-realtor/blob/main/CLAUDE.md">MCP Guide</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Legal</h4>
+                        <a href="#">Privacy Policy</a>
+                        <a href="#">Terms of Service</a>
+                        <a href="#">License</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 RealtorClaw API. All rights reserved.</p>
+                <p>Built with ❤️ for real estate professionals</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+
+    <!-- Stripe Payment Integration -->
+    <script>
+        // Replace with your Stripe publishable key
+        const STRIPE_PUBLISHABLE_KEY = 'pk_live_your_key_here'; // Replace with your actual Stripe publishable key
+
+        // For testing, use: pk_test_your_test_key_here
+
+        // Initialize Stripe
+        let stripe;
+        try {
+            stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+        } catch (error) {
+            console.warn('Stripe not initialized. Please add your Stripe publishable key.');
+        }
+
+        /**
+         * Handle Stripe Checkout
+         * @param {string} plan - Plan name (starter, professional, enterprise)
+         * @param {number} price - Price in USD
+         */
+        async function handleStripeCheckout(plan, price) {
+            // Show loading state
+            const button = event.target.closest('.stripe-checkout-button');
+            const originalText = button.innerHTML;
+            button.innerHTML = `
+                <svg class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 8px; animation: spin 1s linear infinite;">
+                    <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"/>
+                </svg>
+                Processing...
+            `;
+            button.disabled = true;
+
+            try {
+                // Plan configuration
+                const planConfig = {
+                    starter: {
+                        name: 'Starter Plan',
+                        description: 'Self-hosted RealtorClaw API - Complete platform access'
+                    },
+                    professional: {
+                        name: 'Professional Plan',
+                        description: 'Self-hosted with installation support'
+                    },
+                    enterprise: {
+                        name: 'Enterprise Plan',
+                        description: 'Fully managed hosting and support'
+                    }
+                };
+
+                const config = planConfig[plan];
+
+                // Create Stripe Checkout Session
+                // Note: This requires a backend endpoint to create the session
+                // For now, we'll redirect to a Stripe Payment Link or show instructions
+
+                // Option 1: Use Stripe Payment Links (easiest)
+                // Replace these with your actual Stripe Payment Links
+                const paymentLinks = {
+                    starter: 'https://buy.stripe.com/your_starter_link',
+                    professional: 'https://buy.stripe.com/your_professional_link',
+                    enterprise: 'https://buy.stripe.com/your_enterprise_link'
+                };
+
+                // Show modal with payment options
+                showPaymentModal(plan, price, config);
+
+            } catch (error) {
+                console.error('Stripe checkout error:', error);
+                button.innerHTML = originalText;
+                button.disabled = false;
+                alert('Payment initialization failed. Please try again or contact support.');
+            }
+        }
+
+        /**
+         * Show payment modal with options
+         */
+        function showPaymentModal(plan, price, config) {
+            // Create modal if it doesn't exist
+            let modal = document.getElementById('stripe-payment-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'stripe-payment-modal';
+                modal.className = 'stripe-modal';
+                modal.innerHTML = `
+                    <div class="stripe-modal-content">
+                        <div class="stripe-modal-header">
+                            <h2>Complete Your Purchase</h2>
+                            <button class="stripe-modal-close" onclick="closeStripeModal()">&times;</button>
+                        </div>
+                        <div class="stripe-modal-body">
+                            <div class="stripe-plan-summary">
+                                <h3 id="modal-plan-name">${config.name}</h3>
+                                <p id="modal-plan-description">${config.description}</p>
+                                <div class="stripe-plan-price">$${price} <span>${plan === 'enterprise' ? '/year' : 'one-time'}</span></div>
+                            </div>
+
+                            <div class="stripe-payment-methods">
+                                <h4>Choose Payment Method</h4>
+
+                                <button class="stripe-payment-option" onclick="redirectToStripe('${plan}', ${price})">
+                                    <div class="payment-option-icon">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                                            <line x1="1" y1="10" x2="23" y2="10"/>
+                                        </svg>
+                                    </div>
+                                    <div class="payment-option-details">
+                                        <strong>Credit/Debit Card</strong>
+                                        <p>Pay securely with Stripe</p>
+                                    </div>
+                                    <div class="payment-option-badges">
+                                        <span class="payment-badge">Visa</span>
+                                        <span class="payment-badge">Mastercard</span>
+                                        <span class="payment-badge">Amex</span>
+                                    </div>
+                                </button>
+
+                                <div class="stripe-payment-info">
+                                    <h5>🔒 Secure Payment</h5>
+                                    <ul>
+                                        <li>Encrypted by Stripe</li>
+                                        <li>No card data stored on our servers</li>
+                                        <li>Instant access after payment</li>
+                                        <li>30-day money-back guarantee</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            // Update content and show modal
+            document.getElementById('modal-plan-name').textContent = config.name;
+            document.getElementById('modal-plan-description').textContent = config.description;
+            modal.style.display = 'flex';
+        }
+
+        /**
+         * Redirect to Stripe Checkout
+         * Note: This requires setting up Stripe Payment Links or a backend endpoint
+         */
+        function redirectToStripe(plan, price) {
+            // Replace these URLs with your actual Stripe Payment Links
+            // You can create Payment Links in your Stripe Dashboard
+            const paymentLinks = {
+                starter: 'https://buy.stripe.com/YOUR_STARTER_PAYMENT_LINK',
+                professional: 'https://buy.stripe.com/YOUR_PROFESSIONAL_PAYMENT_LINK',
+                enterprise: 'https://buy.stripe.com/YOUR_ENTERPRISE_PAYMENT_LINK'
+            };
+
+            const url = paymentLinks[plan];
+
+            if (url && !url.includes('YOUR_')) {
+                // Open Stripe Checkout in new tab
+                window.open(url, '_blank');
+                closeStripeModal();
+            } else {
+                // Show setup instructions
+                alert(`Stripe Payment Links not yet configured.\n\nTo enable payments:\n1. Go to your Stripe Dashboard\n2. Create Payment Links for each plan:\n   - Starter: $99\n   - Professional: $299\n   - Enterprise: $500\n3. Update the URLs in the JavaScript code\n\nFor now, please contact us directly to purchase.`);
+            }
+        }
+
+        /**
+         * Close the payment modal
+         */
+        function closeStripeModal() {
+            const modal = document.getElementById('stripe-payment-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+
+            // Reset all buttons
+            document.querySelectorAll('.stripe-checkout-button').forEach(button => {
+                button.disabled = false;
+                button.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                        <line x1="1" y1="10" x2="23" y2="10"/>
+                    </svg>
+                    Pay $${button.dataset.price} with Stripe
+                `;
+            });
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('stripe-payment-modal');
+            if (event.target === modal) {
+                closeStripeModal();
+            }
+        }
+    </script>
+
+    <style>
+        /* Stripe Modal Styles */
+        .stripe-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .stripe-modal-content {
+            background: #ffffff;
+            border-radius: 1rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stripe-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .stripe-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin: 0;
+        }
+
+        .stripe-modal-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 0;
+            width: 2rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .stripe-modal-close:hover {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+
+        .stripe-modal-body {
+            padding: 2rem;
+        }
+
+        .stripe-plan-summary {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 0.75rem;
+            color: #ffffff;
+        }
+
+        .stripe-plan-summary h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .stripe-plan-summary p {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin: 0 0 1rem 0;
+        }
+
+        .stripe-plan-price {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .stripe-plan-price span {
+            font-size: 1rem;
+            font-weight: 500;
+            opacity: 0.8;
+        }
+
+        .stripe-payment-methods h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0 0 1rem 0;
+        }
+
+        .stripe-payment-option {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+
+        .stripe-payment-option:hover {
+            border-color: #3b82f6;
+            background: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .payment-option-icon {
+            color: #3b82f6;
+            flex-shrink: 0;
+        }
+
+        .payment-option-details {
+            flex: 1;
+            text-align: left;
+        }
+
+        .payment-option-details strong {
+            display: block;
+            color: #1f2937;
+            font-weight: 600;
+        }
+
+        .payment-option-details p {
+            margin: 0.25rem 0 0 0;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .payment-option-badges {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .payment-badge {
+            padding: 0.25rem 0.5rem;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #6b7280;
+        }
+
+        .stripe-payment-info {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stripe-payment-info h5 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #166534;
+            margin: 0 0 0.75rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stripe-payment-info ul {
+            margin: 0;
+            padding-left: 1.25rem;
+            list-style-type: disc;
+        }
+
+        .stripe-payment-info li {
+            font-size: 0.875rem;
+            color: #166534;
+            margin-bottom: 0.5rem;
+        }
+
+        .stripe-payment-info li:last-child {
+            margin-bottom: 0;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 640px) {
+            .stripe-modal-content {
+                width: 95%;
+                margin: 1rem;
+            }
+
+            .stripe-modal-header,
+            .stripe-modal-body {
+                padding: 1rem;
+            }
+
+            .stripe-plan-summary {
+                padding: 1rem;
+            }
+
+            .stripe-plan-summary h3 {
+                font-size: 1.25rem;
+            }
+
+            .stripe-plan-price {
+                font-size: 2rem;
+            }
+
+            .stripe-payment-option {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .payment-option-details {
+                text-align: center;
+            }
+
+            .payment-option-badges {
+                justify-content: center;
+            }
+        }
+    </style>
+</body>
+</html>

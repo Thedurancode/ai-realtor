@@ -501,5 +501,185 @@ Don't use markdown. Just plain text."""
                 "message": f"Failed to generate welcome: {str(e)}"
             }
 
+    @staticmethod
+    async def complete_onboarding_wizard(
+        db: Session,
+        data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Complete onboarding from landing page wizard and create agent account."""
+
+        try:
+            from app.models.agent import Agent
+            from app.models.agent_onboarding import AgentOnboarding
+            import secrets
+            from datetime import datetime
+
+            # Check if email already exists
+            existing_agent = db.query(Agent).filter(Agent.email == data.get("email")).first()
+            if existing_agent:
+                return {
+                    "status": "error",
+                    "message": "An account with this email already exists"
+                }
+
+            # Create agent account
+            agent = Agent(
+                name=f"{data.get('first_name')} {data.get('last_name')}",
+                email=data.get("email"),
+                phone=data.get("phone"),
+                city=data.get("city"),
+                created_at=datetime.utcnow()
+            )
+            db.add(agent)
+            db.flush()  # Get the agent ID
+
+            # Create onboarding record
+            # Handle skipped license number
+            license_number = data.get("license_number")
+            if license_number == "_SKIPPED_":
+                license_number = None
+
+            onboarding = AgentOnboarding(
+                agent_id=agent.id,
+                first_name=data.get("first_name"),
+                last_name=data.get("last_name"),
+                age=data.get("age"),
+                city=data.get("city"),
+                address=data.get("address"),
+                phone=data.get("phone"),
+                email=data.get("email"),
+                license_number=license_number,
+                business_name=data.get("business_name"),
+                business_card_image=data.get("business_card_image"),
+                logo_url=data.get("logo"),
+                colors=data.get("colors"),
+                schedule=data.get("schedule"),
+                weekend_schedule=data.get("weekend_schedule"),
+                contacts_uploaded=bool(data.get("contacts_file")),
+                social_media=data.get("social_media"),
+                music_preferences=data.get("music_preferences", []),
+                contracts_used=data.get("contracts", []),
+                calendar_connected=data.get("connect_calendar", False),
+                primary_market=data.get("primary_market"),
+                secondary_markets=data.get("secondary_markets"),
+                service_radius=data.get("service_radius"),
+                office_locations=data.get("office_locations"),
+                assistant_name=data.get("assistant_name"),
+                assistant_style=data.get("assistant_style"),
+                personality_traits=data.get("personality"),
+                completed_at=datetime.utcnow(),
+                onboarding_complete=True
+            )
+            db.add(onboarding)
+
+            # Store in memory graph for AI context
+            session_id = secrets.token_urlsafe(16)
+
+            # Identity
+            memory_graph_service.remember_identity(
+                db=db,
+                session_id=session_id,
+                entity_type="agent",
+                entity_id=str(agent.id),
+                identity_data={
+                    "name": agent.name,
+                    "email": agent.email,
+                    "phone": agent.phone,
+                    "city": agent.city,
+                    "business": data.get("business_name"),
+                    "assistant_name": data.get("assistant_name"),
+                    "summary": f"{agent.name} from {agent.city} - {data.get('business_name')}"
+                }
+            )
+
+            # Schedule preferences
+            if data.get("schedule"):
+                for day, times in data["schedule"].items():
+                    if not times.get("off"):
+                        memory_graph_service.remember_preference(
+                            db=db,
+                            session_id=session_id,
+                            preference=f"Works {day.capitalize()} from {times.get('start')} to {times.get('end')}",
+                            entity_type="agent",
+                            entity_id=str(agent.id)
+                        )
+
+            # Market info
+            memory_graph_service.remember_fact(
+                db=db,
+                session_id=session_id,
+                fact=f"Primary market: {data.get('primary_market')}",
+                category="business_focus"
+            )
+
+            if data.get("secondary_markets"):
+                memory_graph_service.remember_fact(
+                    db=db,
+                    session_id=session_id,
+                    fact=f"Secondary markets: {data.get('secondary_markets')}",
+                    category="business_focus"
+                )
+
+            # Social media
+            if data.get("social_media"):
+                for platform, handle in data["social_media"].items():
+                    if handle:
+                        memory_graph_service.remember_fact(
+                            db=db,
+                            session_id=session_id,
+                            fact=f"{platform.capitalize()}: {handle}",
+                            category="social_media"
+                        )
+
+            # Music preferences
+            if data.get("music_preferences"):
+                memory_graph_service.remember_preference(
+                    db=db,
+                    session_id=session_id,
+                    preference=f"Listening to: {', '.join(data['music_preferences'])}",
+                    entity_type="agent",
+                    entity_id=str(agent.id)
+                )
+
+            # Contracts
+            if data.get("contracts"):
+                memory_graph_service.remember_fact(
+                    db=db,
+                    session_id=session_id,
+                    fact=f"Uses contracts: {', '.join(data['contracts'])}",
+                    category="business_strategy"
+                )
+
+            # Assistant personality
+            if data.get("personality"):
+                personality_desc = ", ".join([f"{trait}: {value}/100" for trait, value in data["personality"].items()])
+                memory_graph_service.remember_preference(
+                    db=db,
+                    session_id=session_id,
+                    preference=f"Assistant style: {data.get('assistant_style')} ({personality_desc})",
+                    entity_type="assistant",
+                    entity_id=data.get("assistant_name", "AI")
+                )
+
+            db.commit()
+
+            return {
+                "status": "success",
+                "message": "Account created successfully",
+                "agent_id": agent.id,
+                "session_id": session_id,
+                "assistant_name": data.get("assistant_name"),
+                "assistant_style": data.get("assistant_style")
+            }
+
+        except Exception as e:
+            db.rollback()
+            import traceback
+            traceback.print_exc()
+            return {
+                "status": "error",
+                "message": f"Failed to create account: {str(e)}"
+            }
+
 
 onboarding_service = OnboardingService()

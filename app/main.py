@@ -12,7 +12,7 @@ import os
 
 from app.database import engine, Base, SessionLocal
 from app.config import settings
-from app.rate_limit import limiter
+from app.rate_limit import limiter, RateLimitToggleMiddleware, RATE_LIMIT_ENABLED, RATE_LIMIT_DEFAULT, RATE_LIMIT_TIERS
 from app.auth import verify_api_key
 
 # Import phone models FIRST to avoid circular dependency
@@ -36,8 +36,8 @@ import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 
 # Paths that don't require API key authentication
-PUBLIC_PATHS = frozenset(("/", "/docs", "/redoc", "/openapi.json", "/health", "/setup"))
-PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register", "/api/setup", "/composio/")
+PUBLIC_PATHS = frozenset(("/", "/docs", "/redoc", "/openapi.json", "/health", "/setup", "/rate-limit"))
+PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register", "/api/setup", "/composio/", "/portal/")
 
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
@@ -109,6 +109,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limit toggle middleware (enables/disables rate limiting globally)
+app.add_middleware(RateLimitToggleMiddleware)
 
 # API key authentication middleware
 app.add_middleware(ApiKeyMiddleware)
@@ -342,6 +345,45 @@ def health_check():
         )
 
     return response
+
+
+@app.get("/rate-limit")
+def rate_limit_status():
+    """
+    Get current rate limiting configuration.
+
+    Returns rate limit status, tiers, and configuration.
+    Useful for monitoring and debugging rate limits.
+    """
+    return {
+        "rate_limiting": {
+            "enabled": RATE_LIMIT_ENABLED,
+            "message": "Rate limiting is ENABLED" if RATE_LIMIT_ENABLED else "Rate limiting is DISABLED",
+        },
+        "limits": {
+            "default": RATE_LIMIT_DEFAULT,
+            "burst": "30/minute",
+        },
+        "tiers": RATE_LIMIT_TIERS,
+        "how_to_disable": {
+            "description": "Set RATE_LIMIT_ENABLED environment variable to 'false'",
+            "example": "export RATE_LIMIT_ENABLED=false",
+        },
+        "how_to_enable": {
+            "description": "Set RATE_LIMIT_ENABLED environment variable to 'true'",
+            "example": "export RATE_LIMIT_ENABLED=true",
+        },
+        "custom_limits": {
+            "description": "Set custom limits via environment variables",
+            "variables": {
+                "RATE_LIMIT_DEFAULT": "Default limit (default: 20/hour)",
+                "RATE_LIMIT_BURST": "Short-term burst limit (default: 30/minute)",
+                "RATE_LIMIT_FREE": "Free tier limit (default: 20/hour)",
+                "RATE_LIMIT_PRO": "Pro tier limit (default: 100/hour)",
+                "RATE_LIMIT_ENTERPRISE": "Enterprise tier limit (default: 1000/hour)",
+            }
+        }
+    }
 
 
 # --- Startup and Shutdown Events ---
