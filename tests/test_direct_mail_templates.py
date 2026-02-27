@@ -26,7 +26,8 @@ class TestDirectMailTemplates:
             "market_update",
             "new_listing",
             "price_reduction",
-            "hello"
+            "hello",
+            "interested_in_selling"
         ]
 
         for template_name in expected_templates:
@@ -65,7 +66,7 @@ class TestDirectMailTemplates:
         """Test listing all templates"""
         templates = list_templates()
 
-        assert len(templates) == 6
+        assert len(templates) == 7
         assert all("name" in t for t in templates)
         assert all("description" in t for t in templates)
         assert all("type" in t for t in templates)
@@ -73,6 +74,7 @@ class TestDirectMailTemplates:
         template_names = [t["name"] for t in templates]
         assert "Just Sold" in template_names
         assert "Open House" in template_names
+        assert "Interested in Selling?" in template_names
 
     def test_render_template_basic(self):
         """Test basic template rendering"""
@@ -213,9 +215,9 @@ class TestDirectMailTemplates:
 
             count = seed_direct_mail_templates(mock_db, agent_id=1)
 
-            # Should have created all 6 templates
-            assert count == 6
-            assert mock_db.add.call_count == 6
+            # Should have created all 7 templates
+            assert count == 7
+            assert mock_db.add.call_count == 7
             assert mock_db.commit.call_count == 1
 
     def test_seed_templates_skips_existing(self, mock_db):

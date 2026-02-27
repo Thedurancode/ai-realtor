@@ -668,7 +668,7 @@ register_tool(
                 "property_id": {"type": "number", "description": "Property ID (optional if address provided)"},
                 "address": {"type": "string", "description": "Property address to search for (voice-friendly, e.g., '123 Main St' or 'the Miami property')"},
                 "contact_id": {"type": "number", "description": "Contact ID to send to (optional)"},
-                "template": {"type": "string", "description": "Template name", "enum": ["just_sold", "open_house", "market_update", "new_listing", "price_reduction", "hello"], "default": "just_sold"},
+                "template": {"type": "string", "description": "Template name", "enum": ["just_sold", "open_house", "market_update", "new_listing", "price_reduction", "hello", "interested_in_selling"], "default": "just_sold"},
                 "size": {"type": "string", "description": "Postcard size", "enum": ["4x6", "6x9", "6x11"], "default": "4x6"},
                 "color": {"type": "boolean", "description": "Color printing", "default": False}
             }
@@ -731,7 +731,7 @@ register_tool(
             "type": "object",
             "properties": {
                 "name": {"type": "string", "description": "Campaign name"},
-                "template": {"type": "string", "description": "Template name", "enum": ["just_sold", "open_house", "market_update", "new_listing", "price_reduction", "hello"], "default": "just_sold"},
+                "template": {"type": "string", "description": "Template name", "enum": ["just_sold", "open_house", "market_update", "new_listing", "price_reduction", "hello", "interested_in_selling"], "default": "just_sold"},
                 "property_ids": {"type": "array", "items": {"type": "number"}, "description": "List of property IDs"},
                 "contact_ids": {"type": "array", "items": {"type": "number"}, "description": "List of contact IDs"},
                 "city": {"type": "string", "description": "Target all properties in a city (voice-friendly)"},

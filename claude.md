@@ -1836,7 +1836,7 @@ Send professional postcards, letters, and checks via Lob.com API. Full voice con
 
 **Key Features:**
 - Address-based voice commands (say the address, no ID needed)
-- 6 pre-built real estate templates (just sold, open house, market update, new listing, price reduction, hello/farming)
+- 7 pre-built real estate templates (just sold, open house, market update, new listing, price reduction, hello/farming, interested in selling)
 - Bulk campaigns with city-based targeting
 - USPS address verification (CASS-certified)
 - Real-time tracking via Lob webhooks
@@ -1907,6 +1907,14 @@ The system understands flexible address matching:
 6. **Hello/Farming** - Agent introduction/farming
    - Variables: agent_name, title, company, phone, email, website
    - Professional branding card
+
+7. **Interested in Selling?** - Lead generation postcard
+   - Variables: property_address, agent_name, agent_phone, agent_email, brokerage
+   - Eye-catching pink/coral gradient design
+   - Front: "Are you interested in selling?" headline with value props
+   - Back: "Why Work With Me?" with testimonials and contact CTA
+   - Perfect for farming and lead generation
+   - Includes free home value report offer
 
 **Bulk Campaigns:**
 

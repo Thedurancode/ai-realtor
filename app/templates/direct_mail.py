@@ -347,6 +347,167 @@ HELLO_FARMING_TEMPLATE = {
 
 
 # =========================================================================
+# INTERESTED IN SELLING TEMPLATE
+# =========================================================================
+
+INTERESTED_IN_SELLING_TEMPLATE = {
+    "name": "Interested in Selling?",
+    "description": "Lead generation postcard asking homeowners if they're interested in selling",
+    "template_type": "postcard",
+    "campaign_type": "lead_generation",
+    "required_variables": ["property_address", "agent_name", "agent_phone", "agent_email", "brokerage"],
+    "front_html": """
+<div style="padding: 40px; font-family: 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); height: 100%; box-sizing: border-box;">
+    <div style="background: white; border-radius: 20px; padding: 40px 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center;">
+
+        <!-- Eye-catching header -->
+        <h1 style="color: #e91e63; font-size: 42px; margin: 0 0 10px 0; font-weight: 900; letter-spacing: -1px;">
+            ARE YOU INTERESTED
+        </h1>
+        <h1 style="color: #e91e63; font-size: 42px; margin: 0 0 30px 0; font-weight: 900; letter-spacing: -1px;">
+            IN SELLING?
+        </h1>
+
+        <div style="width: 100px; height: 4px; background: #e91e63; margin: 0 auto 40px;"></div>
+
+        <!-- Property address -->
+        <div style="background: #fce4ec; padding: 20px; border-radius: 15px; margin: 0 0 30px;">
+            <p style="color: #666; font-size: 14px; margin: 0 0 5px; text-transform: uppercase; letter-spacing: 1px;">
+                Your Home at
+            </p>
+            <h2 style="color: #333; font-size: 32px; margin: 0; font-weight: 700;">
+                {{property_address}}
+            </h2>
+        </div>
+
+        <!-- Main message -->
+        <p style="color: #555; font-size: 18px; margin: 0 0 20px; line-height: 1.5;">
+            The real estate market is <strong>hot right now!</strong> Home values are up, and buyers are looking for properties like yours.
+        </p>
+
+        <div style="background: #fff3e0; padding: 25px; border-radius: 15px; margin: 30px 0; border-left: 5px solid #ff9800;">
+            <p style="color: #e65100; font-size: 17px; margin: 0 0 15px; font-weight: bold;">
+                🏠 Curious About Your Home's Value?
+            </p>
+            <p style="color: #555; font-size: 15px; margin: 0; line-height: 1.6;">
+                I can provide you with a <strong>FREE, no-obligation</strong> market analysis of your property's current value. No pressure, just information.
+            </p>
+        </div>
+
+        <div style="background: #e8f5e9; padding: 25px; border-radius: 15px; margin: 30px 0; border-left: 5px solid #4caf50;">
+            <p style="color: #2e7d32; font-size: 17px; margin: 0 0 15px; font-weight: bold;">
+                💰 Ready to Sell? We Make It Easy!
+            </p>
+            <p style="color: #555; font-size: 15px; margin: 0; line-height: 1.6;">
+                <strong>We handle everything:</strong><br>
+                Professional photography • Marketing • Showings • Negotiations • Closing
+            </p>
+        </div>
+
+        <!-- Call to action -->
+        <div style="margin: 40px 0;">
+            <p style="color: #e91e63; font-size: 20px; margin: 0 0 15px; font-weight: 800;">
+                Let's Chat! No Pressure, Just Conversation.
+            </p>
+            <p style="color: #666; font-size: 16px; margin: 0;">
+                Call or text anytime, or email me for your free home value report.
+            </p>
+        </div>
+
+        <!-- Agent info -->
+        <div style="background: #f5f5f5; padding: 25px; border-radius: 15px;">
+            <h3 style="color: #333; font-size: 28px; margin: 0 0 5px;">{{agent_name}}</h3>
+            <p style="color: #666; font-size: 16px; margin: 0 0 15px;">{{brokerage}}</p>
+
+            <div style="margin-top: 20px;">
+                <p style="color: #e91e63; font-size: 22px; margin: 0; font-weight: 700;">📞 {{agent_phone}}</p>
+                <p style="color: #666; font-size: 16px; margin: 10px 0;">✉️ {{agent_email}}</p>
+            </div>
+        </div>
+
+        <!-- Bottom note -->
+        <p style="color: #999; font-size: 12px; margin: 40px 0 0; font-style: italic;">
+            This is not a solicitation if your property is currently listed. We respect your privacy and can remove you from our mailing list upon request.
+        </p>
+    </div>
+</div>
+    """,
+    "back_html": """
+<div style="padding: 40px; font-family: 'Helvetica Neue', Arial, sans-serif; background: #f5f5f5; height: 100%; box-sizing: border-box;">
+    <div style="background: white; border-radius: 20px; padding: 40px; height: 100%; box-sizing: border-box;">
+
+        <h1 style="color: #e91e63; font-size: 36px; margin: 0 0 30px; text-align: center; font-weight: 800;">
+            Why Work With Me?
+        </h1>
+
+        <!-- Value props -->
+        <div style="margin: 0 0 30px;">
+            <h3 style="color: #333; font-size: 22px; margin: 0 0 10px;">🎯 Local Expert</h3>
+            <p style="color: #666; font-size: 15px; margin: 0; line-height: 1.6;">
+                I know this neighborhood inside and out. I understand what buyers are looking for and how to position your home to get top dollar.
+            </p>
+        </div>
+
+        <div style="margin: 0 0 30px;">
+            <h3 style="color: #333; font-size: 22px; margin: 0 0 10px;">📊 Data-Driven Pricing</h3>
+            <p style="color: #666; font-size: 15px; margin: 0; line-height: 1.6;">
+                I use advanced market analytics to price your home strategically—not too high, not too low—just right to attract qualified buyers.
+            </p>
+        </div>
+
+        <div style="margin: 0 0 30px;">
+            <h3 style="color: #333; font-size: 22px; margin: 0 0 10px;">📱 Proactive Marketing</h3>
+            <p style="color: #666; font-size: 15px; margin: 0; line-height: 1.6;">
+                Your home gets maximum exposure across 100+ websites, social media, and our network of 10,000+ buyers.
+            </p>
+        </div>
+
+        <div style="margin: 0 0 30px;">
+            <h3 style="color: #333; font-size: 22px; margin: 0 0 10px;">💬 Clear Communication</h3>
+            <p style="color: #666; font-size: 15px; margin: 0; line-height: 1.6;">
+                You'll always know what's happening. I provide weekly updates and am available to answer your questions anytime.
+            </p>
+        </div>
+
+        <div style="margin: 0 0 40px;">
+            <h3 style="color: #333; font-size: 22px; margin: 0 0 10px;">🤝 Full-Service Support</h3>
+            <p style="color: #666; font-size: 15px; margin: 0; line-height: 1.6;">
+                From listing to closing, I handle every detail. You focus on your life while I handle selling your home.
+            </p>
+        </div>
+
+        <!-- Testimonial placeholder -->
+        <div style="background: #f9f9f9; padding: 25px; border-radius: 15px; margin: 30px 0; border-left: 5px solid #e91e63;">
+            <p style="color: #555; font-size: 15px; margin: 0; font-style: italic; line-height: 1.6;">
+                "{{agent_name}} made the entire process smooth and stress-free. We got multiple offers and sold above asking price!"
+            </p>
+            <p style="color: #999; font-size: 13px; margin: 10px 0 0;">— Happy Seller</p>
+        </div>
+
+        <!-- Contact CTA -->
+        <div style="background: #e91e63; color: white; padding: 30px; border-radius: 15px; text-align: center;">
+            <h3 style="font-size: 24px; margin: 0 0 15px;">Get Your Free Home Value Report</h3>
+            <p style="font-size: 18px; margin: 0 0 20px;">
+                Call or text today!
+            </p>
+            <p style="font-size: 28px; margin: 0; font-weight: 800;">{{agent_phone}}</p>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 40px;">
+            <p style="color: #999; font-size: 14px; margin: 0;">{{agent_name}}</p>
+            <p style="color: #999; font-size: 12px; margin: 5px 0;">{{brokerage}}</p>
+            <p style="color: #ccc; font-size: 11px; margin: 20px 0 0;">
+                Equal Housing Opportunity. This communication is not a solicitation if your property is currently listed.
+            </p>
+        </div>
+    </div>
+</div>
+    """
+}
+
+
+# =========================================================================
 # TEMPLATE REGISTRY
 # =========================================================================
 
@@ -356,7 +517,8 @@ TEMPLATES = {
     "market_update": MARKET_UPDATE_TEMPLATE,
     "new_listing": NEW_LISTING_TEMPLATE,
     "price_reduction": PRICE_REDUCTION_TEMPLATE,
-    "hello": HELLO_FARMING_TEMPLATE
+    "hello": HELLO_FARMING_TEMPLATE,
+    "interested_in_selling": INTERESTED_IN_SELLING_TEMPLATE
 }
 
 
