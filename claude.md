@@ -1,8 +1,8 @@
-# AI Realtor Platform - Complete Feature Guide
+# RealtorClaw Platform - Complete Feature Guide
 
 ## Overview
 
-AI Realtor is an intelligent real estate management platform that combines property data enrichment, AI-powered analysis, voice-controlled operations, automated contract management, phone call automation, and autonomous goal execution. Built with FastAPI, PostgreSQL, and integrated with Claude AI, Zillow, DocuSeal, VAPI, and ElevenLabs.
+RealtorClaw is an AI-powered real estate platform that combines property data enrichment, intelligent analysis, voice-controlled operations, automated contract management, phone call automation, direct mail automation, and autonomous goal execution. Built with FastAPI, PostgreSQL, and integrated with Claude AI, Zillow, DocuSeal, VAPI, ElevenLabs, and Lob.com.
 
 **Live API:** https://ai-realtor.fly.dev
 **Documentation:** https://ai-realtor.fly.dev/docs
