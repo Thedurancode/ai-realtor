@@ -429,17 +429,23 @@ async def handle_list_mailpieces(arguments: Dict[str, Any]) -> List[TextContent]
 
 async def handle_create_campaign(arguments: Dict[str, Any]) -> List[TextContent]:
     """
-    Create a bulk direct mail campaign
+    Create a bulk direct mail campaign with smart auto-naming
 
-    Voice: "Create a just sold campaign for all properties in Miami"
-    Voice: "Start a postcard campaign for contacts 1, 2, and 3"
-    Voice: "Create a campaign for the Brooklyn properties"
+    Auto-Generated Campaign Names:
+    - "Create a just sold campaign for Miami" → "Just Sold - Miami - Feb 2026"
+    - "Start an open house campaign for Brooklyn" → "Open House - Brooklyn - Feb 2026"
+    - "Create a price reduction campaign" → "Price Reduction - All Properties - Feb 2026"
+
+    Voice Commands:
+    - "Create a just sold campaign for all properties in Miami"
+    - "Start a postcard campaign for contacts 1, 2, and 3"
+    - "Create a campaign for the Brooklyn properties"
+    - "Launch a lead generation campaign for Austin"
     """
-    name = arguments.get("name", "Bulk Campaign")
     template = arguments.get("template", "just_sold")
     property_ids = arguments.get("property_ids", [])
     contact_ids = arguments.get("contact_ids", [])
-    city = arguments.get("city")  # New: city-based targeting
+    city = arguments.get("city")
     send_immediately = arguments.get("send_immediately", False)
 
     db = SessionLocal()
@@ -463,6 +469,31 @@ async def handle_create_campaign(arguments: Dict[str, Any]) -> List[TextContent]
                 type="text",
                 text="Please provide property_ids, contact_ids, or a city name for the campaign."
             )]
+
+        # Smart auto-naming based on template and city
+        # If user didn't provide a name, generate one from context
+        if arguments.get("name"):
+            name = arguments["name"]
+        else:
+            # Generate descriptive name from template and city
+            template_name_map = {
+                "just_sold": "Just Sold",
+                "open_house": "Open House",
+                "market_update": "Market Update",
+                "new_listing": "New Listing",
+                "price_reduction": "Price Reduction",
+                "hello": "Farming",
+                "interested_in_selling": "Lead Generation"
+            }
+
+            template_display = template_name_map.get(template, template.title())
+            city_display = city.title() if city else "All Properties"
+
+            # Add month/year for context
+            from datetime import datetime
+            month_year = datetime.now().strftime("%b %Y")
+
+            name = f"{template_display} - {city_display} - {month_year}"
 
         payload = {
             "name": name,
@@ -726,11 +757,11 @@ register_tool(
 register_tool(
     Tool(
         name="create_direct_mail_campaign",
-        description="Create a bulk direct mail campaign for multiple properties or contacts. Voice: 'Create a just sold campaign for all properties in Miami' or 'Start a postcard campaign for Brooklyn'.",
+        description="Create a bulk direct mail campaign for multiple properties or contacts. Campaign names auto-generate from template + location + date. Voice: 'Create a just sold campaign for Miami' → 'Just Sold - Miami - Feb 2026'. Also: 'Start an open house campaign for Brooklyn' or 'Create a price reduction campaign for all condos'.",
         inputSchema={
             "type": "object",
             "properties": {
-                "name": {"type": "string", "description": "Campaign name"},
+                "name": {"type": "string", "description": "Custom campaign name (optional - auto-generates from context if omitted)"},
                 "template": {"type": "string", "description": "Template name", "enum": ["just_sold", "open_house", "market_update", "new_listing", "price_reduction", "hello", "interested_in_selling"], "default": "just_sold"},
                 "property_ids": {"type": "array", "items": {"type": "number"}, "description": "List of property IDs"},
                 "contact_ids": {"type": "array", "items": {"type": "number"}, "description": "List of contact IDs"},
