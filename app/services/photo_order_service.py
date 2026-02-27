@@ -39,56 +39,126 @@ class ProxyPicsClient:
     """
     ProxyPics API Client
 
-    Base URLs from Apiary docs:
-    - Mock: https://private-anon-7531640a3d-proxypicsapi.apiary-mock.com/api/v3/
-    - Production: https://sandbox.proxypics.com/api/v3/
-    - Proxy: https://private-anon-7531640a3d-proxypicsapi.apiary-proxy.com/api/v3/
+    Official API documentation:
+    - Live API: https://api.proxypics.com/api/v3
+    - Sandbox: https://sandbox.proxypics.com/api/v3
+    - Sandbox web app: https://sandbox-app.proxypics.com
 
-    Note: Full API documentation is not publicly accessible.
-    This client provides a flexible interface that can be adapted
-    once API credentials and documentation are obtained.
+    Authentication:
+    - API key via `x-api-key` header or `api_key` query parameter
+    - Generate keys from Profile page → Integrations
+
+    Two platforms:
+    - Crowdsource: Available to any photo taker
+    - Direct: Assigned to specific person by phone number
     """
+
+    # ProxyPics webhook event types
+    WEBHOOK_EVENTS = {
+        "PHOTO_REQUEST_ADDED": "ProxyPicsEvents::PhotoDelivery::PhotoRequestAdded",
+        "PHOTO_REQUEST_UNASSIGNED": "ProxyPicsEvents::PhotoDelivery::PhotoRequestUnassigned",
+        "PHOTO_REQUEST_ASSIGNED": "ProxyPicsEvents::PhotoDelivery::PhotoRequestAssigned",
+        "UPLOAD_STARTED": "ProxyPicsEvents::PhotoDelivery::PhotoRequestUploadStarted",
+        "APPOINTMENT_SCHEDULED": "ProxyPicsEvents::PhotoDelivery::AppointmentScheduled",
+        "PHOTO_REQUEST_CANCELED": "ProxyPicsEvents::PhotoDelivery::PhotoRequestCanceled",
+        "PHOTO_REQUEST_COMPLETED": "ProxyPicsEvents::PhotoDelivery::PhotoRequestCompleted",
+        "PHOTO_REQUEST_FULFILLED": "ProxyPicsEvents::PhotoDelivery::PhotoRequestReportGenerated",
+        "EXPIRED": "ProxyPicsEvents::PhotoDelivery::PhotoRequestExpired",
+        "ON_HOLD": "ProxyPicsEvents::PhotoDelivery::PhotoRequestOnHold",
+    }
+
+    # Status mapping from ProxyPics to our internal status
+    STATUS_MAPPING = {
+        "unassigned": PhotoOrderStatus.PENDING,
+        "assigned": PhotoOrderStatus.CONFIRMED,
+        "upload_started": PhotoOrderStatus.UPLOADING,
+        "completed": PhotoOrderStatus.REVIEW,
+        "fulfilled": PhotoOrderStatus.COMPLETED,
+        "expired": PhotoOrderStatus.FAILED,
+        "canceled": PhotoOrderStatus.CANCELLED,
+    }
 
     def __init__(self):
         self.api_key = os.getenv("PROXYPICS_API_KEY")
+        # Default to sandbox for testing
         self.base_url = os.getenv(
             "PROXYPICS_API_URL",
             "https://sandbox.proxypics.com/api/v3/"
         )
         self.timeout = 30.0
 
-    async def create_order(
+    async def create_photo_request(
         self,
-        order_data: Dict[str, Any],
-        access_token: Optional[str] = None
+        address: str,
+        template_token: Optional[str] = None,
+        photo_request_platform: str = "crowdsource",
+        expires_at: Optional[str] = None,
+        property_owner_phone: Optional[str] = None,
+        direct_due_date: Optional[str] = None,
+        external_id: Optional[str] = None,
+        additional_notes: Optional[str] = None,
+        loan_number: Optional[str] = None,
+        price_boost: Optional[int] = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """
-        Create a new photo order with ProxyPics
+        Create a ProxyPics photo request
 
         Args:
-            order_data: Order details including property, services, scheduling
-            access_token: Optional access token for authentication
+            address: Property address (will be geocoded)
+            template_token: Predefined template token (recommended)
+            photo_request_platform: "crowdsource" or "direct"
+            expires_at: ISO8601 datetime when request expires (24h default)
+            property_owner_phone: Required for Direct platform
+            direct_due_date: Required for Direct platform
+            external_id: Your external ID for tracking
+            additional_notes: Notes for photographer
+            loan_number: Loan number
+            price_boost: Extra cents to encourage photo takers
 
         Returns:
-            API response with order ID and confirmation
+            Created PhotoRequest object
         """
         if not self.api_key:
             logger.warning("ProxyPics API key not configured, returning mock response")
-            return self._mock_order_response(order_data)
+            return self._mock_photo_request(address, external_id)
 
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "x-api-key": self.api_key,
             "Content-Type": "application/json"
         }
 
-        if access_token:
-            headers["Authorization"] = f"Bearer {access_token}"
+        payload = {
+            "address": address,
+            "photo_request_platform": photo_request_platform
+        }
+
+        # Add optional fields
+        if template_token:
+            payload["template_token"] = template_token
+        if expires_at:
+            payload["expires_at"] = expires_at
+        if property_owner_phone:
+            payload["property_owner_phone"] = property_owner_phone
+        if direct_due_date:
+            payload["direct_due_date"] = direct_due_date
+        if external_id:
+            payload["external_id"] = external_id
+        if additional_notes:
+            payload["additional_notes"] = additional_notes
+        if loan_number:
+            payload["loan_number"] = loan_number
+        if price_boost:
+            payload["price_boost"] = price_boost
+
+        # Add any additional fields
+        payload.update(kwargs)
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.base_url}/orders",
-                    json=order_data,
+                    f"{self.base_url}/photo_requests",
+                    json=payload,
                     headers=headers
                 )
                 response.raise_for_status()
@@ -98,26 +168,22 @@ class ProxyPicsClient:
             logger.error(f"ProxyPics API error: {e}")
             raise
 
-    async def get_order_status(
+    async def get_photo_request(
         self,
-        order_id: str,
-        access_token: Optional[str] = None
+        photo_request_id: str
     ) -> Dict[str, Any]:
-        """Get status of an existing order"""
+        """Get details of a specific photo request"""
         if not self.api_key:
-            return self._mock_status_response(order_id)
+            return self._mock_photo_request("Mock Address", photo_request_id)
 
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "x-api-key": self.api_key,
         }
-
-        if access_token:
-            headers["Authorization"] = f"Bearer {access_token}"
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(
-                    f"{self.base_url}/orders/{order_id}",
+                    f"{self.base_url}/photo_requests/{photo_request_id}",
                     headers=headers
                 )
                 response.raise_for_status()
@@ -127,56 +193,185 @@ class ProxyPicsClient:
             logger.error(f"ProxyPics API error: {e}")
             raise
 
-    async def get_deliverables(
+    async def list_photo_requests(
         self,
-        order_id: str,
-        access_token: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """Get deliverables (photos/files) for an order"""
+        page: int = 1,
+        per_page: int = 10
+    ) -> Dict[str, Any]:
+        """List photo requests with pagination"""
         if not self.api_key:
-            return []
+            return {"data": [], "meta": {"pagination": {"total": 0}}}
 
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "x-api-key": self.api_key,
         }
-
-        if access_token:
-            headers["Authorization"] = f"Bearer {access_token}"
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(
-                    f"{self.base_url}/orders/{order_id}/deliverables",
+                    f"{self.base_url}/photo_requests",
+                    params={"page": page, "per_page": per_page},
                     headers=headers
                 )
                 response.raise_for_status()
-                return response.json().get("deliverables", [])
+                return response.json()
 
         except httpx.HTTPError as e:
             logger.error(f"ProxyPics API error: {e}")
             raise
 
-    def _mock_order_response(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Mock response for testing without API key"""
-        return {
-            "order_id": f"MOCK-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            "status": "pending",
-            "estimated_cost": order_data.get("estimated_cost", 150.00),
-            "estimated_completion": (
-                datetime.now() + timedelta(days=2)
-            ).isoformat(),
-            "message": "Mock order created (API key not configured)"
+    async def cancel_photo_request(
+        self,
+        photo_request_id: str
+    ) -> Dict[str, Any]:
+        """
+        Cancel a photo request
+
+        If status is 'unassigned', it will be cancelled immediately.
+        Otherwise, support team is notified to handle cancellation.
+        """
+        if not self.api_key:
+            return {"id": photo_request_id, "status": "canceled"}
+
+        headers = {
+            "x-api-key": self.api_key,
         }
 
-    def _mock_status_response(self, order_id: str) -> Dict[str, Any]:
-        """Mock status response for testing"""
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.delete(
+                    f"{self.base_url}/photo_requests/{photo_request_id}",
+                    headers=headers
+                )
+                response.raise_for_status()
+                return response.json()
+
+        except httpx.HTTPError as e:
+            logger.error(f"ProxyPics API error: {e}")
+            raise
+
+    async def approve_photo_request(
+        self,
+        photo_request_id: str
+    ) -> Dict[str, Any]:
+        """
+        Approve a completed photo request
+
+        Approved jobs get fulfilled after payment confirmation.
+        Report is generated automatically and webhook is triggered.
+        """
+        if not self.api_key:
+            return {"id": photo_request_id, "status": "approved"}
+
+        headers = {
+            "x-api-key": self.api_key,
+            "Content-Type": "application/json"
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.base_url}/photo_requests/{photo_request_id}/approve",
+                    headers=headers
+                )
+                response.raise_for_status()
+                return response.json()
+
+        except httpx.HTTPError as e:
+            logger.error(f"ProxyPics API error: {e}")
+            raise
+
+    async def reject_photo_request(
+        self,
+        photo_request_id: str,
+        reason: str = "other",
+        clarification: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Reject a completed photo request
+
+        Reasons: unspecified, blurry_photo, wrong_direction, incorrect_property,
+                people_in_photo, property_not_visible, other
+        """
+        if not self.api_key:
+            return {"id": photo_request_id, "status": "rejected"}
+
+        headers = {
+            "x-api-key": self.api_key,
+            "Content-Type": "application/json"
+        }
+
+        payload = {"reason": reason}
+        if clarification:
+            payload["clarification"] = clarification
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.base_url}/photo_requests/{photo_request_id}/reject",
+                    json=payload,
+                    headers=headers
+                )
+                response.raise_for_status()
+                return response.json()
+
+        except httpx.HTTPError as e:
+            logger.error(f"ProxyPics API error: {e}")
+            raise
+
+    async def extend_photo_request(
+        self,
+        photo_request_id: str,
+        expires_at: str
+    ) -> Dict[str, Any]:
+        """
+        Extend an expired photo request
+
+        For Crowdsource: Updates expires_at and makes request available again
+        For Direct: Updates assignment expires_at and resets to pending
+        """
+        if not self.api_key:
+            return {"id": photo_request_id, "status": "extended"}
+
+        headers = {
+            "x-api-key": self.api_key,
+            "Content-Type": "application/json"
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.base_url}/photo_requests/{photo_request_id}/extend",
+                    json={"expires_at": expires_at},
+                    headers=headers
+                )
+                response.raise_for_status()
+                return response.json()
+
+        except httpx.HTTPError as e:
+            logger.error(f"ProxyPics API error: {e}")
+            raise
+
+    def _mock_photo_request(
+        self,
+        address: str,
+        external_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Mock photo request for testing without API key"""
         return {
-            "order_id": order_id,
-            "status": "in_progress",
-            "progress": 50,
-            "estimated_completion": (
-                datetime.now() + timedelta(hours=24)
-            ).isoformat()
+            "id": f"MOCK-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            "address": address,
+            "city": "Mock City",
+            "state": "MC",
+            "zip": "12345",
+            "status": "unassigned",
+            "cost": 15000,  # cents ($150)
+            "created_at": datetime.utcnow().isoformat(),
+            "expires_at": (datetime.utcnow() + timedelta(hours=24)).isoformat(),
+            "external_id": external_id,
+            "download_photos_url": None,
+            "download_report_url": None,
+            "photo_request_platform": "crowdsource"
         }
 
 
@@ -302,29 +497,49 @@ class PhotoOrderService:
         try:
             # Submit to provider
             if order.provider == PhotoProvider.PROXYPICS:
-                response = await self.proxypics_client.create_order(provider_request)
+                # Determine platform type (crowdsource or direct)
+                platform = "crowdsource"
+                if order.contact_phone:
+                    platform = "direct"
+
+                response = await self.proxypics_client.create_photo_request(
+                    address=order.shoot_address,
+                    template_token=None,  # Could be set from order services
+                    photo_request_platform=platform,
+                    expires_at=order.requested_date.isoformat() if order.requested_date else None,
+                    property_owner_phone=order.contact_phone if platform == "direct" else None,
+                    external_id=str(order.id),
+                    additional_notes=order.special_instructions,
+                    price_boost=int(order.estimated_cost * 100) if order.estimated_cost else None
+                )
+
+                # Map ProxyPics response to our format
+                order.provider_order_id = response.get("id")
+                order.order_status = PhotoOrderStatus.PENDING
+                order.submitted_at = datetime.utcnow()
+                order.provider_response = response
+
+                # Cost is in cents from ProxyPics
+                if response.get("cost"):
+                    order.estimated_cost = response["cost"] / 100  # Convert cents to dollars
+                if response.get("expires_at"):
+                    order.estimated_completion = datetime.fromisoformat(response["expires_at"])
+
             elif order.provider == PhotoProvider.BOXBROWNIE:
                 response = await self.boxbrownie_client.submit_editing_job(
                     image_urls=provider_request.get("image_urls", []),
                     services=provider_request.get("services", []),
                     instructions=provider_request.get("instructions")
                 )
+                order.provider_order_id = response.get("job_id")
+                order.order_status = PhotoOrderStatus.PENDING
+                order.submitted_at = datetime.utcnow()
             else:
                 # Manual orders don't need provider submission
                 response = {"order_id": f"MANUAL-{order_id}", "status": "confirmed"}
-
-            # Update order with response
-            order.provider_order_id = response.get("order_id")
-            order.order_status = PhotoOrderStatus.PENDING
-            order.submitted_at = datetime.utcnow()
-            order.provider_response = response
-
-            if response.get("estimated_cost"):
-                order.estimated_cost = response["estimated_cost"]
-            if response.get("estimated_completion"):
-                order.estimated_completion = datetime.fromisoformat(
-                    response["estimated_completion"]
-                )
+                order.provider_order_id = response.get("order_id")
+                order.order_status = PhotoOrderStatus.CONFIRMED
+                order.submitted_at = datetime.utcnow()
 
             self.db.commit()
             self.db.refresh(order)
@@ -365,23 +580,54 @@ class PhotoOrderService:
 
         try:
             if order.provider == PhotoProvider.PROXYPICS:
-                status = await self.proxypics_client.get_order_status(
+                # Get photo request from ProxyPics
+                photo_request = await self.proxypics_client.get_photo_request(
                     order.provider_order_id
                 )
 
-                # Update order based on status
-                if status.get("status") == "confirmed":
-                    order.order_status = PhotoOrderStatus.CONFIRMED
-                    order.confirmed_at = datetime.utcnow()
-                elif status.get("status") == "in_progress":
-                    order.order_status = PhotoOrderStatus.IN_PROGRESS
-                elif status.get("status") == "uploading":
-                    order.order_status = PhotoOrderStatus.UPLOADING
-                elif status.get("status") == "completed":
-                    order.order_status = PhotoOrderStatus.COMPLETED
-                    order.completed_at = datetime.utcnow()
+                # Map ProxyPics status to our internal status
+                proxypics_status = photo_request.get("status")
+                internal_status = ProxyPicsClient.STATUS_MAPPING.get(proxypics_status)
 
-                    # Fetch deliverables
+                if internal_status:
+                    order.order_status = internal_status
+
+                    # Set timestamps based on status
+                    if internal_status == PhotoOrderStatus.CONFIRMED and not order.confirmed_at:
+                        order.confirmed_at = datetime.utcnow()
+                    elif internal_status == PhotoOrderStatus.COMPLETED and not order.completed_at:
+                        order.completed_at = datetime.utcnow()
+
+                        # Fetch deliverables if available
+                        if photo_request.get("download_photos_url"):
+                            await self._fetch_deliverables_from_proxy_pics(order, photo_request)
+
+                    elif internal_status == PhotoOrderStatus.REVIEW:
+                        # Photos are ready for review
+                        if photo_request.get("download_photos_url"):
+                            await self._fetch_deliverables_from_proxy_pics(order, photo_request)
+
+                # Update cost if provided (in cents)
+                if photo_request.get("cost"):
+                    order.actual_cost = photo_request["cost"] / 100
+
+                # Store full response
+                order.provider_response = photo_request
+
+                self.db.commit()
+                self.db.refresh(order)
+
+                return order
+
+            elif order.provider == PhotoProvider.BOXBROWNIE:
+                # TODO: Implement BoxBrownie status sync
+                pass
+
+            return order
+
+        except Exception as e:
+            logger.error(f"Failed to sync order {order_id}: {e}")
+            raise
                     await self._fetch_deliverables(order)
 
                 if status.get("photographer"):
@@ -400,38 +646,60 @@ class PhotoOrderService:
             logger.error(f"Failed to sync order {order_id}: {e}")
             raise
 
-    async def _fetch_deliverables(self, order: PhotoOrder):
-        """Fetch deliverables from provider"""
-        if order.provider == PhotoProvider.PROXYPICS:
-            try:
-                deliverables = await self.proxypics_client.get_deliverables(
-                    order.provider_order_id
+    async def _fetch_deliverables_from_proxy_pics(
+        self,
+        order: PhotoOrder,
+        photo_request: Dict[str, Any]
+    ):
+        """Fetch and process deliverables from ProxyPics photo request"""
+        try:
+            download_url = photo_request.get("download_photos_url")
+            report_url = photo_request.get("download_report_url")
+
+            if download_url:
+                # Create a deliverable entry for the ZIP file
+                deliverable = PhotoOrderDeliverable(
+                    order_id=order.id,
+                    file_name=f"photos_{order.provider_order_id}.zip",
+                    file_url=download_url,
+                    file_type="archive",
+                    file_format="zip",
+                    processing_status="ready",
+                    sequence=0
                 )
+                self.db.add(deliverable)
 
-                for idx, file_data in enumerate(deliverables):
-                    deliverable = PhotoOrderDeliverable(
-                        order_id=order.id,
-                        file_name=file_data.get("filename", f"photo_{idx}.jpg"),
-                        file_url=file_data.get("url"),
-                        file_type=file_data.get("type", "photo"),
-                        file_format=file_data.get("format", "jpg"),
-                        file_size_bytes=file_data.get("size"),
-                        width=file_data.get("width"),
-                        height=file_data.get("height"),
-                        thumbnail_url=file_data.get("thumbnail_url"),
-                        preview_url=file_data.get("preview_url"),
-                        original_url=file_data.get("original_url"),
-                        provider_file_id=file_data.get("id"),
-                        sequence=idx + 1,
-                        processing_status="ready"
-                    )
-                    self.db.add(deliverable)
+            # TODO: Individual photos would need to be fetched from the ZIP
+            # This could be done by downloading and extracting the ZIP file
+            # For now, we'll create placeholder entries based on the order's services
 
-                order.delivery_count = len(deliverables)
-                self.db.commit()
+            if order.services_requested:
+                seq = 1
+                for service in order.services_requested:
+                    service_type = service.get("service_type", "photo")
+                    quantity = service.get("quantity", 1)
 
-            except Exception as e:
-                logger.error(f"Failed to fetch deliverables for order {order.id}: {e}")
+                    # Create placeholder deliverables for each service
+                    for i in range(quantity):
+                        deliverable = PhotoOrderDeliverable(
+                            order_id=order.id,
+                            file_name=f"{service_type}_{i + 1}.jpg",
+                            file_url=download_url or "",
+                            file_type="photo",
+                            file_format="jpg",
+                            room_name=service.get("room_name"),
+                            sequence=seq,
+                            processing_status="pending"  # Will be processed when ZIP is downloaded
+                        )
+                        self.db.add(deliverable)
+                        seq += 1
+
+            order.delivery_url = download_url
+            order.delivery_count = seq - 1
+            self.db.commit()
+
+        except Exception as e:
+            logger.error(f"Failed to fetch deliverables for order {order.id}: {e}")
 
     def cancel_order(self, order_id: int, reason: Optional[str] = None) -> PhotoOrder:
         """Cancel an order"""
@@ -439,13 +707,33 @@ class PhotoOrderService:
         if not order:
             raise ValueError(f"Order {order_id} not found")
 
-        # Can only cancel pending or confirmed orders
+        # Can only cancel draft, pending, or confirmed orders
         if order.order_status not in [
             PhotoOrderStatus.DRAFT,
             PhotoOrderStatus.PENDING,
             PhotoOrderStatus.CONFIRMED
         ]:
             raise ValueError(f"Cannot cancel order in status {order.order_status.value}")
+
+        # If submitted to provider, cancel with provider
+        if order.provider_order_id and order.provider == PhotoProvider.PROXYPICS:
+            # Note: This is async, but we're in a sync method
+            # In production, you'd want to handle this properly
+            try:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # We're in an async context, create a task
+                    asyncio.create_task(
+                        self.proxypics_client.cancel_photo_request(order.provider_order_id)
+                    )
+                else:
+                    # Run the async coroutine
+                    loop.run_until_complete(
+                        self.proxypics_client.cancel_photo_request(order.provider_order_id)
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to cancel with ProxyPics: {e}")
 
         order.order_status = PhotoOrderStatus.CANCELLED
         order.cancelled_at = datetime.utcnow()
