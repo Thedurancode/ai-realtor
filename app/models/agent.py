@@ -25,6 +25,7 @@ class Agent(Base):
     brand = relationship("AgentBrand", back_populates="agent", uselist=False)
     render_jobs = relationship("RenderJob", back_populates="agent")
     timeline_projects = relationship("TimelineProject", back_populates="agent")
+    contact_lists = relationship("ContactList", back_populates="agent")
     # Temporarily commented to fix circular import
     # phone_numbers = relationship("PhoneNumber", back_populates="agent")
     # phone_calls = relationship("PhoneCall", back_populates="agent")

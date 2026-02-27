@@ -49,5 +49,7 @@ from . import call_history  # noqa: F401
 from . import photo_orders  # noqa: F401
 # Direct mail tools (Lob.com)
 from . import direct_mail  # noqa: F401
+# Contact lists tools
+from . import contact_lists  # noqa: F401
 # Web scraper tools - TODO: Fix import issues
 # from . import web_scraper  # noqa: F401

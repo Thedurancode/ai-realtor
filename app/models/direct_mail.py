@@ -200,3 +200,4 @@ class DirectMailCampaign(Base):
     # Relationship
     agent = relationship("Agent")
     template = relationship("DirectMailTemplate")
+    contact_lists = relationship("ContactList", back_populates="campaign")
