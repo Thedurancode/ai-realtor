@@ -407,6 +407,24 @@ async def startup_event():
     finally:
         db.close()
 
+    # Seed direct mail templates for default agent
+    db = SessionLocal()
+    try:
+        from app.templates.direct_mail import seed_direct_mail_templates
+        from app.models import Agent
+
+        # Get first agent (default)
+        agent = db.query(Agent).first()
+        if agent:
+            seed_direct_mail_templates(db, agent.id)
+        else:
+            logger.warning("No agent found - skipping direct mail template seeding")
+
+    except Exception as e:
+        logger.error(f"Error seeding direct mail templates: {e}")
+    finally:
+        db.close()
+
     logger.info("AI Realtor Platform startup complete")
 
 

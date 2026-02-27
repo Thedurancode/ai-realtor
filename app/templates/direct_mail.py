@@ -412,7 +412,64 @@ def render_template(template_html: str, variables: dict) -> str:
     # Handle missing variables gracefully
     class SafeDict(dict):
         def __missing__(self, key):
-            return f"{{{{{key}}}}"
+            return f"{{{{{key}}}}}"
 
     safe_vars = SafeDict(variables)
     return template.render(**safe_vars)
+
+
+def seed_direct_mail_templates(db, agent_id: int = 1) -> int:
+    """
+    Seed pre-built direct mail templates to the database.
+
+    Creates templates if they don't already exist for the agent.
+    Skips templates that already exist (by name).
+
+    Args:
+        db: Database session
+        agent_id: Agent ID to assign templates to (default: 1)
+
+    Returns:
+        Number of templates created
+    """
+    from app.models.direct_mail import DirectMailTemplate, MailType
+
+    created_count = 0
+
+    for template_key, template_data in TEMPLATES.items():
+        # Check if template already exists
+        existing = db.query(DirectMailTemplate).filter(
+            DirectMailTemplate.agent_id == agent_id,
+            DirectMailTemplate.name == template_data["name"]
+        ).first()
+
+        if existing:
+            continue  # Skip existing templates
+
+        # Create new template
+        template = DirectMailTemplate(
+            agent_id=agent_id,
+            name=template_data["name"],
+            description=template_data["description"],
+            template_type=template_data["template_type"],
+            campaign_type=template_data["campaign_type"],
+            front_html_template=template_data["front_html"],
+            back_html_template=template_data.get("back_html", ""),
+            default_color=template_data.get("default_color", False),
+            default_double_sided=template_data.get("default_double_sided", True),
+            required_variables=template_data.get("required_variables", {}),
+            is_active=True,
+            is_system_template=True
+        )
+
+        db.add(template)
+        created_count += 1
+
+    try:
+        db.commit()
+        print(f"✓ Seeded {created_count} direct mail templates for agent {agent_id}")
+    except Exception as e:
+        db.rollback()
+        print(f"✗ Failed to seed templates: {e}")
+
+    return created_count

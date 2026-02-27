@@ -10,6 +10,7 @@ from datetime import datetime
 import httpx
 from jinja2 import Template
 
+from app.config import settings
 from app.schemas.direct_mail import (
     AddressSchema,
     PostcardSize,
@@ -44,16 +45,16 @@ class LobClient:
         "failed": MailStatus.FAILED,
     }
 
-    def __init__(self, api_key: str = None, test_mode: bool = False):
+    def __init__(self, api_key: str = None, test_mode: bool = None):
         """
         Initialize Lob client
 
         Args:
-            api_key: Lob API key (defaults to LOB_API_KEY env var)
-            test_mode: If True, uses test mode (no actual mail sent)
+            api_key: Lob API key (defaults to settings.lob_api_key)
+            test_mode: If True, uses test mode (no actual mail sent, defaults to settings.lob_test_mode)
         """
-        self.api_key = api_key or os.getenv("LOB_API_KEY")
-        self.test_mode = test_mode
+        self.api_key = api_key or settings.lob_api_key
+        self.test_mode = test_mode if test_mode is not None else settings.lob_test_mode
 
         if not self.api_key:
             raise ValueError("LOB_API_KEY must be set in environment or passed to constructor")

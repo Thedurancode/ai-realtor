@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     aws_s3_bucket: str = "ai-realtor-renders"
 
+    # Lob.com Direct Mail
+    lob_api_key: str = ""
+    lob_webhook_secret: str = ""
+    lob_test_mode: bool = False
+
     class Config:
         env_file = ".env"
         extra = "ignore"

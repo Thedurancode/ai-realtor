@@ -308,6 +308,7 @@ def test_docuseal_webhook():
 async def lob_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
+    x_lob_signature: Optional[str] = Header(None, alias="x-lob-signature"),
     db: Session = Depends(get_db)
 ):
     """
@@ -328,11 +329,49 @@ async def lob_webhook(
     1. Go to lob.com/dashboard -> Webhooks
     2. Add webhook URL: https://your-domain.com/webhooks/lob
     3. Select events to subscribe to
-    4. Lob sends events as JSON POST requests
+    4. Copy the webhook secret and set LOB_WEBHOOK_SECRET env variable
+    5. Lob sends events as JSON POST requests with HMAC signature
+
+    Security:
+    - Verifies HMAC-SHA256 signature if LOB_WEBHOOK_SECRET is set
+    - Signature format: sha256=<hmac_hash>
+    - Prevents webhook spoofing
 
     Returns:
         dict: Status message
     """
+    # Get raw body for signature verification
+    body = await request.body()
+
+    # Verify webhook signature if secret is configured
+    if settings.lob_webhook_secret:
+        if not x_lob_signature:
+            logger.warning("Lob webhook received without signature")
+            raise HTTPException(status_code=401, detail="Missing signature header")
+
+        # Verify HMAC-SHA256 signature
+        # Lob sends signature as: sha256=<hash>
+        if not x_lob_signature.startswith("sha256="):
+            raise HTTPException(status_code=401, detail="Invalid signature format")
+
+        received_hash = x_lob_signature.split("=", 1)[1]
+
+        # Calculate expected HMAC
+        expected_hmac = hmac.new(
+            settings.lob_webhook_secret.encode(),
+            body,
+            hashlib.sha256
+        )
+        expected_hash = expected_hmac.hexdigest()
+
+        # Constant-time comparison to prevent timing attacks
+        if not hmac.compare_digest(expected_hash, received_hash):
+            logger.warning(f"Invalid Lob webhook signature: expected={expected_hash}, received={received_hash}")
+            raise HTTPException(status_code=401, detail="Invalid signature")
+
+        logger.debug("Lob webhook signature verified successfully")
+
+    # Parse JSON payload
     try:
         event_data = await request.json()
     except Exception as e:
@@ -483,6 +522,7 @@ def test_lob_webhook():
     """
     return {
         "webhook_url": "/webhooks/lob",
+        "signature_verification": "enabled" if settings.lob_webhook_secret else "disabled",
         "supported_events": [
             "postcard.processed",
             "postcard.mailed",
@@ -493,6 +533,49 @@ def test_lob_webhook():
             "letter.processed",
             "letter.mailed",
             "letter.in_transit",
+            "letter.delivered",
+            "letter.cancelled",
+            "letter.production_failed",
+            "check.*"
+        ],
+        "configuration_steps": [
+            "1": "Go to lob.com/dashboard -> Webhooks",
+            "2": "Add webhook URL: https://your-domain.com/webhooks/lob",
+            "3": "Select events to subscribe to",
+            "4": "Copy the webhook signing key",
+            "5": "Set LOB_WEBHOOK_SECRET environment variable to the signing key",
+            "6": "Webhook signatures will be automatically verified"
+        ],
+        "signature_format": "x-lob-signature: sha256=<hmac_hash>",
+        "signature_algorithm": "HMAC-SHA256",
+        "example_events": {
+            "postcard_delivered": {
+                "id": "evt_abc123",
+                "event_type": "postcard.delivered",
+                "resource": {"type": "postcard"},
+                "data": {
+                    "id": "lob_abc123",
+                    "expected_delivery_date": "2026-02-28",
+                    "tracking_events": [
+                        {"event": "processed", "time": "2026-02-26T10:00:00Z"},
+                        {"event": "in_transit", "time": "2026-02-27T08:00:00Z"},
+                        {"event": "delivered", "time": "2026-02-28T14:30:00Z"}
+                    ],
+                    "tracking_url": "https://lob.com/tracking/lob_abc123"
+                }
+            },
+            "letter_mailed": {
+                "id": "evt_def456",
+                "event_type": "letter.mailed",
+                "resource": {"type": "letter"},
+                "data": {
+                    "id": "lob_def456",
+                    "expected_delivery_date": "2026-03-01",
+                    "tracking_url": "https://lob.com/tracking/lob_def456"
+                }
+            }
+        }
+    }
             "letter.delivered",
             "letter.cancelled",
             "letter.production_failed"
