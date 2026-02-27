@@ -4,10 +4,12 @@ Direct Mail API Router
 Endpoints for sending postcards, letters, and checks via Lob.com
 """
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
+import csv
+import io
 
 from app.database import get_db
 from app.models.direct_mail import (
@@ -17,6 +19,7 @@ from app.models.direct_mail import (
     MailType,
     MailStatus
 )
+from app.models import Contact
 from app.schemas.direct_mail import (
     PostcardCreate,
     LetterCreate,
@@ -647,3 +650,374 @@ async def execute_campaign(campaign_id: int):
 
     finally:
         db.close()
+
+
+# ==========================================================================
+# CSV IMPORT FOR CONTACTS
+# ==========================================================================
+
+@router.post("/import-csv")
+async def import_contacts_csv(
+    file: UploadFile = File(..., description="CSV file with contacts"),
+    template: str = Query("interested_in_selling", description="Template to use for campaign"),
+    campaign_name: str = Query(None, description="Campaign name (optional)"),
+    create_campaign: bool = Query(False, description="Create campaign after importing"),
+    send_immediately: bool = Query(False, description="Send immediately after creating campaign"),
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db),
+    agent_id: int = Query(None, description="Agent ID (from auth)")
+):
+    """
+    Import contacts from CSV file for direct mail campaigns.
+
+    CSV Format (required columns):
+    - name: Contact name
+    - address: Street address
+    - city: City
+    - state: State (2-letter code)
+    - zip_code: ZIP code
+
+    Optional columns:
+    - phone: Phone number
+    - email: Email address
+    - property_address: Property address (if different from mailing address)
+    - notes: Additional notes
+
+    Example CSV:
+    ```csv
+    name,address,city,state,zip_code,phone,email
+    "John Doe","123 Main St","Miami","FL","33101","(555) 123-4567","john@example.com"
+    "Jane Smith","456 Oak Ave","Miami","FL","33102","(555) 987-6543","jane@example.com"
+    ```
+
+    Returns:
+        - contacts_created: Number of contacts imported
+        - contacts_failed: Number of contacts that failed to import
+        - contact_ids: List of created contact IDs
+        - campaign_id: Campaign ID if create_campaign=true
+        - errors: List of validation errors
+    """
+    # Default to agent_id=1 if not provided
+    if not agent_id:
+        agent_id = 1
+
+    # Validate file type
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(
+            status_code=400,
+            detail="File must be a CSV file"
+        )
+
+    # Read CSV content
+    contents = await file.read()
+
+    # Parse CSV
+    contacts_imported = []
+    contacts_failed = []
+    errors = []
+
+    try:
+        # Decode and parse CSV
+        csv_text = contents.decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(csv_text))
+
+        # Validate required columns
+        required_columns = ['name', 'address', 'city', 'state', 'zip_code']
+        csv_columns = csv_reader.fieldnames
+
+        missing_columns = set(required_columns) - set(csv_columns)
+        if missing_columns:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing required columns: {', '.join(missing_columns)}. Required: {', '.join(required_columns)}"
+            )
+
+        # Process each row
+        for row_num, row in enumerate(csv_reader, start=1):
+            try:
+                # Validate required fields
+                if not row.get('name') or not row.get('name').strip():
+                    errors.append(f"Row {row_num}: Name is required")
+                    contacts_failed.append(row_num)
+                    continue
+
+                if not row.get('address') or not row.get('address').strip():
+                    errors.append(f"Row {row_num}: Address is required")
+                    contacts_failed.append(row_num)
+                    continue
+
+                if not row.get('city') or not row.get('city').strip():
+                    errors.append(f"Row {row_num}: City is required")
+                    contacts_failed.append(row_num)
+                    continue
+
+                if not row.get('state') or not row.get('state').strip():
+                    errors.append(f"Row {row_num}: State is required")
+                    contacts_failed.append(row_num)
+                    continue
+
+                if not row.get('zip_code') or not row.get('zip_code').strip():
+                    errors.append(f"Row {row_num}: ZIP code is required")
+                    contacts_failed.append(row_num)
+                    continue
+
+                # Validate state is 2 characters
+                state = row['state'].strip()
+                if len(state) != 2:
+                    errors.append(f"Row {row_num}: State must be 2-letter code (e.g., 'FL', 'CA')")
+                    contacts_failed.append(row_num)
+                    continue
+
+                # Create contact
+                contact = Contact(
+                    agent_id=agent_id,
+                    name=row['name'].strip(),
+                    address=row['address'].strip(),
+                    city=row['city'].strip(),
+                    state=state,
+                    zip_code=row['zip_code'].strip(),
+                    phone=row.get('phone', '').strip() if row.get('phone') else None,
+                    email=row.get('email', '').strip() if row.get('email') else None,
+                    notes=row.get('notes', '').strip() if row.get('notes') else None,
+                    property_id=None  # Can be linked later
+                )
+
+                db.add(contact)
+                db.flush()  # Get the ID without committing
+
+                contacts_imported.append({
+                    "row": row_num,
+                    "contact_id": contact.id,
+                    "name": contact.name,
+                    "address": f"{contact.address}, {contact.city}, {contact.state} {contact.zip_code}"
+                })
+
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+                contacts_failed.append(row_num)
+                continue
+
+        # Commit all contacts
+        db.commit()
+
+        # Create campaign if requested
+        campaign_id = None
+        if create_campaign and contacts_imported:
+            contact_ids = [c["contact_id"] for c in contacts_imported]
+
+            campaign = DirectMailCampaign(
+                agent_id=agent_id,
+                name=campaign_name or f"CSV Import Campaign {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                description=f"Campaign created from CSV upload with {len(contact_ids)} contacts",
+                campaign_type=template,
+                mail_type=MailType.POSTCARD,
+                template_id=None,
+                target_contact_ids=contact_ids,
+                filters={"csv_import": True},
+                color=True,
+                double_sided=True,
+                send_immediately=send_immediately,
+                total_recipients=len(contact_ids),
+                sent_count=0,
+                delivered_count=0,
+                failed_count=0,
+                total_cost=0.0,
+                status="draft"
+            )
+
+            db.add(campaign)
+            db.commit()
+            db.refresh(campaign)
+
+            campaign_id = campaign.id
+
+            # Send immediately if requested
+            if send_immediately and background_tasks:
+                background_tasks.add_task(execute_campaign, campaign.id)
+
+        return {
+            "contacts_created": len(contacts_imported),
+            "contacts_failed": len(contacts_failed),
+            "contact_ids": [c["contact_id"] for c in contacts_imported],
+            "contacts": contacts_imported,
+            "campaign_id": campaign_id,
+            "errors": errors[:10],  # Return first 10 errors
+            "message": f"Imported {len(contacts_imported)} contacts successfully. {len(contacts_failed)} failed."
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process CSV: {str(e)}"
+        )
+
+
+@router.get("/import-csv-template")
+async def get_csv_import_template():
+    """
+    Get CSV import template and example data.
+
+    Returns:
+        - required_columns: List of required column names
+        - optional_columns: List of optional column names
+        - example_csv: Example CSV data
+        - instructions: How to format the CSV
+    """
+    return {
+        "required_columns": [
+            "name",
+            "address",
+            "city",
+            "state",
+            "zip_code"
+        ],
+        "optional_columns": [
+            "phone",
+            "email",
+            "property_address",
+            "notes"
+        ],
+        "example_csv": """name,address,city,state,zip_code,phone,email,property_address,notes
+"John Doe","123 Main St","Miami","FL","33101","(555) 123-4567","john@example.com","123 Main St","Interested in selling"
+"Jane Smith","456 Oak Ave","Miami","FL","33102","(555) 987-6543","jane@example.com","","Price reduction inquiry"
+"Bob Johnson","789 Pine Rd","Miami","FL","33103","","bob@example.com","","Expired listing follow-up"
+"Alice Williams","321 Elm St","Miami","FL","33104","(555) 555-1234","alice@example.com","","Cold call from FSBO site"
+"Charlie Brown","654 Maple Dr","Miami","FL","33105","(555) 678-9012","charlie@example.com","","Past client re-engagement\"""",
+        "instructions": [
+            "1. Create a CSV file with the columns listed above",
+            "2. Include at minimum: name, address, city, state, zip_code",
+            "3. Optional: phone, email, property_address, notes",
+            "4. Save as UTF-8 encoded CSV file",
+            "5. Upload to POST /direct-mail/import-csv",
+            "6. Optionally set create_campaign=true to auto-create campaign",
+            "7. Optionally set send_immediately=true to send right away"
+        ],
+        "use_cases": [
+            "Import leads from web scraping tools",
+            "Upload FSBO (For Sale By Owner) leads",
+            "Import expired listings for follow-up",
+            "Upload client lists from other sources",
+            "Import door-knocking results",
+            "Import open house attendee lists",
+            "Create neighborhood farming lists"
+        ]
+    }
+
+
+@router.post("/verify-csv")
+async def verify_csv_before_import(
+    file: UploadFile = File(..., description="CSV file to verify"),
+    db: Session = Depends(get_db)
+):
+    """
+    Verify CSV file before importing without actually importing.
+
+    Validates:
+    - File format
+    - Required columns
+    - Data quality
+    - Address format
+    - Phone/email format
+
+    Returns:
+        - is_valid: Whether CSV is valid
+        - total_rows: Total number of rows
+        - valid_rows: Number of valid rows
+        - invalid_rows: Number of invalid rows
+        - errors: List of validation errors
+        - preview: First 5 valid contacts
+    """
+    if not file.filename.endswith('.csv'):
+        return {
+            "is_valid": False,
+            "error": "File must be a CSV file"
+        }
+
+    try:
+        contents = await file.read()
+        csv_text = contents.decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(csv_text))
+
+        required_columns = ['name', 'address', 'city', 'state', 'zip_code']
+        csv_columns = csv_reader.fieldnames
+
+        # Check required columns
+        missing_columns = set(required_columns) - set(csv_columns)
+        if missing_columns:
+            return {
+                "is_valid": False,
+                "error": f"Missing required columns: {', '.join(missing_columns)}",
+                "required_columns": required_columns,
+                "found_columns": csv_columns
+            }
+
+        # Validate rows
+        valid_rows = []
+        invalid_rows = []
+        errors = []
+
+        for row_num, row in enumerate(csv_reader, start=1):
+            row_errors = []
+
+            # Validate each field
+            if not row.get('name') or not row.get('name').strip():
+                row_errors.append("Name is required")
+
+            if not row.get('address') or not row.get('address').strip():
+                row_errors.append("Address is required")
+
+            if not row.get('city') or not row.get('city').strip():
+                row_errors.append("City is required")
+
+            if not row.get('state') or not row.get('state').strip():
+                row_errors.append("State is required")
+            elif len(row['state'].strip()) != 2:
+                row_errors.append("State must be 2-letter code")
+
+            if not row.get('zip_code') or not row.get('zip_code').strip():
+                row_errors.append("ZIP code is required")
+
+            # Phone format validation (if provided)
+            if row.get('phone') and row.get('phone').strip():
+                phone = row['phone'].strip()
+                # Remove common formatting
+                phone_clean = phone.replace('(', '').replace(')', '').replace('-', '').replace(' ', '')
+                if not phone_clean.isdigit() or len(phone_clean) < 10:
+                    row_errors.append("Invalid phone format")
+
+            # Email format validation (if provided)
+            if row.get('email') and row.get('email').strip():
+                email = row['email'].strip()
+                if '@' not in email or '.' not in email.split('@')[1]:
+                    row_errors.append("Invalid email format")
+
+            if row_errors:
+                invalid_rows.append({"row": row_num, "errors": row_errors})
+                errors.append(f"Row {row_num}: {', '.join(row_errors)}")
+            else:
+                valid_rows.append({
+                    "row": row_num,
+                    "name": row['name'].strip(),
+                    "address": f"{row['address'].strip()}, {row['city'].strip()}, {row['state'].strip()} {row['zip_code'].strip()}",
+                    "phone": row.get('phone', '').strip(),
+                    "email": row.get('email', '').strip()
+                })
+
+        # Return validation results
+        return {
+            "is_valid": len(invalid_rows) == 0,
+            "total_rows": len(valid_rows) + len(invalid_rows),
+            "valid_rows": len(valid_rows),
+            "invalid_rows": len(invalid_rows),
+            "errors": errors[:50],  # First 50 errors
+            "preview": valid_rows[:5],  # First 5 valid contacts
+        }
+
+    except Exception as e:
+        return {
+            "is_valid": False,
+            "error": f"Failed to parse CSV: {str(e)}"
+        }
