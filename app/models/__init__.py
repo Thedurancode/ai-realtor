@@ -35,6 +35,8 @@ from app.models.voice_campaign import VoiceCampaign, VoiceCampaignTarget
 from app.models.offer import Offer, OfferStatus, FinancingType
 from app.models.conversation_history import ConversationHistory
 from app.models.property_note import PropertyNote, NoteSource
+from app.models.contact_lists import ContactList
+from app.models.direct_mail import DirectMail, DirectMailTemplate
 from app.models.scheduled_task import ScheduledTask, TaskType, TaskStatus
 from app.models.market_watchlist import MarketWatchlist
 from app.models.deal_outcome import DealOutcome, OutcomeStatus, AgentPerformanceMetrics, PredictionLog
@@ -44,8 +46,7 @@ from app.models.phone_call import PhoneCall
 # VideoGen AI Avatar Videos
 from app.models.videogen import VideoGenVideo, VideoGenAvatar, VideoGenScriptTemplate, VideoGenSettings
 from app.models.postiz import PostizAccount, PostizPost, PostizCalendar, PostizTemplate, PostizAnalytics, PostizCampaign
-# Temporarily disabled - has table definition conflict
-# from app.models.facebook_ads import FacebookCampaign, FacebookAdSet, FacebookCreative, MarketResearch, CompetitorAnalysis, ReviewIntelligence
+from app.models.facebook_ads import FacebookCampaign, FacebookAdSet, FacebookCreative, MarketResearch, CompetitorAnalysis, ReviewIntelligence
 from app.models.render_job import RenderJob
 from app.models.timeline_project import TimelineProject
 # ZeroClaw-inspired features
