@@ -4,6 +4,7 @@ Website Renderer Service
 Converts website content into HTML for published websites
 """
 from typing import Dict
+from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models.property_website import PropertyWebsite
@@ -89,6 +90,7 @@ class WebsiteRenderer:
         """Generate HTML <head> section"""
         primary_color = theme.get("primary_color", "#3b82f6")
         font = theme.get("font", "Inter")
+        content = website.content or {}
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -552,6 +554,16 @@ class WebsiteRenderer:
 
     def _render_hero_section(self, hero_content: Dict, theme: Dict) -> str:
         """Render hero section HTML"""
+        # Handle both string and object CTAs
+        primary_cta_text = hero_content.get('primary_cta', {}).get('text', 'Contact Us') if isinstance(hero_content.get('primary_cta'), dict) else hero_content.get('primary_cta', 'Contact Us')
+        secondary_cta = hero_content.get('secondary_cta')
+        if isinstance(secondary_cta, dict):
+            secondary_cta_text = secondary_cta.get('text', 'View Gallery')
+            has_secondary = True
+        else:
+            secondary_cta_text = secondary_cta
+            has_secondary = bool(secondary_cta)
+
         return f"""
         <section class="hero">
             <div class="hero-overlay">
@@ -560,8 +572,8 @@ class WebsiteRenderer:
                 {f'<div class="price-display">{hero_content.get("price_display", "")}</div>' if hero_content.get("price_display") else ''}
                 {f'<p class="price-note">{hero_content.get("price_note", "")}</p>' if hero_content.get("price_note") else ''}
                 <div class="hero-buttons">
-                    <a href="#contact" class="btn btn-primary">{hero_content.get('primary_cta', {}).get('text', 'Contact Us')}</a>
-                    {f'<a href="#gallery" class="btn btn-secondary">{hero_content.get('secondary_cta', {}).get('text', 'View Gallery')}</a>' if hero_content.get('secondary_cta') else ''}
+                    <a href="#contact" class="btn btn-primary">{self._escape_html(primary_cta_text)}</a>
+                    {f'<a href="#gallery" class="btn btn-secondary">{self._escape_html(secondary_cta_text)}</a>' if has_secondary else ''}
                 </div>
             </div>
         </section>
@@ -573,10 +585,18 @@ class WebsiteRenderer:
 
         feature_items = ""
         for feature in features[:12]:
+            # Handle both string features and dict features
+            if isinstance(feature, str):
+                feature_name = feature
+                feature_desc = ""
+            else:
+                feature_name = feature.get('name', 'Feature')
+                feature_desc = feature.get('description', '')
+
             feature_items += f"""
             <div class="feature-card">
-                <h3>{self._escape_html(feature.get('name', 'Feature'))}</h3>
-                <p>{self._escape_html(feature.get('description', ''))}</p>
+                <h3>{self._escape_html(feature_name)}</h3>
+                {f'<p>{self._escape_html(feature_desc)}</p>' if feature_desc else ''}
             </div>
             """
 
@@ -691,6 +711,16 @@ class WebsiteRenderer:
 
     def _render_cta_section(self, cta_content: Dict, website: PropertyWebsite, theme: Dict) -> str:
         """Render call-to-action section HTML"""
+        # Handle both string and object CTAs
+        primary_cta_text = cta_content.get('primary_cta', {}).get('text', 'Contact Us') if isinstance(cta_content.get('primary_cta'), dict) else cta_content.get('primary_cta', 'Contact Us')
+        secondary_cta = cta_content.get('secondary_cta')
+        if isinstance(secondary_cta, dict):
+            secondary_cta_text = secondary_cta.get('text', 'View Gallery')
+            has_secondary = True
+        else:
+            secondary_cta_text = secondary_cta
+            has_secondary = bool(secondary_cta)
+
         return f"""
         <section class="cta">
             <div class="cta-content">
@@ -698,9 +728,9 @@ class WebsiteRenderer:
                 <p>{self._escape_html(cta_content.get('subheadline', ''))}</p>
                 <div class="cta-buttons">
                     <a href="#contact" class="btn btn-primary">
-                        {cta_content.get('primary_cta', {}).get('text', 'Contact Us')}
+                        {self._escape_html(primary_cta_text)}
                     </a>
-                    {f'<a href="#gallery" class="btn btn-secondary">{cta_content.get('secondary_cta', {}).get('text', 'View Gallery')}</a>' if cta_content.get('secondary_cta') else ''}
+                    {f'<a href="#gallery" class="btn btn-secondary">{self._escape_html(secondary_cta_text)}</a>' if has_secondary else ''}
                 </div>
             </div>
         </section>
@@ -708,12 +738,15 @@ class WebsiteRenderer:
 
     def _generate_footer(self, website: PropertyWebsite, theme: Dict) -> str:
         """Generate footer HTML"""
+        content = website.content or {}
+        description = content.get('seo', {}).get('description', '')[:200]
+
         return f"""
         <footer class="footer">
             <div class="footer-content">
                 <div class="footer-section">
                     <h3>{website.website_name}</h3>
-                    <p>{website.content.get('seo', {}).get('description', '')[:200]}</p>
+                    <p>{self._escape_html(description)}</p>
                 </div>
                 <div class="footer-section">
                     <h3>Quick Links</h3>
@@ -807,9 +840,6 @@ class WebsiteRenderer:
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters"""
         import html
-        return html.escape(text)
-
-    def _escape_html(self, text: str) -> str:
-        """Escape HTML special characters"""
-        import html
-        return html.escape(text)
+        if text is None:
+            return ""
+        return html.escape(str(text))

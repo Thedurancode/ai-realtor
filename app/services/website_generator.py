@@ -80,8 +80,8 @@ class WebsiteGeneratorService:
             "price": property_obj.price,
             "bedrooms": property_obj.bedrooms,
             "bathrooms": property_obj.bathrooms,
-            "square_footage": property_obj.square_footage,
-            "property_type": property_obj.property_type.value,
+            "square_feet": property_obj.square_feet,
+            "property_type": property_obj.property_type,
             "status": property_obj.status.value,
             "description": property_obj.description,
             "year_built": getattr(property_obj, 'year_built', None),
@@ -99,14 +99,13 @@ class WebsiteGeneratorService:
                 "description": enrichment.description,
                 "photos": enrichment.photos[:10] if enrichment.photos else [],
                 "zestimate": enrichment.zestimate,
-                "rent_zestimate": enrichment.rent_zestimate,
-                "tax_assessment": enrichment.tax_assessment,
-                "year_built": enrichment.year_built,
-                "lot_size": enrichment.lot_size,
-                "living_area": enrichment.living_area,
-                "bedrooms": enrichment.bedrooms,
-                "bathrooms": enrichment.bathrooms,
-                "rooms": enrichment.rooms,
+                "rent_zestimate": getattr(enrichment, 'rent_zestimate', None),
+                "annual_tax_amount": getattr(enrichment, 'annual_tax_amount', None),
+                "year_built": getattr(enrichment, 'year_built', None),
+                "lot_size": getattr(enrichment, 'lot_size', None),
+                "living_area": getattr(enrichment, 'living_area', None),
+                "bedrooms": getattr(enrichment, 'bedrooms', property_obj.bedrooms),
+                "bathrooms": getattr(enrichment, 'bathrooms', property_obj.bathrooms),
             }
 
         return data
@@ -153,14 +152,14 @@ class WebsiteGeneratorService:
             "description",
             f"Beautiful property located at {property_data['address']} in {property_data['city']}, {property_data['state']}. "
             f"This {property_data['property_type'].value} features {property_data['bedrooms']} bedrooms and "
-            f"{property_data['bathrooms']} bathrooms with {property_data['square_footage']:,} square feet of living space."
+            f"{property_data['bathrooms']} bathrooms with {property_data['square_feet']:,} square feet of living space."
         )
 
         features = self._extract_key_features(property_data)
 
         return {
             "title": "About This Property",
-            "description": description[:500] + "..." if len(description) > 500 else description,
+            "description": description[:500] + "..." if description and len(description) > 500 else description,
             "features": features,
             "highlights": self._generate_highlights(property_data)
         }
@@ -242,7 +241,7 @@ class WebsiteGeneratorService:
             "title": f"{property_data['address']} | {property_data['bedrooms']}BR/{property_data['bathrooms']}BA | {city_state}",
             "description": f"View this {property_data['property_type'].value} at {property_data['address']}, {city_state}. "
                          f"{property_data['bedrooms']} bedrooms, {property_data['bathrooms']} bathrooms, "
-                         f"{property_data['square_footage']:,} sq ft. {price_str}.",
+                         f"{property_data['square_feet']:,} sq ft. {price_str}.",
             "keywords": [
                 f"{city_state} real estate",
                 f"{property_data['city']} property",
@@ -303,8 +302,8 @@ class WebsiteGeneratorService:
             features.append(f"{property_data['bedrooms']} Bedrooms")
         if property_data.get("bathrooms"):
             features.append(f"{property_data['bathrooms']} Bathrooms")
-        if property_data.get("square_footage"):
-            features.append(f"{property_data['square_footage']:,} Sq Ft")
+        if property_data.get("square_feet"):
+            features.append(f"{property_data['square_feet']:,} Sq Ft")
 
         # Additional features from enrichment
         enrichment = property_data.get("zillow", {})
