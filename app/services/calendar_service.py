@@ -455,6 +455,99 @@ class CalendarSyncService:
             self.db.commit()
             return synced_event
 
+    async def sync_follow_up(
+        self,
+        follow_up: "FollowUp",
+        connection: CalendarConnection
+    ) -> Optional[SyncedCalendarEvent]:
+        """
+        Sync a follow-up to external calendar
+
+        Args:
+            follow_up: Follow-up to sync
+            connection: Calendar connection to sync to
+
+        Returns:
+            SyncedCalendarEvent record, or None if sync disabled
+        """
+        if not connection.sync_follow_ups or not connection.sync_enabled:
+            return None
+
+        # Get valid access token (auto-refreshes if expired)
+        access_token = await GoogleCalendarService.get_valid_access_token(self.db, connection)
+
+        # Check if already synced
+        existing = self.db.query(SyncedCalendarEvent).filter(
+            SyncedCalendarEvent.source_type == "follow_up",
+            SyncedCalendarEvent.source_id == follow_up.id,
+            SyncedCalendarEvent.calendar_connection_id == connection.id,
+            SyncedCalendarEvent.is_active == True
+        ).first()
+
+        # Calculate event times
+        start_time = follow_up.scheduled_at
+        duration = timedelta(minutes=connection.event_duration_minutes or 30)
+        end_time = start_time + duration
+
+        # Build event details
+        property_info = ""
+        if follow_up.property_id:
+            prop = self.db.query(Property).filter(Property.id == follow_up.property_id).first()
+            if prop:
+                property_info = f"\n\nProperty: {prop.address}, {prop.city}, {prop.state}"
+
+        title = follow_up.title or f"Follow-up: {follow_up.property_id or 'General'}"
+        description = (follow_up.notes or "") + property_info
+
+        # Sync to Google Calendar
+        if existing:
+            # Update existing event
+            await GoogleCalendarService.update_event(
+                access_token=access_token,
+                calendar_id=connection.calendar_id or "primary",
+                event_id=existing.external_event_id,
+                title=title,
+                description=description,
+                start_time=start_time,
+                end_time=end_time,
+            )
+            existing.title = title
+            existing.description = description
+            existing.start_time = start_time
+            existing.end_time = end_time
+            existing.last_synced_at = datetime.utcnow()
+            self.db.commit()
+            return existing
+        else:
+            # Create new event
+            event = await GoogleCalendarService.create_event(
+                access_token=access_token,
+                calendar_id=connection.calendar_id or "primary",
+                title=title,
+                description=description,
+                start_time=start_time,
+                end_time=end_time,
+                reminder_minutes=connection.reminder_minutes,
+            )
+
+            # Create synced event record
+            synced_event = SyncedCalendarEvent(
+                calendar_connection_id=connection.id,
+                source_type="follow_up",
+                source_id=follow_up.id,
+                external_event_id=event["id"],
+                external_event_link=event.get("htmlLink"),
+                title=title,
+                description=description,
+                start_time=start_time,
+                end_time=end_time,
+                reminder_minutes=connection.reminder_minutes,
+                sync_status="created",
+            )
+            self.db.add(synced_event)
+            self.db.commit()
+            return synced_event
+
     async def sync_calendar_event(
         self,
         event: CalendarEvent,
@@ -563,13 +656,20 @@ class CalendarSyncService:
             "meet_link": meet_link,
         }
 
-    async def sync_all_pending_items(self, connection: CalendarConnection):
+    async def sync_all_pending_items(self, connection: CalendarConnection) -> dict:
         """
         Sync all pending items for a calendar connection
 
         Args:
             connection: Calendar connection to sync
+
+        Returns:
+            Dict with sync statistics (synced, skipped, errors)
         """
+        synced_count = 0
+        skipped_count = 0
+        errors = []
+
         # Sync scheduled tasks
         if connection.sync_tasks:
             tasks = self.db.query(ScheduledTask).filter(
@@ -578,10 +678,41 @@ class CalendarSyncService:
             ).limit(50).all()
 
             for task in tasks:
-                await self.sync_scheduled_task(task, connection)
+                try:
+                    result = await self.sync_scheduled_task(task, connection)
+                    if result:
+                        synced_count += 1
+                    else:
+                        skipped_count += 1
+                except Exception as e:
+                    errors.append(f"Task {task.id}: {str(e)}")
+
+        # Sync follow-ups
+        if connection.sync_follow_ups:
+            from app.models.follow_up import FollowUp
+            follow_ups = self.db.query(FollowUp).filter(
+                FollowUp.status == "pending",
+                FollowUp.scheduled_at > datetime.utcnow()
+            ).limit(50).all()
+
+            for follow_up in follow_ups:
+                try:
+                    result = await self.sync_follow_up(follow_up, connection)
+                    if result:
+                        synced_count += 1
+                    else:
+                        skipped_count += 1
+                except Exception as e:
+                    errors.append(f"Follow-up {follow_up.id}: {str(e)}")
 
         # Update last sync info
         connection.last_sync_at = datetime.utcnow()
         connection.last_sync_status = "success"
         connection.last_sync_error = None
         self.db.commit()
+
+        return {
+            "synced": synced_count,
+            "skipped": skipped_count,
+            "errors": errors
+        }

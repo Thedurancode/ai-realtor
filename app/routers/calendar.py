@@ -635,7 +635,7 @@ async def sync_to_calendar(
     sync_service = CalendarSyncService(db)
 
     try:
-        await sync_service.sync_all_pending_items(connection)
+        sync_result = await sync_service.sync_all_pending_items(connection)
     except Exception as e:
         connection.last_sync_status = "error"
         connection.last_sync_error = str(e)
@@ -643,9 +643,9 @@ async def sync_to_calendar(
         raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
 
     return SyncResponse(
-        synced=0,  # TODO: Count actual synced items
-        skipped=0,
-        errors=[]
+        synced=sync_result["synced"],
+        skipped=sync_result["skipped"],
+        errors=sync_result["errors"]
     )
 
 

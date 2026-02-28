@@ -303,6 +303,12 @@ video_dir = os.path.abspath(video_dir)
 os.makedirs(video_dir, exist_ok=True)
 app.mount("/videos", StaticFiles(directory=video_dir), name="videos")
 
+# Mount uploads directory for brand assets and other files
+uploads_dir = os.path.join(os.path.dirname(__file__), "..", "uploads")
+uploads_dir = os.path.abspath(uploads_dir)
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
 
 # WebSocket connection manager
 class ConnectionManager:

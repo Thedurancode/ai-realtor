@@ -89,11 +89,21 @@ async def list_installed_skills(
     enabled_only: bool = True
 ):
     """List skills installed for an agent."""
-    skills = skills_service.get_agent_skills(db, agent_id, enabled_only=enabled_only)
+    from app.models.skill import AgentSkill
+
+    # Query AgentSkill to get installation timestamp
+    query = db.query(AgentSkill, Skill).join(
+        Skill, AgentSkill.skill_id == Skill.id
+    ).filter(AgentSkill.agent_id == agent_id)
+
+    if enabled_only:
+        query = query.filter(AgentSkill.is_enabled == True)
+
+    results = query.all()
 
     return {
         "agent_id": agent_id,
-        "total_skills": len(skills),
+        "total_skills": len(results),
         "skills": [
             {
                 "id": skill.id,
@@ -101,9 +111,11 @@ async def list_installed_skills(
                 "description": skill.description,
                 "category": skill.category,
                 "version": skill.version,
-                "installed_at": None  # TODO: Add from AgentSkill
+                "installed_at": agent_skill.installed_at.isoformat() if agent_skill.installed_at else None,
+                "is_enabled": agent_skill.is_enabled,
+                "last_used_at": agent_skill.last_used_at.isoformat() if agent_skill.last_used_at else None
             }
-            for skill in skills
+            for agent_skill, skill in results
         ]
     }
 

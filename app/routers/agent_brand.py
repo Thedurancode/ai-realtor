@@ -8,6 +8,7 @@ from datetime import datetime
 from app.database import get_db
 from app.models.agent import Agent
 from app.models.agent_brand import AgentBrand
+from app.utils.file_storage import file_storage
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List as ListType
 
@@ -497,14 +498,13 @@ async def upload_logo(
         brand = AgentBrand(agent_id=agent_id)
         db.add(brand)
 
-    # Save file (in production, use S3 or CDN)
-    # For now, just store the filename
-    file_extension = file.filename.split('.')[-1]
-    logo_filename = f"logo_agent_{agent_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{file_extension}"
-
-    # TODO: Actually save the file to storage service
-    # For now, just set the URL
-    brand.logo_url = f"/uploads/logos/{logo_filename}"
+    # Save file using file storage service
+    logo_filename = f"logo_agent_{agent_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    brand.logo_url = await file_storage.save_file(
+        file=file,
+        subdir="logos",
+        custom_filename=logo_filename
+    )
 
     db.commit()
     db.refresh(brand)

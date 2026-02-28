@@ -303,13 +303,43 @@ async def create_campaign(
     recipients = []
     if data.target_property_ids:
         # Add property owners
-        from app.models import Property
+        from app.models import Property, Contact
+        from app.models.contact import ContactRole
+
         properties = db.query(Property).filter(
             Property.id.in_(data.target_property_ids)
         ).all()
+
         for prop in properties:
-            # TODO: Get property owner contacts
-            pass
+            # Look for owner contacts
+            owner_contacts = db.query(Contact).filter(
+                Contact.property_id == prop.id,
+                Contact.role == ContactRole.SELLER
+            ).all()
+
+            if owner_contacts:
+                # Use owner contacts
+                recipients.extend([c.id for c in owner_contacts])
+            else:
+                # Fall back to skip trace data
+                from app.models.skip_trace import SkipTrace
+                skip_trace = db.query(SkipTrace).filter(
+                    SkipTrace.property_id == prop.id
+                ).first()
+
+                if skip_trace and skip_trace.owner_name:
+                    # Create a contact from skip trace data
+                    new_contact = Contact(
+                        property_id=prop.id,
+                        name=skip_trace.owner_name,
+                        email=skip_trace.email,
+                        phone=skip_trace.phone,
+                        role=ContactRole.SELLER
+                    )
+                    db.add(new_contact)
+                    db.commit()
+                    db.refresh(new_contact)
+                    recipients.append(new_contact.id)
 
     if data.target_contact_ids:
         recipients.extend(data.target_contact_ids)
@@ -625,6 +655,8 @@ async def sync_mailpiece_status(mailpiece: DirectMail, db: Session):
 async def execute_campaign(campaign_id: int):
     """Background task to execute a bulk campaign"""
     from app.database import SessionLocal
+    from app.models.contact import Contact
+    from app.models.skip_trace import SkipTrace
 
     db = SessionLocal()
     try:
@@ -638,14 +670,140 @@ async def execute_campaign(campaign_id: int):
         campaign.status = "sending"
         db.commit()
 
-        # Get recipients and send mailpieces
-        # TODO: Implement actual sending logic
+        # Get template
+        template = db.query(DirectMailTemplate).filter(
+            DirectMailTemplate.id == campaign.template_id
+        ).first()
 
+        if not template:
+            campaign.status = "failed"
+            campaign.description = "Template not found"
+            db.commit()
+            return
+
+        # Build recipient list
+        recipients = []
+
+        # Add property contacts
+        if campaign.target_property_ids:
+            from app.models import Property
+            properties = db.query(Property).filter(
+                Property.id.in_(campaign.target_property_ids)
+            ).all()
+
+            for prop in properties:
+                # Try to get owner contact
+                from app.models.contact import Contact, ContactRole
+                owner_contact = db.query(Contact).filter(
+                    Contact.property_id == prop.id,
+                    Contact.role == ContactRole.SELLER
+                ).first()
+
+                if owner_contact:
+                    recipients.append(owner_contact)
+                else:
+                    # Try skip trace data
+                    skip_trace = db.query(SkipTrace).filter(
+                        SkipTrace.property_id == prop.id
+                    ).first()
+
+                    if skip_trace:
+                        # Create temp contact from skip trace
+                        temp_contact = Contact(
+                            property_id=prop.id,
+                            name=skip_trace.owner_name or "Property Owner",
+                            email=skip_trace.email,
+                            phone=skip_trace.phone,
+                            role=ContactRole.SELLER
+                        )
+                        recipients.append(temp_contact)
+
+        # Add specific contacts
+        if campaign.target_contact_ids:
+            contacts = db.query(Contact).filter(
+                Contact.id.in_(campaign.target_contact_ids)
+            ).all()
+            recipients.extend(contacts)
+
+        # Send mailpieces
+        sent_count = 0
+        failed_count = 0
+
+        for contact in recipients:
+            try:
+                # Build address from contact or skip trace
+                to_address = None
+
+                if contact.email and "@" in contact.email:
+                    # Try to get address from skip trace
+                    if contact.property_id:
+                        skip_trace = db.query(SkipTrace).filter(
+                            SkipTrace.property_id == contact.property_id
+                        ).first()
+
+                        if skip_trace and skip_trace.mailing_address:
+                            to_address = skip_trace.mailing_address
+                        else:
+                            # Use contact's mailing address if available
+                            to_address = {
+                                "name": contact.name,
+                                "address_line1": getattr(contact, "address", "Unknown"),
+                                "address_city": getattr(contact, "city", "Unknown"),
+                                "address_state": getattr(contact, "state", "Unknown"),
+                                "address_zip": getattr(contact, "zip_code", "00000")
+                            }
+
+                if not to_address:
+                    failed_count += 1
+                    continue
+
+                # Create mailpiece
+                mailpiece = DirectMail(
+                    agent_id=campaign.agent_id,
+                    campaign_id=campaign.id,
+                    mail_type=campaign.mail_type,
+                    to_address=to_address,
+                    front_html=template.front_html,
+                    back_html=template.back_html,
+                    postcard_size=campaign.postcard_size,
+                    color=campaign.color,
+                    double_sided=campaign.double_sided,
+                    merge_variables={
+                        "name": contact.name,
+                        "property_address": contact.property.address if contact.property_id else "Your Property"
+                    },
+                    campaign_name=campaign.name
+                )
+
+                db.add(mailpiece)
+                db.commit()
+                db.refresh(mailpiece)
+
+                # Send to Lob
+                if campaign.mail_type == MailType.POSTCARD:
+                    await send_postcard_to_lob(mailpiece.id, {}, campaign.agent_id)
+                elif campaign.mail_type == MailType.LETTER:
+                    await send_letter_to_lob(mailpiece.id, {}, campaign.agent_id)
+                elif campaign.mail_type == MailType.CHECK:
+                    await send_check_to_lob(mailpiece.id, {}, campaign.agent_id)
+
+                sent_count += 1
+
+            except Exception as e:
+                failed_count += 1
+                continue
+
+        # Update campaign status
         campaign.status = "completed"
+        campaign.description = f"Sent {sent_count} mailpieces"
+        if failed_count > 0:
+            campaign.description += f", {failed_count} failed"
+
         db.commit()
 
     except Exception as e:
         campaign.status = "failed"
+        campaign.description = f"Campaign failed: {str(e)}"
         db.commit()
 
     finally:
