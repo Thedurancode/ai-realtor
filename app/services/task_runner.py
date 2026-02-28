@@ -23,9 +23,14 @@ async def run_task_loop(interval_seconds: int = TASK_LOOP_INTERVAL):
     from app.services.scheduled_task_service import scheduled_task_service
     from app.services.pipeline_automation_service import pipeline_automation_service
 
+    print(f"→ Task runner loop started (interval={interval_seconds}s)")
     logger.info("Scheduled task runner started (interval=%ds)", interval_seconds)
 
+    iteration = 0
     while True:
+        iteration += 1
+        print(f"→ Task loop iteration #{iteration} at {datetime.now(timezone.utc)}")
+        await asyncio.sleep(interval_seconds)
         await asyncio.sleep(interval_seconds)
         db = SessionLocal()
         try:

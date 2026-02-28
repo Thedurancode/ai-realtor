@@ -47,10 +47,47 @@ PUBLIC_PATHS = frozenset(("/", "/docs", "/redoc", "/openapi.json", "/health", "/
 PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register", "/api/setup", "/composio/", "/portal/", "/videos/")
 
 
+# Background task initialization state
+_background_tasks_initialized = False
+
+
+def _ensure_background_tasks_started():
+    """Ensure background tasks (task runner, cache cleanup) are started."""
+    global _background_tasks_initialized
+
+    if _background_tasks_initialized:
+        return
+
+    try:
+        import asyncio
+
+        # Start cache cleanup
+        cache_cleanup_task = asyncio.create_task(_periodic_cache_cleanup())
+        add_background_task(cache_cleanup_task)
+        print("✓ Cache cleanup task started (lazy init)")
+
+        # Start task runner
+        from app.services.task_runner import run_task_loop
+
+        task_runner_task = asyncio.create_task(run_task_loop())
+        add_background_task(task_runner_task)
+        print("✓ Task runner started (lazy init)")
+
+        _background_tasks_initialized = True
+
+    except Exception as e:
+        print(f"❌ Error starting background tasks: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 class ApiKeyMiddleware(BaseHTTPMiddleware):
     """Validate X-API-Key header on all non-public requests with caching."""
 
     async def dispatch(self, request: Request, call_next):
+        # Ensure background tasks are started on first request
+        _ensure_background_tasks_started()
+
         path = request.url.path
 
         # Skip auth for public paths
@@ -479,155 +516,13 @@ async def startup_event():
     """
     Initialize all background services on startup.
 
-    This is the SINGLE startup handler for the application.
-    Merges all startup logic to ensure all services initialize properly.
+    Note: Background tasks are now started lazily on first request
+    to ensure reliable startup. See _ensure_background_tasks_started().
     """
     import logging
-    from app.models.scheduled_task import ScheduledTask
 
     logger = logging.getLogger(__name__)
-    logger.info("Starting RealtorClaw Platform...")
-
-    # ============================================================
-    # 1. Start Cron Scheduler
-    # ============================================================
-    # TEMPORARILY DISABLED: Cron scheduler model mismatch - needs architectural fix
-    # from app.services.cron_scheduler import cron_scheduler
-    # cron_task = asyncio.create_task(cron_scheduler.start())
-    # add_background_task(cron_task)
-    # logger.info("✓ Cron scheduler started")
-    logger.info("⏭ Cron scheduler disabled (model mismatch)")
-
-    # ============================================================
-    # 2. Create Default Scheduled Tasks (if they don't exist)
-    # ============================================================
-    # TEMPORARILY DISABLED: Cron scheduler model mismatch
-    # db = SessionLocal()
-    # try:
-    #     from app.services.cron_scheduler import CRON_EXPRESSIONS
-    #
-    #     # Heartbeat cycle every 5 minutes
-    #     if not db.query(ScheduledTask).filter_by(name="heartbeat_cycle").first():
-    #         await cron_scheduler.schedule_task(
-    #             name="heartbeat_cycle",
-    #             handler_name="heartbeat_cycle",
-    #             cron_expression=CRON_EXPRESSIONS["every_5_minutes"],
-    #             metadata={"description": "Full autonomous monitoring cycle"}
-    #         )
-    #         logger.info("✓ Scheduled heartbeat_cycle task")
-    #
-    #     # Portfolio scan every 5 minutes
-    #     if not db.query(ScheduledTask).filter_by(name="portfolio_scan").first():
-    #         await cron_scheduler.schedule_task(
-    #             name="portfolio_scan",
-    #             handler_name="portfolio_scan",
-    #             cron_expression=CRON_EXPRESSIONS["every_5_minutes"],
-    #             metadata={"description": "Scan portfolio for stale properties"}
-    #         )
-    #         logger.info("✓ Scheduled portfolio_scan task")
-    #
-    #     # Market intelligence every 15 minutes
-    #     if not db.query(ScheduledTask).filter_by(name="market_intelligence").first():
-    #         await cron_scheduler.schedule_task(
-    #             name="market_intelligence",
-    #             handler_name="market_intelligence",
-    #             cron_expression=CRON_EXPRESSIONS["every_15_minutes"],
-    #             metadata={"description": "Gather market intelligence"}
-    #         )
-    #         logger.info("✓ Scheduled market_intelligence task")
-    #
-    #     # Relationship health every hour
-    #     if not db.query(ScheduledTask).filter_by(name="relationship_health").first():
-    #         await cron_scheduler.schedule_task(
-    #             name="relationship_health",
-    #             handler_name="relationship_health",
-    #             cron_expression=CRON_EXPRESSIONS["every_hour"],
-    #             metadata={"description": "Score relationship health"}
-    #         )
-    #         logger.info("✓ Scheduled relationship_health task")
-    #
-    #     # Predictive insights every hour
-    #     if not db.query(ScheduledTask).filter_by(name="predictive_insights").first():
-    #         await cron_scheduler.schedule_task(
-    #             name="predictive_insights",
-    #             handler_name="predictive_insights",
-    #             cron_expression=CRON_EXPRESSIONS["every_hour"],
-    #             metadata={"description": "Generate predictive insights"}
-    #         )
-    #         logger.info("✓ Scheduled predictive_insights task")
-    #
-    #     db.commit()
-    #
-    # except Exception as e:
-    #     logger.error(f"Error creating default scheduled tasks: {e}")
-    #     db.rollback()
-    # finally:
-    #     db.close()
-    logger.info("⏭ Default cron tasks disabled (model mismatch)")
-
-    # ============================================================
-    # 3. Seed Direct Mail Templates
-    # ============================================================
-    db = SessionLocal()
-    try:
-        from app.templates.direct_mail import seed_direct_mail_templates
-        from app.models import Agent
-
-        # Get first agent (default)
-        agent = db.query(Agent).first()
-        if agent:
-            seed_direct_mail_templates(db, agent.id)
-            logger.info("✓ Direct mail templates seeded")
-        else:
-            logger.warning("⚠ No agent found - skipping direct mail template seeding")
-
-    except Exception as e:
-        logger.error(f"Error seeding direct mail templates: {e}")
-    finally:
-        db.close()
-
-    # ============================================================
-    # 4. Start Periodic Cache Cleanup
-    # ============================================================
-    cache_cleanup_task = asyncio.create_task(_periodic_cache_cleanup())
-    add_background_task(cache_cleanup_task)
-    logger.info("✓ Cache cleanup task started")
-
-    # ============================================================
-    # 5. Start Scheduled Task Runner (reminders, recurring tasks)
-    # ============================================================
-    from app.services.task_runner import run_task_loop
-    task_runner_task = asyncio.create_task(run_task_loop())
-    add_background_task(task_runner_task)
-    logger.info("✓ Task runner started")
-
-    # ============================================================
-    # 6. Start Voice Campaign Worker (if enabled)
-    # ============================================================
-    if settings.campaign_worker_enabled:
-        from app.services.voice_campaign_service import run_campaign_worker_loop
-
-        campaign_task = asyncio.create_task(
-            run_campaign_worker_loop(
-                interval_seconds=settings.campaign_worker_interval_seconds,
-                max_calls_per_campaign=settings.campaign_worker_max_calls_per_tick,
-            )
-        )
-        add_background_task(campaign_task)
-        logger.info("✓ Campaign worker started")
-    else:
-        logger.info("⏭ Campaign worker disabled")
-
-    # ============================================================
-    # 7. Schedule Daily Digest (if enabled)
-    # ============================================================
-    if settings.daily_digest_enabled:
-        _schedule_daily_digest()
-        logger.info("✓ Daily digest scheduled")
-    else:
-        logger.info("⏭ Daily digest disabled")
-
-    logger.info("✅ RealtorClaw Platform startup complete")
+    logger.info("✅ RealtorClaw Platform ready")
 
 
 @app.on_event("shutdown")
