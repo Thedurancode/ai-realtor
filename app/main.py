@@ -103,10 +103,13 @@ app.openapi = custom_openapi
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Parse CORS origins from environment variable
+CORS_ORIGINS = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3025", "http://localhost:3000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -408,20 +411,29 @@ def rate_limit_status():
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize background services on startup."""
+    """
+    Initialize all background services on startup.
+
+    This is the SINGLE startup handler for the application.
+    Merges all startup logic to ensure all services initialize properly.
+    """
     import logging
     from app.models.scheduled_task import ScheduledTask
 
     logger = logging.getLogger(__name__)
     logger.info("Starting RealtorClaw Platform...")
 
-    # Start cron scheduler in background
+    # ============================================================
+    # 1. Start Cron Scheduler
+    # ============================================================
     from app.services.cron_scheduler import cron_scheduler
 
     asyncio.create_task(cron_scheduler.start())
-    logger.info("Cron scheduler started")
+    logger.info("✓ Cron scheduler started")
 
-    # Create default scheduled tasks if they don't exist
+    # ============================================================
+    # 2. Create Default Scheduled Tasks (if they don't exist)
+    # ============================================================
     db = SessionLocal()
     try:
         from app.services.cron_scheduler import CRON_EXPRESSIONS
@@ -434,7 +446,7 @@ async def startup_event():
                 cron_expression=CRON_EXPRESSIONS["every_5_minutes"],
                 metadata={"description": "Full autonomous monitoring cycle"}
             )
-            logger.info("Scheduled heartbeat_cycle task")
+            logger.info("✓ Scheduled heartbeat_cycle task")
 
         # Portfolio scan every 5 minutes
         if not db.query(ScheduledTask).filter_by(name="portfolio_scan").first():
@@ -444,7 +456,7 @@ async def startup_event():
                 cron_expression=CRON_EXPRESSIONS["every_5_minutes"],
                 metadata={"description": "Scan portfolio for stale properties"}
             )
-            logger.info("Scheduled portfolio_scan task")
+            logger.info("✓ Scheduled portfolio_scan task")
 
         # Market intelligence every 15 minutes
         if not db.query(ScheduledTask).filter_by(name="market_intelligence").first():
@@ -454,7 +466,7 @@ async def startup_event():
                 cron_expression=CRON_EXPRESSIONS["every_15_minutes"],
                 metadata={"description": "Gather market intelligence"}
             )
-            logger.info("Scheduled market_intelligence task")
+            logger.info("✓ Scheduled market_intelligence task")
 
         # Relationship health every hour
         if not db.query(ScheduledTask).filter_by(name="relationship_health").first():
@@ -464,7 +476,7 @@ async def startup_event():
                 cron_expression=CRON_EXPRESSIONS["every_hour"],
                 metadata={"description": "Score relationship health"}
             )
-            logger.info("Scheduled relationship_health task")
+            logger.info("✓ Scheduled relationship_health task")
 
         # Predictive insights every hour
         if not db.query(ScheduledTask).filter_by(name="predictive_insights").first():
@@ -474,7 +486,7 @@ async def startup_event():
                 cron_expression=CRON_EXPRESSIONS["every_hour"],
                 metadata={"description": "Generate predictive insights"}
             )
-            logger.info("Scheduled predictive_insights task")
+            logger.info("✓ Scheduled predictive_insights task")
 
         db.commit()
 
@@ -484,7 +496,9 @@ async def startup_event():
     finally:
         db.close()
 
-    # Seed direct mail templates for default agent
+    # ============================================================
+    # 3. Seed Direct Mail Templates
+    # ============================================================
     db = SessionLocal()
     try:
         from app.templates.direct_mail import seed_direct_mail_templates
@@ -494,15 +508,54 @@ async def startup_event():
         agent = db.query(Agent).first()
         if agent:
             seed_direct_mail_templates(db, agent.id)
+            logger.info("✓ Direct mail templates seeded")
         else:
-            logger.warning("No agent found - skipping direct mail template seeding")
+            logger.warning("⚠ No agent found - skipping direct mail template seeding")
 
     except Exception as e:
         logger.error(f"Error seeding direct mail templates: {e}")
     finally:
         db.close()
 
-    logger.info("RealtorClaw Platform startup complete")
+    # ============================================================
+    # 4. Start Periodic Cache Cleanup
+    # ============================================================
+    asyncio.create_task(_periodic_cache_cleanup())
+    logger.info("✓ Cache cleanup task started")
+
+    # ============================================================
+    # 5. Start Scheduled Task Runner (reminders, recurring tasks)
+    # ============================================================
+    from app.services.task_runner import run_task_loop
+    asyncio.create_task(run_task_loop())
+    logger.info("✓ Task runner started")
+
+    # ============================================================
+    # 6. Start Voice Campaign Worker (if enabled)
+    # ============================================================
+    if settings.campaign_worker_enabled:
+        from app.services.voice_campaign_service import run_campaign_worker_loop
+
+        asyncio.create_task(
+            run_campaign_worker_loop(
+                interval_seconds=settings.campaign_worker_interval_seconds,
+                max_calls_per_campaign=settings.campaign_worker_max_calls_per_tick,
+            )
+        )
+        logger.info("✓ Campaign worker started")
+    else:
+        logger.info("⏭ Campaign worker disabled")
+
+    # ============================================================
+    # 7. Schedule Daily Digest (if enabled)
+    # ============================================================
+    if settings.daily_digest_enabled:
+        _schedule_daily_digest()
+        logger.info("✓ Daily digest scheduled")
+    else:
+        logger.info("⏭ Daily digest disabled")
+
+    logger.info("✅ RealtorClaw Platform startup complete")
 
 
 @app.on_event("shutdown")
@@ -561,29 +614,6 @@ async def _periodic_cache_cleanup():
         google_places_cache.cleanup_expired()
         zillow_cache.cleanup_expired()
         docuseal_cache.cleanup_expired()
-
-
-@app.on_event("startup")
-async def startup():
-    asyncio.create_task(_periodic_cache_cleanup())
-
-    # Scheduled task runner (reminders, recurring tasks)
-    from app.services.task_runner import run_task_loop
-    asyncio.create_task(run_task_loop())
-
-    if settings.campaign_worker_enabled:
-        from app.services.voice_campaign_service import run_campaign_worker_loop
-
-        asyncio.create_task(
-            run_campaign_worker_loop(
-                interval_seconds=settings.campaign_worker_interval_seconds,
-                max_calls_per_campaign=settings.campaign_worker_max_calls_per_tick,
-            )
-        )
-
-    # Auto-schedule daily digest if enabled
-    if settings.daily_digest_enabled:
-        _schedule_daily_digest()
 
 
 def _schedule_daily_digest():

@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str = ""  # ElevenLabs for text-to-speech
     openrouter_api_key: str = ""  # OpenRouter for Claude AI script generation
 
+    # CORS Configuration
+    cors_origins: str = "http://localhost:3025,http://localhost:3000,http://localhost:8000"
+
     class Config:
         env_file = ".env"
         extra = "ignore"
