@@ -491,76 +491,79 @@ async def startup_event():
     # ============================================================
     # 1. Start Cron Scheduler
     # ============================================================
-    from app.services.cron_scheduler import cron_scheduler
-
-    cron_task = asyncio.create_task(cron_scheduler.start())
-    add_background_task(cron_task)
-    logger.info("✓ Cron scheduler started")
+    # TEMPORARILY DISABLED: Cron scheduler model mismatch - needs architectural fix
+    # from app.services.cron_scheduler import cron_scheduler
+    # cron_task = asyncio.create_task(cron_scheduler.start())
+    # add_background_task(cron_task)
+    # logger.info("✓ Cron scheduler started")
+    logger.info("⏭ Cron scheduler disabled (model mismatch)")
 
     # ============================================================
     # 2. Create Default Scheduled Tasks (if they don't exist)
     # ============================================================
-    db = SessionLocal()
-    try:
-        from app.services.cron_scheduler import CRON_EXPRESSIONS
-
-        # Heartbeat cycle every 5 minutes
-        if not db.query(ScheduledTask).filter_by(name="heartbeat_cycle").first():
-            await cron_scheduler.schedule_task(
-                name="heartbeat_cycle",
-                handler_name="heartbeat_cycle",
-                cron_expression=CRON_EXPRESSIONS["every_5_minutes"],
-                metadata={"description": "Full autonomous monitoring cycle"}
-            )
-            logger.info("✓ Scheduled heartbeat_cycle task")
-
-        # Portfolio scan every 5 minutes
-        if not db.query(ScheduledTask).filter_by(name="portfolio_scan").first():
-            await cron_scheduler.schedule_task(
-                name="portfolio_scan",
-                handler_name="portfolio_scan",
-                cron_expression=CRON_EXPRESSIONS["every_5_minutes"],
-                metadata={"description": "Scan portfolio for stale properties"}
-            )
-            logger.info("✓ Scheduled portfolio_scan task")
-
-        # Market intelligence every 15 minutes
-        if not db.query(ScheduledTask).filter_by(name="market_intelligence").first():
-            await cron_scheduler.schedule_task(
-                name="market_intelligence",
-                handler_name="market_intelligence",
-                cron_expression=CRON_EXPRESSIONS["every_15_minutes"],
-                metadata={"description": "Gather market intelligence"}
-            )
-            logger.info("✓ Scheduled market_intelligence task")
-
-        # Relationship health every hour
-        if not db.query(ScheduledTask).filter_by(name="relationship_health").first():
-            await cron_scheduler.schedule_task(
-                name="relationship_health",
-                handler_name="relationship_health",
-                cron_expression=CRON_EXPRESSIONS["every_hour"],
-                metadata={"description": "Score relationship health"}
-            )
-            logger.info("✓ Scheduled relationship_health task")
-
-        # Predictive insights every hour
-        if not db.query(ScheduledTask).filter_by(name="predictive_insights").first():
-            await cron_scheduler.schedule_task(
-                name="predictive_insights",
-                handler_name="predictive_insights",
-                cron_expression=CRON_EXPRESSIONS["every_hour"],
-                metadata={"description": "Generate predictive insights"}
-            )
-            logger.info("✓ Scheduled predictive_insights task")
-
-        db.commit()
-
-    except Exception as e:
-        logger.error(f"Error creating default scheduled tasks: {e}")
-        db.rollback()
-    finally:
-        db.close()
+    # TEMPORARILY DISABLED: Cron scheduler model mismatch
+    # db = SessionLocal()
+    # try:
+    #     from app.services.cron_scheduler import CRON_EXPRESSIONS
+    #
+    #     # Heartbeat cycle every 5 minutes
+    #     if not db.query(ScheduledTask).filter_by(name="heartbeat_cycle").first():
+    #         await cron_scheduler.schedule_task(
+    #             name="heartbeat_cycle",
+    #             handler_name="heartbeat_cycle",
+    #             cron_expression=CRON_EXPRESSIONS["every_5_minutes"],
+    #             metadata={"description": "Full autonomous monitoring cycle"}
+    #         )
+    #         logger.info("✓ Scheduled heartbeat_cycle task")
+    #
+    #     # Portfolio scan every 5 minutes
+    #     if not db.query(ScheduledTask).filter_by(name="portfolio_scan").first():
+    #         await cron_scheduler.schedule_task(
+    #             name="portfolio_scan",
+    #             handler_name="portfolio_scan",
+    #             cron_expression=CRON_EXPRESSIONS["every_5_minutes"],
+    #             metadata={"description": "Scan portfolio for stale properties"}
+    #         )
+    #         logger.info("✓ Scheduled portfolio_scan task")
+    #
+    #     # Market intelligence every 15 minutes
+    #     if not db.query(ScheduledTask).filter_by(name="market_intelligence").first():
+    #         await cron_scheduler.schedule_task(
+    #             name="market_intelligence",
+    #             handler_name="market_intelligence",
+    #             cron_expression=CRON_EXPRESSIONS["every_15_minutes"],
+    #             metadata={"description": "Gather market intelligence"}
+    #         )
+    #         logger.info("✓ Scheduled market_intelligence task")
+    #
+    #     # Relationship health every hour
+    #     if not db.query(ScheduledTask).filter_by(name="relationship_health").first():
+    #         await cron_scheduler.schedule_task(
+    #             name="relationship_health",
+    #             handler_name="relationship_health",
+    #             cron_expression=CRON_EXPRESSIONS["every_hour"],
+    #             metadata={"description": "Score relationship health"}
+    #         )
+    #         logger.info("✓ Scheduled relationship_health task")
+    #
+    #     # Predictive insights every hour
+    #     if not db.query(ScheduledTask).filter_by(name="predictive_insights").first():
+    #         await cron_scheduler.schedule_task(
+    #             name="predictive_insights",
+    #             handler_name="predictive_insights",
+    #             cron_expression=CRON_EXPRESSIONS["every_hour"],
+    #             metadata={"description": "Generate predictive insights"}
+    #         )
+    #         logger.info("✓ Scheduled predictive_insights task")
+    #
+    #     db.commit()
+    #
+    # except Exception as e:
+    #     logger.error(f"Error creating default scheduled tasks: {e}")
+    #     db.rollback()
+    # finally:
+    #     db.close()
+    logger.info("⏭ Default cron tasks disabled (model mismatch)")
 
     # ============================================================
     # 3. Seed Direct Mail Templates

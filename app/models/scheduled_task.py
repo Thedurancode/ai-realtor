@@ -1,6 +1,6 @@
 """Scheduled task model for voice-created reminders and recurring automation."""
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Enum
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Enum, Boolean
 from sqlalchemy.types import JSON
 from sqlalchemy.sql import func
 import enum
@@ -17,10 +17,12 @@ class TaskType(str, enum.Enum):
 
 class TaskStatus(str, enum.Enum):
     PENDING = "pending"
+    SCHEDULED = "scheduled"
     RUNNING = "running"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     FAILED = "failed"
+    RETRYING = "retrying"
 
 
 class ScheduledTask(Base):
@@ -29,6 +31,8 @@ class ScheduledTask(Base):
     id = Column(Integer, primary_key=True, index=True)
     task_type = Column(Enum(TaskType, values_callable=lambda x: [e.value for e in x]), nullable=False, default=TaskType.REMINDER)
     status = Column(Enum(TaskStatus, values_callable=lambda x: [e.value for e in x]), nullable=False, default=TaskStatus.PENDING, index=True)
+    enabled = Column(Boolean, nullable=False, default=True, server_default="1")
+    name = Column(String(255), nullable=True, index=True)  # Optional unique identifier for scheduled tasks
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
 

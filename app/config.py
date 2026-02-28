@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     docuseal_api_key: str = ""
     docuseal_api_url: str = "https://api.docuseal.com"
     resend_api_key: str = ""
+    resend_from_email: str = "notifications@ai-realtor.com"
     from_email: str = "noreply@yourdomain.com"
     from_name: str = "Real Estate Contracts"
     rapidapi_key: str = ""

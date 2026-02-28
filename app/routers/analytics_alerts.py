@@ -248,6 +248,38 @@ def get_weekly_summary(agent_id: int, db: Session = Depends(get_db)):
     return summary
 
 
+@router.post("/summaries/daily/send")
+def send_daily_summary_email(
+    agent_id: int,
+    email: str,
+    db: Session = Depends(get_db)
+):
+    """Send daily analytics summary via email"""
+    service = AnalyticsAlertService(db)
+    success = service.send_daily_summary_email(agent_id, email)
+
+    if success:
+        return {"message": "Daily summary email sent successfully", "recipient": email}
+    else:
+        return {"message": "Failed to send daily summary email"}, 500
+
+
+@router.post("/summaries/weekly/send")
+def send_weekly_summary_email(
+    agent_id: int,
+    email: str,
+    db: Session = Depends(get_db)
+):
+    """Send weekly analytics summary via email"""
+    service = AnalyticsAlertService(db)
+    success = service.send_weekly_summary_email(agent_id, email)
+
+    if success:
+        return {"message": "Weekly summary email sent successfully", "recipient": email}
+    else:
+        return {"message": "Failed to send weekly summary email"}, 500
+
+
 @router.post("/defaults")
 def create_default_alerts(agent_id: int, db: Session = Depends(get_db)):
     """Create default alert rules for a new agent"""

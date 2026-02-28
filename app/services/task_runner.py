@@ -11,13 +11,15 @@ logger = logging.getLogger(__name__)
 
 TASK_LOOP_INTERVAL = 60  # seconds
 PIPELINE_CHECK_INTERVAL = 300  # 5 minutes
+ALERT_CHECK_INTERVAL = 600  # 10 minutes
 
 _last_pipeline_check = datetime.now(timezone.utc)
+_last_alert_check = datetime.now(timezone.utc)
 
 
 async def run_task_loop(interval_seconds: int = TASK_LOOP_INTERVAL):
     """Background loop that checks for due tasks."""
-    global _last_pipeline_check
+    global _last_pipeline_check, _last_alert_check
     from app.services.scheduled_task_service import scheduled_task_service
     from app.services.pipeline_automation_service import pipeline_automation_service
 
@@ -47,6 +49,20 @@ async def run_task_loop(interval_seconds: int = TASK_LOOP_INTERVAL):
                 except Exception as e:
                     logger.error("Pipeline check error: %s", e)
                 _last_pipeline_check = now
+
+            # Analytics alert check every 10 minutes
+            if (now - _last_alert_check).total_seconds() >= ALERT_CHECK_INTERVAL:
+                try:
+                    from app.services.analytics_alert_service import AnalyticsAlertService
+                    alert_service = AnalyticsAlertService(db)
+                    triggers = alert_service.check_alert_rules()
+                    if triggers:
+                        logger.info("Alert check: %d alerts triggered", len(triggers))
+                        for trigger in triggers:
+                            logger.info("  - Triggered: %s (rule %d)", trigger.message, trigger.alert_rule_id)
+                except Exception as e:
+                    logger.error("Alert check error: %s", e)
+                _last_alert_check = now
         except Exception as e:
             logger.error("Task loop error: %s", e)
         finally:

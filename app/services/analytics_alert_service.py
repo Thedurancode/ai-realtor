@@ -280,10 +280,38 @@ class AnalyticsAlertService:
         trigger.notifications_sent = notifications_sent
 
     def _send_email_notification(self, rule: AnalyticsAlertRule, trigger: AnalyticsAlertTrigger) -> bool:
-        """Send email notification"""
-        # TODO: Integrate with email service
-        print(f"📧 Email notification would be sent to {rule.notification_recipients}")
-        return True
+        """Send email notification via Resend"""
+        from app.services.email_service import email_service
+
+        # Get email recipients from notification_recipients
+        if not rule.notification_recipients:
+            print("⚠️ No email recipients configured")
+            return False
+
+        recipients = rule.notification_recipients.get("email")
+        if not recipients:
+            print("⚠️ No email recipients in notification_recipients.email")
+            return False
+
+        # Normalize to list
+        if isinstance(recipients, str):
+            recipients = [recipients]
+
+        # Get additional context for the email
+        additional_context = trigger.context.copy() if trigger.context else None
+        additional_context["rule_id"] = rule.id
+        additional_context["threshold"] = rule.threshold_value or rule.threshold_percent
+
+        # Send the alert email
+        return email_service.send_alert_notification(
+            to=recipients,
+            alert_name=rule.name,
+            alert_message=trigger.message,
+            metric_name=rule.metric_name,
+            metric_value=trigger.metric_value,
+            severity=rule.severity,
+            additional_context=additional_context
+        )
 
     def _send_slack_notification(self, rule: AnalyticsAlertRule, trigger: AnalyticsAlertTrigger) -> bool:
         """Send Slack notification"""
@@ -384,6 +412,76 @@ class AnalyticsAlertService:
             "traffic_sources": analytics.get_traffic_sources(self.db, agent_id, days=7),
             "geo_distribution": analytics.get_geo_distribution(self.db, agent_id, days=7)[:10],
         }
+
+    def send_daily_summary_email(
+        self,
+        agent_id: int,
+        recipient_email: str,
+        agent_name: Optional[str] = None
+    ) -> bool:
+        """
+        Generate and send daily analytics summary email.
+
+        Args:
+            agent_id: Agent ID to generate summary for
+            recipient_email: Email address to send summary to
+            agent_name: Agent's name (optional, will query if not provided)
+
+        Returns:
+            True if sent successfully
+        """
+        from app.services.email_service import email_service
+        from app.models.agent import Agent
+
+        # Get agent name if not provided
+        if not agent_name:
+            agent = self.db.query(Agent).filter(Agent.id == agent_id).first()
+            agent_name = agent.name if agent else "Agent"
+
+        # Generate summary
+        summary = self.generate_daily_summary(agent_id)
+
+        # Send email
+        return email_service.send_daily_summary(
+            to=recipient_email,
+            agent_name=agent_name,
+            summary=summary
+        )
+
+    def send_weekly_summary_email(
+        self,
+        agent_id: int,
+        recipient_email: str,
+        agent_name: Optional[str] = None
+    ) -> bool:
+        """
+        Generate and send weekly analytics summary email.
+
+        Args:
+            agent_id: Agent ID to generate summary for
+            recipient_email: Email address to send summary to
+            agent_name: Agent's name (optional, will query if not provided)
+
+        Returns:
+            True if sent successfully
+        """
+        from app.services.email_service import email_service
+        from app.models.agent import Agent
+
+        # Get agent name if not provided
+        if not agent_name:
+            agent = self.db.query(Agent).filter(Agent.id == agent_id).first()
+            agent_name = agent.name if agent else "Agent"
+
+        # Generate summary
+        summary = self.generate_weekly_summary(agent_id)
+
+        # Send email
+        return email_service.send_weekly_summary(
+            to=recipient_email,
+            agent_name=agent_name,
+            summary=summary
+        )
 
     def create_default_alerts(self, agent_id: int) -> List[AnalyticsAlertRule]:
         """Create default alert rules for a new agent"""
