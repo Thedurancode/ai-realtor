@@ -7,6 +7,7 @@ from app.database import Base
 from app.models.contact_lists import ContactList  # noqa: F401
 from app.models.analytics_event import AnalyticsEvent  # noqa: F401
 from app.models.dashboard import Dashboard  # noqa: F401
+from app.models.analytics_alert import AnalyticsAlertRule, AlertSubscription  # noqa: F401
 
 
 class Agent(Base):
@@ -47,3 +48,6 @@ class Agent(Base):
     # Analytics and dashboards
     analytics_events = relationship("AnalyticsEvent", back_populates="agent")
     dashboards = relationship("Dashboard", back_populates="agent")
+    # Analytics alerts and subscriptions
+    analytics_alerts = relationship("AnalyticsAlertRule", back_populates="agent")
+    alert_subscriptions = relationship("AlertSubscription", back_populates="agent")
