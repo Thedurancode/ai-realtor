@@ -52,6 +52,7 @@ class PropertyVideo(Base):
     id = Column(Integer, primary_key=True, index=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)
+    agent_profile_id = Column(Integer, ForeignKey("agent_video_profiles.id"), nullable=True)
 
     # Video configuration
     video_type = Column(String(50), nullable=False)  # VideoTypeEnum

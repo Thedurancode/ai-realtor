@@ -55,3 +55,4 @@ class Contact(Base):
     property = relationship("Property", back_populates="contacts")
     todos = relationship("Todo", back_populates="contact")
     contracts = relationship("Contract", back_populates="contact")
+    direct_mail_received = relationship("DirectMail", back_populates="contact")

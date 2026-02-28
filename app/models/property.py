@@ -91,3 +91,5 @@ class Property(Base):
     calendar_events = relationship("CalendarEvent", back_populates="property")
     # AI-generated websites for this property
     websites = relationship("PropertyWebsite", back_populates="property", cascade="all, delete-orphan")
+    # Direct mail campaigns for this property
+    direct_mail_campaigns = relationship("DirectMail", back_populates="property")
