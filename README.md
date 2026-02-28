@@ -543,20 +543,101 @@ Automated bulk calling with retry logic, rate limiting, and webhook-driven outco
 - **OpenAI Embeddings** — text-embedding-3-small (1536 dims) for vector search
 - **fpdf2** — PDF report generation
 
-### External APIs (12)
-| Service | Purpose |
-|---|---|
-| Google Places | Address autocomplete and geocoding |
-| Zillow (RapidAPI) | Property enrichment (photos, Zestimate, schools, tax/price history) |
-| Skip Trace (RapidAPI) | Owner contact discovery |
-| RentCast | Rental market data |
-| DocuSeal | E-signatures with webhook sync |
-| VAPI | AI phone calls (GPT-4 + 11Labs voice) |
-| ElevenLabs | Conversational AI agent with MCP tool access |
-| Exa | AI-powered web research |
-| Anthropic Claude | AI analysis across the platform |
-| OpenAI | Text embeddings for vector search |
-| Resend | Email delivery with PDF attachments |
+### External APIs (30+ Integrations)
+
+The AI Realtor platform integrates with **30+ external services** for comprehensive real estate automation.
+
+#### Property & Address (4)
+| Service | Purpose | Required |
+|---|---|---|
+| **Google Places API** | Address autocomplete, geocoding, verification | ✅ Yes |
+| **Zillow API** (RapidAPI) | Property enrichment (photos, Zestimates, schools, tax history) | Optional |
+| **Skip Trace API** (RapidAPI) | Owner contact discovery (phone, email, mailing) | Optional |
+| **Web Scraping** | Generic scraper + Zillow/Redfin/Realtor.com specialized | Optional |
+
+#### Voice & Phone (4)
+| Service | Purpose | Required |
+|---|---|---|
+| **VAPI** | AI phone calls with property context (GPT-4 + voice) | Optional |
+| **Telnyx** | Alternative phone provider (AMD, recording, calls) | Optional |
+| **ElevenLabs** | Text-to-speech for calls and videos | Optional |
+
+#### Contracts & Documents (2)
+| Service | Purpose | Required |
+|---|---|---|
+| **DocuSeal** | E-signatures with webhook sync | Optional |
+| **Anthropic Claude** | Contract analysis, AI suggestions, compliance | ✅ Yes |
+
+#### Email & Communication (2)
+| Service | Purpose | Required |
+|---|---|---|
+| **Resend** | Transactional emails (notifications, portal invites) | Optional |
+| **OpenAI** | Alternative LLM for some features | Optional |
+
+#### Direct Mail (1)
+| Service | Purpose | Required |
+|---|---|---|
+| **Lob.com** | Postcards, letters, checks via USPS | Optional |
+
+#### Calendar (1)
+| Service | Purpose | Required |
+|---|---|---|
+| **Google Calendar API** | OAuth sync for tasks, appointments, follow-ups | Optional |
+
+#### Marketing - Paid Ads (3)
+| Service | Purpose | Required |
+|---|---|---|
+| **Facebook Ads / Meta** | Ad campaigns, targeting, launch to Ads Manager | Optional |
+| **Postiz** | Multi-platform social posting (Facebook, Instagram, LinkedIn, TikTok, Twitter) | Optional |
+| **Zuckerbot AI** | AI-powered Facebook ad generation | Optional |
+
+#### Video Generation (5)
+| Service | Purpose | Required |
+|---|---|---|
+| **HeyGen** | AI avatar videos | Optional |
+| **D-ID** | Talking head videos | Optional |
+| **Replicate** | PixVerse video footage | Optional |
+| **Remotion** | Video rendering and assembly | Optional |
+
+#### AI & Research (3)
+| Service | Purpose | Required |
+|---|---|---|
+| **Exa AI** | AI-powered web research | Optional |
+| **RentCast** | Rental market data and comparables | Optional |
+| **OpenRouter** | LLM routing for video scripts | Optional |
+
+#### Storage & Infrastructure (3)
+| Service | Purpose | Required |
+|---|---|---|
+| **AWS S3** | Cloud storage for videos and assets | Optional |
+| **Redis** | Caching layer for performance | Optional |
+| **PostgreSQL / SQLite** | Primary database | ✅ Yes |
+
+#### Additional Integrations (5)
+| Service | Purpose | Required |
+|---|---|---|
+| **Composio** | External tool connections | Optional |
+| **Google OAuth** | Calendar authentication | Optional |
+| **GitHub Webhooks** | CI/CD triggers | Optional |
+
+---
+
+#### API Cost Estimates (Monthly)
+
+| Tier | Cost | Usage |
+|---|---|---|
+| **Free/Dev** | $100-300 | Minimal usage, free tiers |
+| **Production** | $500-1,500 | Moderate usage across all features |
+| **Enterprise** | $2,000-5,000+ | Heavy usage, all features enabled |
+
+**Major cost drivers:**
+- Claude Sonnet 4 (heavy usage for analysis)
+- VAPI phone calls (charged per minute)
+- Video generation (HeyGen, D-ID)
+- Direct mail (Lob.com per piece)
+- Facebook Ads spend (separate from platform costs)
+
+**All APIs are optional** - the platform functions with only the services you configure!
 
 ### Frontend
 - **Next.js 15** — React framework
@@ -634,49 +715,59 @@ Restart Claude Desktop. You should see 61 tools available.
 
 ## Environment Variables
 
+The platform uses **30+ external API integrations**. All are optional - configure only what you need.
+
+### Minimum Required (Core Features)
+
 ```bash
-# Database
-DATABASE_URL=postgresql://localhost:5432/ai_realtor
+# Database (Required)
+DATABASE_URL=postgresql://user:password@localhost:5432/ai_realtor
 
-# Google Places
-GOOGLE_PLACES_API_KEY=your_key
+# AI (Required)
+ANTHROPIC_API_KEY=sk-ant-your-key-here
 
-# Zillow & Skip Trace (RapidAPI)
-RAPIDAPI_KEY=your_key
-
-# Anthropic Claude
-ANTHROPIC_API_KEY=your_key
-
-# OpenAI (embeddings)
-OPENAI_API_KEY=your_key
-
-# DocuSeal (e-signatures)
-DOCUSEAL_API_KEY=your_key
-DOCUSEAL_WEBHOOK_SECRET=your_secret
-
-# VAPI (phone calls)
-VAPI_API_KEY=your_key
-VAPI_PHONE_NUMBER_ID=your_phone_id
-
-# ElevenLabs (voice AI)
-ELEVENLABS_API_KEY=your_key
-
-# Exa (web research)
-EXA_API_KEY=your_key
-
-# RentCast (rental data)
-RENTCAST_API_KEY=your_key
-
-# Resend (email)
-RESEND_API_KEY=your_key
-FROM_EMAIL=noreply@yourdomain.com
-FROM_NAME=Real Estate Contracts
-
-# Voice campaigns
-CAMPAIGN_WORKER_ENABLED=true
-CAMPAIGN_WORKER_INTERVAL_SECONDS=15
-CAMPAIGN_WORKER_MAX_CALLS_PER_TICK=5
+# Address Lookup (Required)
+GOOGLE_PLACES_API_KEY=your-google-places-api-key-here
 ```
+
+### Complete Configuration
+
+For all 30+ API integrations, see **`.env.example`** in the repository root.
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit with your API keys
+nano .env
+```
+
+The `.env.example` file includes:
+- All API keys with descriptions
+- Get setup links for each service
+- Usage requirements (optional vs required)
+- Cost estimates per tier
+- Feature-specific API requirements
+
+### Feature-Specific Requirements
+
+| Feature | Required APIs |
+|---|---|
+| **Property Management** | Google Places, Anthropic Claude |
+| **Property Enrichment** | Zillow (RapidAPI) |
+| **Skip Tracing** | Skip Trace (RapidAPI) |
+| **Contract E-Signatures** | DocuSeal |
+| **Phone Calls** | VAPI or Telnyx |
+| **Voice Generation** | ElevenLabs |
+| **Direct Mail** | Lob.com |
+| **Calendar Sync** | Google OAuth |
+| **Facebook Ads** | Meta Access Token |
+| **Social Media** | Postiz |
+| **Video Generation** | HeyGen, D-ID, Replicate |
+| **Research** | Exa AI |
+| **Email** | Resend |
+
+See `.env.example` for complete list with setup instructions.
 
 ---
 
