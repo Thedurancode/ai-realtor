@@ -5,10 +5,11 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
-from typing import List
+from typing import List, Dict
 import asyncio
 import json
 import os
+from functools import lru_cache
 
 from app.database import engine, Base, SessionLocal
 from app.config import settings
@@ -43,7 +44,7 @@ PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register", "/api/set
 
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
-    """Validate X-API-Key header on all non-public requests."""
+    """Validate X-API-Key header on all non-public requests with caching."""
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -56,11 +57,24 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         if not api_key:
             return JSONResponse(status_code=401, content={"detail": "Missing API key"})
 
+        # Check cache first (avoid DB hit on every request)
+        from app.auth import hash_api_key
+        key_hash = hash_api_key(api_key)
+        cached_agent_id = await get_cached_agent_id(key_hash)
+
+        if cached_agent_id:
+            request.state.agent_id = cached_agent_id
+            return await call_next(request)
+
+        # Cache miss - query database
         db = SessionLocal()
         try:
             agent = verify_api_key(db, api_key)
             if not agent:
                 return JSONResponse(status_code=401, content={"detail": "Invalid API key"})
+
+            # Cache the result for future requests
+            await cache_agent_id(key_hash, agent.id)
             request.state.agent_id = agent.id
         finally:
             db.close()
@@ -272,6 +286,47 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+# --- Background Task Management ---
+# Store task references to prevent garbage collection
+_background_tasks: List[asyncio.Task] = []
+
+
+def add_background_task(task: asyncio.Task) -> None:
+    """Add a background task and store its reference."""
+    _background_tasks.append(task)
+
+
+def get_background_tasks() -> List[asyncio.Task]:
+    """Get all background tasks."""
+    return _background_tasks.copy()
+
+
+# --- API Key Cache ---
+# Simple in-memory cache for API key verification
+_api_key_cache: Dict[str, int] = {}  # {api_key_hash: agent_id}
+_cache_lock = asyncio.Lock()
+
+
+async def get_cached_agent_id(api_key_hash: str) -> int | None:
+    """Get agent ID from cache."""
+    async with _cache_lock:
+        return _api_key_cache.get(api_key_hash)
+
+
+async def cache_agent_id(api_key_hash: str, agent_id: int) -> None:
+    """Cache agent ID for API key."""
+    async with _cache_lock:
+        _api_key_cache[api_key_hash] = agent_id
+
+
+def invalidate_api_key_cache(api_key_hash: str | None = None) -> None:
+    """Invalidate cache entry or clear entire cache."""
+    if api_key_hash:
+        _api_key_cache.pop(api_key_hash, None)
+    else:
+        _api_key_cache.clear()
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -428,7 +483,8 @@ async def startup_event():
     # ============================================================
     from app.services.cron_scheduler import cron_scheduler
 
-    asyncio.create_task(cron_scheduler.start())
+    cron_task = asyncio.create_task(cron_scheduler.start())
+    add_background_task(cron_task)
     logger.info("✓ Cron scheduler started")
 
     # ============================================================
@@ -520,14 +576,16 @@ async def startup_event():
     # ============================================================
     # 4. Start Periodic Cache Cleanup
     # ============================================================
-    asyncio.create_task(_periodic_cache_cleanup())
+    cache_cleanup_task = asyncio.create_task(_periodic_cache_cleanup())
+    add_background_task(cache_cleanup_task)
     logger.info("✓ Cache cleanup task started")
 
     # ============================================================
     # 5. Start Scheduled Task Runner (reminders, recurring tasks)
     # ============================================================
     from app.services.task_runner import run_task_loop
-    asyncio.create_task(run_task_loop())
+    task_runner_task = asyncio.create_task(run_task_loop())
+    add_background_task(task_runner_task)
     logger.info("✓ Task runner started")
 
     # ============================================================
@@ -536,12 +594,13 @@ async def startup_event():
     if settings.campaign_worker_enabled:
         from app.services.voice_campaign_service import run_campaign_worker_loop
 
-        asyncio.create_task(
+        campaign_task = asyncio.create_task(
             run_campaign_worker_loop(
                 interval_seconds=settings.campaign_worker_interval_seconds,
                 max_calls_per_campaign=settings.campaign_worker_max_calls_per_tick,
             )
         )
+        add_background_task(campaign_task)
         logger.info("✓ Campaign worker started")
     else:
         logger.info("⏭ Campaign worker disabled")

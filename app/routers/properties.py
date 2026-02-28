@@ -69,8 +69,8 @@ async def create_property(
     from app.services.watchlist_service import watchlist_service
     watchlist_service.check_and_notify(db, new_property)
 
-    # Schedule auto compliance check in 20 minutes
-    asyncio.create_task(schedule_compliance_check(new_property.id))
+    # Schedule auto compliance check in 20 minutes (use BackgroundTasks)
+    background_tasks.add_task(schedule_compliance_check, new_property.id)
 
     # Kick off auto-enrich pipeline in background
     background_tasks.add_task(run_auto_enrich_pipeline, new_property.id)
@@ -130,8 +130,8 @@ async def create_property_from_voice(
     from app.services.watchlist_service import watchlist_service
     watchlist_service.check_and_notify(db, new_property)
 
-    # Schedule auto compliance check in 20 minutes
-    asyncio.create_task(schedule_compliance_check(new_property.id))
+    # Schedule auto compliance check in 20 minutes (use BackgroundTasks)
+    background_tasks.add_task(schedule_compliance_check, new_property.id)
 
     # Kick off auto-enrich pipeline in background
     background_tasks.add_task(run_auto_enrich_pipeline, new_property.id)
