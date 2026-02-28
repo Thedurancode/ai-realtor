@@ -8,6 +8,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ENUM
 
 from app.database import Base
+# Import DirectMailCampaign to avoid relationship resolution issues
+from app.models.direct_mail import DirectMailCampaign  # noqa: F401
 
 
 class ListType(str):

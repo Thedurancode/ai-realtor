@@ -21,7 +21,8 @@ from app.schemas.property_video import (
     VideoGenerationStatusResponse
 )
 from app.services.enhanced_property_video_service import EnhancedPropertyVideoService
-from app.services.heygen_enhanced_service import create_agent_avatar
+# HeyGen service no longer used - using D-ID instead
+# from app.services.heygen_enhanced_service import create_agent_avatar as create_agent_avatar_service
 
 router = APIRouter(prefix="/enhanced-videos", tags=["Enhanced Property Videos"])
 
@@ -72,10 +73,10 @@ async def generate_property_video(
             detail=f"Agent video profile not found. Please create a profile first."
         )
 
-    if not profile.heygen_avatar_id:
+    if not profile.headshot_url:
         raise HTTPException(
             status_code=400,
-            detail=f"Agent profile missing custom avatar. Please create an avatar first."
+            detail=f"Agent profile missing headshot. Please upload a photo first."
         )
 
     # Create service and generate video (in background or sync)
@@ -129,11 +130,15 @@ async def _generate_video_background(
     video_type: str,
     style: str,
     duration: int,
-    db: Session
+    db: Session  # This parameter is ignored, we create our own session
 ):
     """Background task for video generation."""
-    service = EnhancedPropertyVideoService(db)
+    from app.database import SessionLocal
+
+    # Create a new database session for this background task
+    bg_db = SessionLocal()
     try:
+        service = EnhancedPropertyVideoService(bg_db)
         await service.generate_property_video(
             property_id=property_id,
             agent_id=agent_id,
@@ -143,6 +148,7 @@ async def _generate_video_background(
         )
     finally:
         await service.close()
+        bg_db.close()
 
 
 @router.get("/", response_model=List[PropertyVideoSummary])
@@ -356,10 +362,11 @@ async def create_agent_avatar(
     db: Session = Depends(get_db)
 ):
     """
-    Create custom HeyGen avatar from agent's photo.
+    Upload agent headshot for video generation.
 
-    This creates a personalized talking head avatar from the agent's photo.
-    Takes 1-3 minutes to process.
+    This stores the agent's photo which will be used as the intro frame
+    in property videos. The system will use D-ID for talking head videos
+    (if configured) or fall back to photo slideshows.
     """
     # Get agent
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
@@ -377,29 +384,21 @@ async def create_agent_avatar(
             detail="Please create an agent video profile first"
         )
 
-    # Create avatar
+    # Update profile with headshot (HeyGen avatar creation removed - we use D-ID or photo slideshow)
     try:
-        avatar_id = await create_agent_avatar(
-            agent_id=agent_id,
-            photo_url=photo_url,
-            agent_name=agent.name,
-            gender=gender
-        )
-
-        # Update profile
-        profile.heygen_avatar_id = avatar_id
         profile.headshot_url = photo_url
+        # Note: heygen_avatar_id field is kept for backward compatibility but no longer used
         db.commit()
 
         return {
-            "message": "Custom avatar created successfully",
-            "avatar_id": avatar_id,
+            "message": "Headshot updated successfully",
             "agent_id": agent_id,
-            "status": "processing"
+            "headshot_url": photo_url,
+            "status": "ready"
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Avatar creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
 
 
 # ============================================================================
@@ -415,26 +414,38 @@ async def estimate_cost(
     Estimate cost for video generation.
 
     Returns breakdown by component:
-    - HeyGen: $2.00 (intro + outro)
-    - PixVerse: ~$0.10 (5 clips × $0.02)
-    - ElevenLabs: ~$0.03 (1 minute voiceover)
-    - Assembly: ~$0.02 (S3 storage)
-    """
-    heygen_cost = 2.00
+    - D-ID Talking Heads: $2.00 (if configured, otherwise $0)
+    - PixVerse AI Footage: ~${:.2f} ({} clips × $0.02/clip)
+    - ElevenLabs Voiceover: ~$0.03 (1 minute)
+    - Assembly: ~$0.02 (processing + storage)
+    """.format(num_clips * 0.02, num_clips)
+
+    # D-ID cost (only if configured, otherwise 0)
+    did_cost = 0.0
+    # Check if D-ID is configured
+    import os
+    if os.getenv("DID_API_KEY"):
+        did_cost = 2.00
+
     pixverse_cost = num_clips * 0.02
     elevenlabs_cost = 0.03
     assembly_cost = 0.02
 
-    total = heygen_cost + pixverse_cost + elevenlabs_cost + assembly_cost
+    total = did_cost + pixverse_cost + elevenlabs_cost + assembly_cost
+
+    breakdown = {
+        "elevenlabs_voiceover": elevenlabs_cost,
+        "pixverse_footage": pixverse_cost,
+        "assembly": assembly_cost
+    }
+
+    # Only include D-ID if configured
+    if did_cost > 0:
+        breakdown["d_id_talking_heads"] = did_cost
 
     return {
         "estimated_cost": total,
-        "breakdown": {
-            "heygen": heygen_cost,
-            "pixverse": pixverse_cost,
-            "elevenlabs": elevenlabs_cost,
-            "assembly": assembly_cost
-        },
+        "breakdown": breakdown,
         "currency": "USD",
-        "note": "Costs are estimates and may vary"
+        "note": "Costs are estimates and may vary. D-ID talking heads require proper AWS SigV4 credentials."
     }

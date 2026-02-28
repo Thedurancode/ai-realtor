@@ -1,6 +1,6 @@
-# RealtorClaw API - Landing Page
+# AgentClaw API - Landing Page
 
-Modern, dark-themed SaaS landing page for RealtorClaw API.
+Modern, dark-themed SaaS landing page for AgentClaw API.
 
 ## Features
 
@@ -138,7 +138,7 @@ netlify deploy
 
 Add a `CNAME` file in the landing-page folder:
 ```
-api.realtorclaw.com
+api.agentclaw.com
 ```
 
 ## Performance
@@ -175,4 +175,4 @@ Add your analytics code to `index.html` before the closing `</body>` tag:
 
 ## License
 
-Included with RealtorClaw API license.
+Included with AgentClaw API license.

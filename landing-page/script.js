@@ -262,6 +262,6 @@ document.querySelectorAll('.pricing-card.featured').forEach(card => {
 });
 
 // Console Easter egg
-console.log('%c🦞 RealtorClaw API', 'font-size: 24px; font-weight: bold; color: #f97316;');
+console.log('%c🦞 AgentClaw API', 'font-size: 24px; font-weight: bold; color: #f97316;');
 console.log('%cTransform your real estate business with AI-powered automation', 'font-size: 14px; color: #a1a1aa;');
 console.log('%chttps://github.com/Thedurancode/ai-realtor', 'font-size: 12px; color: #71717a;');

@@ -11,7 +11,9 @@ from sqlalchemy.orm import Session
 from app.models.property import Property
 from app.models.agent_video_profile import AgentVideoProfile
 from app.models.property_video import PropertyVideo, VideoTypeEnum, VideoGenerationStatus
-from app.services.heygen_enhanced_service import HeyGenEnhancedService
+# D-ID service for talking head videos
+from app.services.did_service import DIDService
+# PixVerse for property footage (optional)
 from app.services.pixverse_service import PixVerseService
 from app.services.script_generator_enhanced import ScriptGeneratorService
 from app.services.video_assembler import VideoAssemblerService
@@ -35,8 +37,13 @@ class EnhancedPropertyVideoService:
 
     def __init__(self, db: Session):
         self.db = db
-        self.heygen = HeyGenEnhancedService()
-        self.pixverse = PixVerseService()
+        # D-ID for talking heads (optional - may not be configured)
+        self.did = DIDService()
+        # PixVerse for AI footage (optional - may not be configured)
+        try:
+            self.pixverse = PixVerseService()
+        except:
+            self.pixverse = None
         self.script_generator = ScriptGeneratorService()
         self.video_assembler = VideoAssemblerService()
 
@@ -74,7 +81,7 @@ class EnhancedPropertyVideoService:
         video = PropertyVideo(
             agent_id=agent_id,
             property_id=property_id,
-            video_type=video_type.value,
+            video_type=video_type,
             style=style,
             duration_target=duration_target,
             status=VideoGenerationStatus.DRAFT
@@ -91,7 +98,9 @@ class EnhancedPropertyVideoService:
                 style=style,
                 duration=duration_target
             )
-            video.generated_script = script
+            # Serialize script to JSON for database storage
+            import json
+            video.generated_script = json.dumps(script)
             self._update_status(video, VideoGenerationStatus.SCRIPT_COMPLETED)
             logger.info("Script generated successfully")
 
@@ -107,16 +116,22 @@ class EnhancedPropertyVideoService:
 
             # Step 4: Generate avatar intro
             self._update_status(video, VideoGenerationStatus.GENERATING_INTRO)
-            intro_script = agent_profile.default_intro_script or script["agent_intro"]
-            intro_video_url = await self._generate_avatar_video(
-                avatar_id=agent_profile.heygen_avatar_id,
-                script=intro_script,
-                voice_id=agent_profile.voice_id,
-                background_color=agent_profile.background_color
-            )
-            video.intro_video_url = intro_video_url
+            intro_video_url = None
+            try:
+                intro_script = agent_profile.default_intro_script or script["agent_intro"]
+                intro_video_url = await self._generate_avatar_video(
+                    headshot_url=agent_profile.headshot_url,
+                    script=intro_script,
+                    voice_id=agent_profile.voice_id,
+                    background_color=agent_profile.background_color
+                )
+                video.intro_video_url = intro_video_url
+                logger.info("Avatar intro generated successfully")
+            except Exception as e:
+                logger.warning(f"Avatar intro generation failed, continuing without it: {str(e)}")
+                video.intro_video_url = None
+
             self._update_status(video, VideoGenerationStatus.INTRO_COMPLETED)
-            logger.info("Avatar intro generated successfully")
 
             # Step 5: Generate property footage
             self._update_status(video, VideoGenerationStatus.GENERATING_FOOTAGE)
@@ -132,15 +147,20 @@ class EnhancedPropertyVideoService:
             logger.info(f"Generated {len(video.property_clips)} property clips")
 
             # Step 6: Generate avatar outro
-            outro_script = agent_profile.default_outro_script or script["call_to_action"]
-            outro_video_url = await self._generate_avatar_video(
-                avatar_id=agent_profile.heygen_avatar_id,
-                script=outro_script,
-                voice_id=agent_profile.voice_id,
-                background_color=agent_profile.background_color
-            )
-            video.outro_video_url = outro_video_url
-            logger.info("Avatar outro generated successfully")
+            outro_video_url = None
+            try:
+                outro_script = agent_profile.default_outro_script or script["call_to_action"]
+                outro_video_url = await self._generate_avatar_video(
+                    headshot_url=agent_profile.headshot_url,
+                    script=outro_script,
+                    voice_id=agent_profile.voice_id,
+                    background_color=agent_profile.background_color
+                )
+                video.outro_video_url = outro_video_url
+                logger.info("Avatar outro generated successfully")
+            except Exception as e:
+                logger.warning(f"Avatar outro generation failed, continuing without it: {str(e)}")
+                video.outro_video_url = None
 
             # Step 7: Assemble final video
             self._update_status(video, VideoGenerationStatus.ASSEMBLING_VIDEO)
@@ -151,7 +171,9 @@ class EnhancedPropertyVideoService:
                 property_clips=video.property_clips,
                 outro_video_url=outro_video_url,
                 voiceover_url=voiceover_url,
-                output_filename=output_filename
+                output_filename=output_filename,
+                property_photos=video.photos_used,
+                agent_headshot_url=agent_profile.headshot_url
             )
 
             video.final_video_url = assembly_result["final_video_url"]
@@ -212,6 +234,14 @@ class EnhancedPropertyVideoService:
                 else:
                     agent_info["agent_company"] = "Emprezario Inc"  # Default
 
+        # Handle property_type (could be enum or string)
+        property_type_value = "house"
+        if property.property_type:
+            if hasattr(property.property_type, 'value'):
+                property_type_value = property.property_type.value
+            else:
+                property_type_value = str(property.property_type)
+
         return {
             "address": property.address,
             "city": property.city,
@@ -220,8 +250,8 @@ class EnhancedPropertyVideoService:
             "price": property.price,
             "bedrooms": property.bedrooms,
             "bathrooms": property.bathrooms,
-            "square_feet": property.square_footage,
-            "property_type": property.property_type.value if property.property_type else "house",
+            "square_feet": property.square_feet or 0,
+            "property_type": property_type_value,
             "description": enrichment.description if enrichment else property.description or "",
             "year_built": enrichment.year_built if enrichment else None,
             "photos": photos,
@@ -247,9 +277,15 @@ class EnhancedPropertyVideoService:
         from elevenlabs import ElevenLabs
         import tempfile
         import os
+        from app.config import settings
+
+        # Get API key from settings (loads from .env)
+        api_key = settings.elevenlabs_api_key
+        if not api_key:
+            raise ValueError("ELEVENLABS_API_KEY not configured in settings")
 
         # Generate audio using ElevenLabs
-        client = ElevenLabs(api_key=self.db.bind.url.safe_url.split("@")[0].split("//")[1] if hasattr(self.db.bind.url, 'safe_url') else os.getenv("ELEVENLABS_API_KEY"))
+        client = ElevenLabs(api_key=api_key)
 
         try:
             # Generate speech
@@ -279,26 +315,48 @@ class EnhancedPropertyVideoService:
 
     async def _generate_avatar_video(
         self,
-        avatar_id: str,
+        headshot_url: str,
         script: str,
         voice_id: str,
         background_color: str
     ) -> str:
-        """Generate avatar video using HeyGen."""
-        result = await self.heygen.generate_talking_head(
-            avatar_id=avatar_id,
+        """Generate talking head video using D-ID."""
+        logger.info(f"Creating D-ID talking head video from {headshot_url}")
+
+        # Convert ElevenLabs voice_id to D-ID voice_id format
+        # D-ID uses format like "en-US-Jenny" for ElevenLabs voices
+        did_voice_id = voice_id  # D-ID uses similar voice IDs
+
+        result = await self.did.create_talking_head(
+            image_url=headshot_url,
             script=script,
-            voice_id=voice_id,
-            background_color=background_color,
-            aspect_ratio="16:9",
-            resolution="1080p"
+            voice_id=did_voice_id,
+            background_color=background_color
         )
 
         video_id = result["video_id"]
 
         # Wait for completion
-        completed = await self.heygen.wait_for_video(video_id, timeout=600)
-        return completed["video_url"]
+        logger.info(f"Waiting for D-ID video {video_id} to complete...")
+        completed = await self.did.wait_for_video(video_id, timeout=600)
+
+        video_url = completed.get("result_url")
+        if not video_url:
+            raise Exception(f"D-ID video completed but no result_url found")
+
+        # Download and save locally
+        video_content = await self.did.download_video(video_url)
+
+        # Save to local filesystem
+        import tempfile
+        import os
+        fd, temp_path = tempfile.mkstemp(suffix=".mp4")
+        os.close(fd)
+        with open(temp_path, "wb") as f:
+            f.write(video_content)
+
+        logger.info(f"D-ID video saved to {temp_path}")
+        return temp_path  # Return local path for assembly
 
     async def _generate_property_footage(
         self,
@@ -348,30 +406,34 @@ class EnhancedPropertyVideoService:
 
     async def _calculate_cost_breakdown(self, video: PropertyVideo) -> Dict:
         """Calculate cost breakdown by component."""
-        # HeyGen: 2 credits (intro + outro) × $1/credit = $2.00
-        heygen_cost = 2.00
+        breakdown = {}
 
-        # PixVerse: 5 clips × $0.02/clip = $0.10
-        num_clips = len(video.property_clips) if video.property_clips else 5
-        pixverse_cost = num_clips * 0.02
+        # D-ID talking heads (only if actually generated)
+        if video.intro_video_url and "d-id" in video.intro_video_url.lower():
+            breakdown["d_id_intro"] = 1.00  # ~$1 per video
+        if video.outro_video_url and "d-id" in video.outro_video_url.lower():
+            breakdown["d_id_outro"] = 1.00
 
-        # ElevenLabs: ~1 minute × $0.03/min = $0.03
-        elevenlabs_cost = 0.03
+        # PixVerse AI footage (only if succeeded)
+        num_clips = len([c for c in video.property_clips or [] if c])
+        if num_clips > 0:
+            breakdown["pixverse_footage"] = num_clips * 0.02
 
-        # Assembly: FFmpeg (free) + S3 storage (~$0.02/month)
-        assembly_cost = 0.02
+        # ElevenLabs voiceover
+        if video.voiceover_url:
+            breakdown["elevenlabs_voiceover"] = 0.03
 
-        return {
-            "heygen": heygen_cost,
-            "pixverse": pixverse_cost,
-            "elevenlabs": elevenlabs_cost,
-            "assembly": assembly_cost
-        }
+        # Assembly (FFmpeg processing + storage)
+        breakdown["assembly"] = 0.02
+
+        return breakdown
 
     async def close(self):
         """Close service connections."""
-        await self.heygen.close()
-        await self.pixverse.close()
+        if hasattr(self, 'did') and self.did:
+            await self.did.close()
+        if hasattr(self, 'pixverse') and self.pixverse:
+            await self.pixverse.close()
 
 
 # ============================================================================

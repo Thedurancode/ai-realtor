@@ -105,9 +105,9 @@ class DirectMail(Base):
     updated_at = Column(DateTime(timezone=True), onupdate="now()")
 
     # Relationships
-    agent = relationship("Agent", back_populates="direct_mail_campaigns")
-    property = relationship("Property", back_populates="direct_mail_campaigns")
-    contact = relationship("Contact", back_populates="direct_mail_received")
+    agent = relationship("Agent")
+    property = relationship("Property")
+    contact = relationship("Contact")
 
 
 class DirectMailTemplate(Base):

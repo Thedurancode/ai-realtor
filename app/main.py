@@ -39,7 +39,7 @@ import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 # Paths that don't require API key authentication
 PUBLIC_PATHS = frozenset(("/", "/docs", "/redoc", "/openapi.json", "/health", "/setup", "/rate-limit"))
-PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register", "/api/setup", "/composio/", "/portal/")
+PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register", "/api/setup", "/composio/", "/portal/", "/videos/")
 
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
@@ -234,6 +234,16 @@ app.include_router(telnyx.router)
 # Mount static files for timeline editor
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Mount video files directory for generated property videos (in project directory)
+video_dir = os.path.join(os.path.dirname(__file__), "..", "videos")
+video_dir = os.path.abspath(video_dir)
+if os.path.exists(video_dir):
+    app.mount("/videos", StaticFiles(directory=video_dir), name="videos")
+else:
+    # Create directory if it doesn't exist
+    os.makedirs(video_dir, exist_ok=True)
+    app.mount("/videos", StaticFiles(directory=video_dir), name="videos")
 
 
 # WebSocket connection manager

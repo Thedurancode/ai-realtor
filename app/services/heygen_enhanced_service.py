@@ -26,7 +26,7 @@ class HeyGenEnhancedService:
     """
 
     BASE_URL = "https://api.heygen.com"
-    API_VERSION = "v1"
+    API_VERSION = "v2"
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or settings.heygen_api_key

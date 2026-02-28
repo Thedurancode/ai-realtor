@@ -205,7 +205,7 @@ async def create_agent_and_payment(
                 'price_data': {
                     'currency': 'usd',
                     'product_data': {
-                        'name': f'RealtorClaw AI - {plan.capitalize()} Plan',
+                        'name': f'AgentClaw AI - {plan.capitalize()} Plan',
                         'description': f'One-time payment for {plan} plan' if plan != 'enterprise' else 'Annual enterprise plan',
                     },
                     'unit_amount': price * 100,  # Convert to cents

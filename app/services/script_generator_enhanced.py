@@ -92,7 +92,7 @@ PROPERTY DETAILS:
 - Bathrooms: {property_data.get('bathrooms', 'N/A')}
 - Square Feet: {property_data.get('square_feet', 'N/A')}
 - Property Type: {property_data.get('property_type', 'N/A')}
-- Description: {property_data.get('description', 'N/A')[:300]}
+- Description: {(property_data.get('description') or 'Beautiful property awaiting your discovery')[:300]}
 
 AGENT INFORMATION:
 - Agent Name: {property_data.get('agent_name', 'your agent')}
@@ -139,6 +139,25 @@ Generate the script now:"""
             response.raise_for_status()
             data = response.json()
 
+            # Validate response structure
+            if not data:
+                raise Exception("Empty response from OpenRouter API")
+
+            if "choices" not in data:
+                logger.error(f"Response missing 'choices': {data}")
+                raise Exception("Invalid API response format - missing 'choices'")
+
+            if not data["choices"]:
+                raise Exception("Empty choices array in API response")
+
+            if "message" not in data["choices"][0]:
+                logger.error(f"Choice missing 'message': {data['choices'][0]}")
+                raise Exception("Invalid API response format - missing 'message'")
+
+            if "content" not in data["choices"][0]["message"]:
+                logger.error(f"Message missing 'content': {data['choices'][0]['message']}")
+                raise Exception("Invalid API response format - missing 'content'")
+
             script_text = data["choices"][0]["message"]["content"]
 
             # Clean up any markdown code blocks
@@ -155,7 +174,8 @@ Generate the script now:"""
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse Claude response as JSON: {e}")
-            logger.error(f"Response text: {script_text}")
+            if 'script_text' in locals():
+                logger.error(f"Response text: {script_text[:500]}")
             raise Exception(f"Invalid JSON in script generation: {str(e)}")
         except Exception as e:
             logger.error(f"Script generation failed: {str(e)}")

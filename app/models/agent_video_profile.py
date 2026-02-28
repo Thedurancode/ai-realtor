@@ -43,7 +43,6 @@ class AgentVideoProfile(Base):
 
     # Relationships
     agent = relationship("Agent", back_populates="video_profile")
-    property_videos = relationship("PropertyVideo", back_populates="agent_profile")
 
 
 # Update Agent model to include relationship

@@ -1,6 +1,6 @@
 # Stripe Payment Integration Setup Guide
 
-This guide will help you configure Stripe payments for the RealtorClaw API landing page.
+This guide will help you configure Stripe payments for the AgentClaw API landing page.
 
 ## Prerequisites
 
@@ -24,19 +24,19 @@ This is the simplest method - create payment links in your Stripe Dashboard and 
 For each pricing tier, create a payment link:
 
 #### Starter Plan ($99 one-time)
-- **Name**: RealtorClaw API - Starter Plan
+- **Name**: AgentClaw API - Starter Plan
 - **Price**: $99 USD
 - **Payment type**: One-time
-- **Description**: Self-hosted RealtorClaw API - Complete platform access with 585+ endpoints and 262 voice commands
+- **Description**: Self-hosted AgentClaw API - Complete platform access with 585+ endpoints and 262 voice commands
 
 #### Professional Plan ($299 one-time)
-- **Name**: RealtorClaw API - Professional Plan
+- **Name**: AgentClaw API - Professional Plan
 - **Price**: $299 USD
 - **Payment type**: One-time
 - **Description**: Self-hosted with installation support and email assistance
 
 #### Enterprise Plan ($500/year)
-- **Name**: RealtorClaw API - Enterprise Plan
+- **Name**: AgentClaw API - Enterprise Plan
 - **Price**: $500 USD
 - **Payment type**: Recurring (yearly)
 - **Description**: Fully managed hosting, priority support, and 99.9% uptime SLA
@@ -99,17 +99,17 @@ async def create_checkout_session(request: CheckoutRequest):
     """
     plan_configs = {
         "starter": {
-            "name": "RealtorClaw API - Starter Plan",
+            "name": "AgentClaw API - Starter Plan",
             "price": 9900,  # $99 in cents
-            "description": "Self-hosted RealtorClaw API - Complete platform access"
+            "description": "Self-hosted AgentClaw API - Complete platform access"
         },
         "professional": {
-            "name": "RealtorClaw API - Professional Plan",
+            "name": "AgentClaw API - Professional Plan",
             "price": 29900,  # $299 in cents
             "description": "Self-hosted with installation support"
         },
         "enterprise": {
-            "name": "RealtorClaw API - Enterprise Plan",
+            "name": "AgentClaw API - Enterprise Plan",
             "price": 50000,  # $500 in cents
             "description": "Fully managed hosting and support"
         }

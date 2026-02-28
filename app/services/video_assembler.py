@@ -14,7 +14,6 @@ import subprocess
 import json
 
 from app.config import settings
-from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
@@ -35,24 +34,30 @@ class VideoAssemblerService:
     def __init__(self):
         self.temp_dir = Path(tempfile.gettempdir()) / "video_assembly"
         self.temp_dir.mkdir(exist_ok=True)
-        self.s3_bucket = settings.aws_s3_bucket
+        # Local storage directory instead of S3 (in project directory)
+        project_root = Path(__file__).parent.parent.parent  # Go up from app/services/ to project root
+        self.video_storage_dir = project_root / "videos"
+        self.video_storage_dir.mkdir(exist_ok=True, parents=True)
+        self.video_url_base = "/videos"  # Base URL for serving videos
 
     async def assemble_property_video(
         self,
-        intro_video_url: str,
+        intro_video_url: Optional[str],
         property_clips: List[str],
-        outro_video_url: str,
+        outro_video_url: Optional[str],
         voiceover_url: str,
         output_filename: str,
-        add_captions: bool = False
+        add_captions: bool = False,
+        property_photos: Optional[List[str]] = None,
+        agent_headshot_url: Optional[str] = None
     ) -> Dict:
         """
         Assemble final property video from all components.
 
         Args:
-            intro_video_url: Agent intro video URL (HeyGen)
+            intro_video_url: Agent intro video URL (HeyGen) - optional
             property_clips: List of property footage URLs (PixVerse)
-            outro_video_url: Call-to-action video URL (HeyGen)
+            outro_video_url: Call-to-action video URL (HeyGen) - optional
             voiceover_url: Voiceover audio URL (ElevenLabs)
             output_filename: Output filename
             add_captions: Add burned-in captions (future feature)
@@ -72,24 +77,58 @@ class VideoAssemblerService:
         logger.info(f"Assembling property video: {output_filename}")
 
         try:
+            # If no video clips but we have photos, create slideshow
+            if not property_clips and property_photos:
+                logger.info("No video clips available, creating slideshow from photos")
+                return await self._create_photo_slideshow(
+                    photo_urls=property_photos,
+                    voiceover_url=voiceover_url,
+                    output_filename=output_filename,
+                    agent_headshot_url=agent_headshot_url
+                )
+
             # Step 1: Download all components
             logger.info("Downloading video components...")
-            intro_path = await self._download_video(intro_video_url, "intro.mp4")
+            videos_to_concat = []
+
+            # Download intro if provided
+            if intro_video_url:
+                intro_path = await self._download_video(intro_video_url, "intro.mp4")
+                videos_to_concat.append(intro_path)
+            else:
+                logger.info("Skipping intro video (not provided)")
+                intro_path = None
+
+            # Download property clips
             clip_paths = [
                 await self._download_video(url, f"clip_{i}.mp4")
                 for i, url in enumerate(property_clips)
             ]
-            outro_path = await self._download_video(outro_video_url, "outro.mp4")
-            voiceover_path = await self._download_video(voiceover_url, "voiceover.mp3")
+            videos_to_concat.extend(clip_paths)
+
+            # Download outro if provided
+            if outro_video_url:
+                outro_path = await self._download_video(outro_video_url, "outro.mp4")
+                videos_to_concat.append(outro_path)
+            else:
+                logger.info("Skipping outro video (not provided)")
+                outro_path = None
+
+            # Handle voiceover (might be local file path or URL)
+            if voiceover_url.startswith('/'):
+                # It's a local file path
+                logger.info(f"Using local voiceover file: {voiceover_url}")
+                voiceover_path = Path(voiceover_url)
+            else:
+                # It's a URL, download it
+                voiceover_path = await self._download_video(voiceover_url, "voiceover.mp3")
 
             # Step 2: Create file list for concatenation
             logger.info("Preparing video concatenation...")
             concat_file = self.temp_dir / "concat_list.txt"
             with open(concat_file, "w") as f:
-                f.write(f"file '{intro_path.absolute()}'\n")
-                for clip_path in clip_paths:
-                    f.write(f"file '{clip_path.absolute()}'\n")
-                f.write(f"file '{outro_path.absolute()}'\n")
+                for video_path in videos_to_concat:
+                    f.write(f"file '{video_path.absolute()}'\n")
 
             # Step 3: Concatenate videos
             logger.info("Concatenating video clips...")
@@ -110,21 +149,27 @@ class VideoAssemblerService:
             thumbnail_path = self.temp_dir / thumbnail_filename
             thumbnail_url = await self._generate_thumbnail(final_output, thumbnail_path)
 
-            # Step 7: Upload to S3
-            logger.info("Uploading to S3...")
-            s3_url = await self._upload_to_s3(final_output, output_filename)
+            # Step 7: Save to local filesystem
+            logger.info("Saving to local filesystem...")
+            video_url = await self._save_to_local_filesystem(final_output, output_filename)
 
             # Step 8: Cleanup
             logger.info("Cleaning up temp files...")
-            paths_to_cleanup = [intro_path, *clip_paths, outro_path, voiceover_path, concat_output, final_output, thumbnail_path]
+            paths_to_cleanup = [voiceover_path, concat_output, final_output, thumbnail_path]
+            if intro_path:
+                paths_to_cleanup.append(intro_path)
+            paths_to_cleanup.extend(clip_paths)
+            if outro_path:
+                paths_to_cleanup.append(outro_path)
+
             for path in paths_to_cleanup:
                 path.unlink(missing_ok=True)
             concat_file.unlink(missing_ok=True)
 
-            logger.info(f"Video assembly complete: {s3_url}")
+            logger.info(f"Video assembly complete: {video_url}")
 
             return {
-                "final_video_url": s3_url,
+                "final_video_url": video_url,
                 "thumbnail_url": thumbnail_url,
                 "duration": metadata.get("duration", 0),
                 "file_size": metadata.get("size", 0),
@@ -282,40 +327,178 @@ class VideoAssemblerService:
             logger.warning(f"Thumbnail generation failed: {stderr.decode()}")
             return ""
 
-        # Upload thumbnail to S3
-        thumbnail_url = await self._upload_to_s3(output_path, output_path.name)
+        # Save thumbnail to local filesystem
+        thumbnail_url = await self._save_to_local_filesystem(output_path, output_path.name)
         return thumbnail_url
 
-    async def _upload_to_s3(self, file_path: Path, filename: str) -> str:
-        """Upload file to S3 and return presigned URL."""
+    async def _create_photo_slideshow(
+        self,
+        photo_urls: List[str],
+        voiceover_url: str,
+        output_filename: str,
+        agent_headshot_url: Optional[str] = None
+    ) -> Dict:
+        """
+        Create a slideshow video from property photos with voiceover.
+
+        This is a fallback when AI video generation fails.
+        Optionally includes agent headshot as intro frame.
+        """
+        logger.info(f"Creating photo slideshow with {len(photo_urls)} photos")
+
         try:
-            import boto3
+            # Download all photos
+            photo_paths = []
 
-            s3 = boto3.client(
-                's3',
-                aws_access_key_id=settings.aws_access_key_id,
-                aws_secret_access_key=settings.aws_secret_access_key,
-                region_name=settings.aws_region
+            # Add agent headshot as first frame if provided
+            if agent_headshot_url:
+                logger.info("Adding agent headshot as intro frame")
+                try:
+                    headshot_path = await self._download_video(agent_headshot_url, "agent_headshot.jpg")
+                    photo_paths.insert(0, headshot_path)  # Add at beginning
+                except Exception as e:
+                    logger.warning(f"Failed to download agent headshot: {str(e)}")
+
+            for i, url in enumerate(photo_urls):
+                photo_path = await self._download_video(url, f"photo_{i}.jpg")
+                photo_paths.append(photo_path)
+
+            # Download voiceover
+            if voiceover_url.startswith('/'):
+                voiceover_path = Path(voiceover_url)
+            else:
+                voiceover_path = await self._download_video(voiceover_url, "voiceover.mp3")
+
+            # Get voiceover duration
+            voiceover_duration = await self._get_audio_duration(voiceover_path)
+            photo_duration = voiceover_duration / len(photo_paths) if photo_paths else 5
+
+            # Create slideshow video
+            logger.info(f"Creating {photo_duration:.2f}s per photo slideshow")
+            slideshow_output = self.temp_dir / f"slideshow_{output_filename}"
+
+            # Build FFmpeg command for slideshow
+            # First, create concat file for photos with duration
+            photo_concat_file = self.temp_dir / "photo_concat.txt"
+            with open(photo_concat_file, "w") as f:
+                for photo_path in photo_paths:
+                    f.write(f"file '{photo_path.absolute()}'\n")
+                    f.write(f"duration {photo_duration:.2f}\n")
+                # Repeat last photo to fill remaining time
+                f.write(f"file '{photo_paths[-1].absolute()}'\n")
+
+            # Create video from photos
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", str(photo_concat_file),
+                "-vf", "fps=1/5,scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+                "-c:v", "libx264",
+                "-preset", "medium",
+                "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                "-t", str(voiceover_duration),
+                str(slideshow_output)
+            ]
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
 
-            s3_key = f"property-videos/{filename}"
-            s3.upload_file(str(file_path), self.s3_bucket, s3_key)
+            stdout, stderr = await process.communicate()
 
-            # Generate presigned URL (valid for 1 year)
-            url = s3.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': self.s3_bucket, 'Key': s3_key},
-                ExpiresIn=31536000  # 1 year
-            )
+            if process.returncode != 0:
+                logger.error(f"Slideshow creation error: {stderr.decode()}")
+                raise Exception("Failed to create photo slideshow")
 
-            return url
+            # Add voiceover
+            logger.info("Adding voiceover to slideshow")
+            final_output = self.temp_dir / f"final_{output_filename}"
+            await self._add_audio_track(slideshow_output, voiceover_path, final_output)
 
-        except ClientError as e:
-            logger.error(f"S3 upload failed: {str(e)}")
-            raise Exception(f"Failed to upload to S3: {str(e)}")
+            # Get metadata
+            metadata = await self._get_video_metadata(final_output)
+
+            # Generate thumbnail
+            thumbnail_filename = output_filename.replace(".mp4", "_thumb.jpg")
+            thumbnail_path = self.temp_dir / thumbnail_filename
+            thumbnail_url = await self._generate_thumbnail(final_output, thumbnail_path)
+
+            # Save to local filesystem
+            video_url = await self._save_to_local_filesystem(final_output, output_filename)
+
+            # Cleanup
+            paths_to_cleanup = photo_paths + [voiceover_path, slideshow_output, final_output, thumbnail_path]
+            for path in paths_to_cleanup:
+                path.unlink(missing_ok=True)
+            photo_concat_file.unlink(missing_ok=True)
+
+            logger.info(f"Photo slideshow complete: {video_url}")
+
+            return {
+                "final_video_url": video_url,
+                "thumbnail_url": thumbnail_url,
+                "duration": metadata.get("duration", 0),
+                "file_size": metadata.get("size", 0),
+                "resolution": metadata.get("resolution", "1080p")
+            }
+
         except Exception as e:
-            logger.error(f"Upload error: {str(e)}")
+            logger.error(f"Photo slideshow creation failed: {str(e)}")
             raise
+
+    async def _get_audio_duration(self, audio_path: Path) -> float:
+        """Get audio duration in seconds using FFprobe."""
+        cmd = [
+            "ffprobe",
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            str(audio_path)
+        ]
+
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, stderr = await process.communicate()
+
+        if process.returncode != 0:
+            logger.warning(f"FFprobe failed, using default duration: {stderr.decode()}")
+            return 60.0
+
+        try:
+            return float(stdout.decode().strip())
+        except:
+            return 60.0
+
+    async def _save_to_local_filesystem(self, file_path: Path, filename: str) -> str:
+        """Save file to local filesystem and return URL path."""
+        try:
+            # Create target path
+            target_path = self.video_storage_dir / filename
+
+            # Copy file to permanent storage
+            import shutil
+            shutil.copy2(str(file_path), str(target_path))
+
+            # Return relative URL path
+            url_path = f"{self.video_url_base}/{filename}"
+
+            logger.info(f"Saved {filename} to local filesystem: {target_path}")
+            logger.info(f"File size: {target_path.stat().st_size} bytes")
+
+            return url_path
+
+        except Exception as e:
+            logger.error(f"Local filesystem save failed: {str(e)}")
+            raise Exception(f"Failed to save video locally: {str(e)}")
 
     async def estimate_assembly_cost(
         self,
@@ -333,16 +516,9 @@ class VideoAssemblerService:
             Estimated cost in USD
         """
         # FFmpeg processing = free (self-hosted)
-        # S3 storage = ~$0.023/GB/month
-        # A 60-second 1080p video ≈ 50-100MB
-        avg_size_mb = duration_seconds * 1.5  # Estimate
-        storage_cost_per_month = (avg_size_mb / 1024) * 0.023
-
-        # S3 download cost = ~$0.0007/GB (first 10TB free for most)
-        download_cost = (avg_size_mb / 1024) * 0.0007
-
-        # Total negligible, but track for transparency
-        return storage_cost_per_month + download_cost
+        # Local filesystem storage = free (server disk space)
+        # Total assembly cost = $0.00
+        return 0.0
 
 
 # ============================================================================

@@ -59,7 +59,7 @@ class PropertyVideo(Base):
     duration_target = Column(Integer, default=60)  # Target duration in seconds
 
     # Generated content
-    generated_script = Column(Text, nullable=False)  # JSON script with sections
+    generated_script = Column(Text, nullable=True)  # JSON script with sections (filled after generation)
     voiceover_url = Column(String(500))  # ElevenLabs audio file URL
 
     # Avatar videos (HeyGen)
@@ -96,4 +96,3 @@ class PropertyVideo(Base):
     # Relationships
     agent = relationship("Agent")
     property = relationship("Property")
-    agent_profile = relationship("AgentVideoProfile", back_populates="property_videos")

@@ -3,6 +3,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+# Import ContactList to avoid relationship resolution issues
+from app.models.contact_lists import ContactList  # noqa: F401
 
 
 class Agent(Base):

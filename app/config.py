@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     # Enhanced Video Generation
     heygen_api_key: str = ""  # HeyGen API for avatar videos
+    did_api_key: str = ""  # D-ID API for talking head videos
     replicate_api_key: str = ""  # Replicate API for PixVerse footage
     elevenlabs_api_key: str = ""  # ElevenLabs for text-to-speech
     openrouter_api_key: str = ""  # OpenRouter for Claude AI script generation
