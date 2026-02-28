@@ -1,28 +1,34 @@
 ---
 name: ai-realtor
-description: Complete AI-powered real estate operations platform - 200+ endpoints for property management, contracts, deal scoring, marketing, and voice automation
-version: 1.0.0
+description: AI-powered real estate platform with 162+ voice commands for property management, contracts, analytics, marketing, calendar, and deal automation
+version: 2.0.0
 author: AI Realtor Team
+homepage: https://ai-realtor.fly.dev
 metadata:
   openclaw:
     emoji: "🏠"
     category: "real-estate"
-    tags: ["properties", "contracts", "ai", "automation", "marketing", "voice"]
+    tags: ["properties", "contracts", "ai", "automation", "marketing", "voice", "calendar", "analytics"]
     requires:
-      env: ["AI_REALTOR_API_URL", "AI_REALTOR_API_KEY"]
-      bins: ["curl"]
+      env: ["AI_REALTOR_API_URL"]
+      bins: ["curl", "jq"]
+      optional_env: ["AI_REALTOR_API_KEY"]
     priority: 90
     heartbeat:
       enabled: true
       interval: 3600
       check_endpoint: "/health"
+  nanobot:
+    emoji: "🏠"
+    category: "business"
+    tags: ["real-estate", "crm", "analytics", "voice", "automation", "marketing"]
 ---
 
 # 🏠 AI Realtor Platform
 
-**Complete backend for AI-powered real estate operations.**
+**Complete AI-powered real estate operations platform.**
 
-The AI Realtor API is a production-ready platform that turns any AI assistant into a full real estate operations center. Built for Clawbot/OpenClaw with 200+ endpoints, 145 voice commands, and 41 feature categories.
+The AI Realtor API is a production-ready platform that turns any AI assistant into a full real estate operations center. Built for nanobot/OpenClaw with **200+ REST endpoints**, **162 voice commands**, and **34 feature categories**.
 
 ## 🚀 Quick Start
 
@@ -95,7 +101,7 @@ Every property has a heartbeat showing:
 
 ---
 
-## 📱 Voice Commands (145 Total)
+## 📱 Voice Commands (162 Total)
 
 ### Property Management (7 commands)
 
