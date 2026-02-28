@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # CORS Configuration
     cors_origins: str = "http://localhost:3025,http://localhost:3000,http://localhost:8000"
 
+    # Customer Portal JWT Secret
+    portal_jwt_secret: str = "change-this-in-production-use-a-strong-random-secret"
+
     class Config:
         env_file = ".env"
         extra = "ignore"

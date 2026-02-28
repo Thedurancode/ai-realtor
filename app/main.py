@@ -255,12 +255,10 @@ if os.path.exists("static"):
 # Mount video files directory for generated property videos (in project directory)
 video_dir = os.path.join(os.path.dirname(__file__), "..", "videos")
 video_dir = os.path.abspath(video_dir)
-if os.path.exists(video_dir):
-    app.mount("/videos", StaticFiles(directory=video_dir), name="videos")
-else:
-    # Create directory if it doesn't exist
-    os.makedirs(video_dir, exist_ok=True)
-    app.mount("/videos", StaticFiles(directory=video_dir), name="videos")
+
+# Ensure directory exists (eliminates TOCTOU race condition)
+os.makedirs(video_dir, exist_ok=True)
+app.mount("/videos", StaticFiles(directory=video_dir), name="videos")
 
 
 # WebSocket connection manager
@@ -273,7 +271,12 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        """Safely remove websocket from active connections."""
+        try:
+            self.active_connections.remove(websocket)
+        except ValueError:
+            # Already removed or never was in the list
+            pass
 
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
@@ -389,13 +392,14 @@ def health_check():
     db_status = "healthy"
     db_error = None
 
+    db = SessionLocal()
     try:
-        db = SessionLocal()
         db.execute(text("SELECT 1"))
-        db.close()
     except Exception as e:
         db_status = "unhealthy"
         db_error = str(e)
+    finally:
+        db.close()
 
     # Get database type
     database_url = os.getenv("DATABASE_URL", "")

@@ -212,6 +212,12 @@ async def docuseal_webhook(
     else:
         logger.warning("DOCUSEAL_WEBHOOK_SECRET not set - skipping signature verification")
 
+    # Validate Content-Type
+    content_type = request.headers.get("content-type", "")
+    if not content_type.startswith("application/json"):
+        logger.error(f"Invalid Content-Type: {content_type}")
+        raise HTTPException(status_code=400, detail="Content-Type must be application/json")
+
     # Parse webhook payload
     try:
         event_data = await request.json()

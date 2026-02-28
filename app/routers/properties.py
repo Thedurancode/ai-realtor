@@ -52,10 +52,6 @@ async def create_property(
     # Keep enum instances (don't convert to strings) - SQLAlchemy will handle them
     # model_dump() returns enum instances by default in Pydantic v2
 
-    import sys
-    print(f"DEBUG: property_data['status'] = {property_data.get('status')!r}", file=sys.stderr)
-    print(f"DEBUG: property_data['property_type'] = {property_data.get('property_type')!r}", file=sys.stderr)
-
     new_property = Property(**property_data)
     new_property.pipeline_status = "pending"
     db.add(new_property)

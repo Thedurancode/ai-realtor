@@ -18,12 +18,13 @@ from app.models.property import Property
 from app.models.contract import Contract
 from app.models.agent import Agent
 from app.utils.property_resolver import resolve_property, resolve_property_list, format_property_match
+from app.config import settings
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 security = HTTPBearer()
 
 # JWT Configuration
-SECRET_KEY = "your-secret-key-change-in-production"  # TODO: Move to env
+SECRET_KEY = settings.portal_jwt_secret
 ALGORITHM = "HS256"
 
 
