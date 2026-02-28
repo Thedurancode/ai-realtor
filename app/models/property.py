@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 import enum
 
 from app.database import Base
+from app.models.analytics_event import AnalyticsEvent  # noqa: F401
 
 
 class PropertyStatus(str, enum.Enum):

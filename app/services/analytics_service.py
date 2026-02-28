@@ -250,14 +250,14 @@ class AnalyticsService:
     # Advanced Dashboard Features
     # ============================================================
 
-    def get_dashboard_overview(self, agent_id: int, days: int = 30) -> Dict[str, Any]:
+    def get_dashboard_overview(self, db: Session, agent_id: int, days: int = 30) -> Dict[str, Any]:
         """
         Get key performance indicators for the dashboard.
         """
         start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         # Event counts
-        property_views = self.db.query(func.count(AnalyticsEvent.id)).filter(
+        property_views = db.query(func.count(AnalyticsEvent.id)).filter(
             and_(
                 AnalyticsEvent.agent_id == agent_id,
                 AnalyticsEvent.event_type == "property_view",
@@ -265,7 +265,7 @@ class AnalyticsService:
             )
         ).scalar() or 0
 
-        leads_created = self.db.query(func.count(AnalyticsEvent.id)).filter(
+        leads_created = db.query(func.count(AnalyticsEvent.id)).filter(
             and_(
                 AnalyticsEvent.agent_id == agent_id,
                 AnalyticsEvent.event_type == "lead_created",
@@ -273,7 +273,7 @@ class AnalyticsService:
             )
         ).scalar() or 0
 
-        conversions = self.db.query(func.count(AnalyticsEvent.id)).filter(
+        conversions = db.query(func.count(AnalyticsEvent.id)).filter(
             and_(
                 AnalyticsEvent.agent_id == agent_id,
                 AnalyticsEvent.event_type == "conversion",
@@ -282,7 +282,7 @@ class AnalyticsService:
         ).scalar() or 0
 
         # Total value (revenue attribution)
-        total_value = self.db.query(func.sum(AnalyticsEvent.value)).filter(
+        total_value = db.query(func.sum(AnalyticsEvent.value)).filter(
             and_(
                 AnalyticsEvent.agent_id == agent_id,
                 AnalyticsEvent.created_at >= start_date
@@ -290,7 +290,7 @@ class AnalyticsService:
         ).scalar() or 0
 
         # Active properties
-        active_properties = self.db.query(func.count(Property.id)).filter(
+        active_properties = db.query(func.count(Property.id)).filter(
             and_(
                 Property.agent_id == agent_id,
                 Property.status != PropertyStatus.COMPLETE
@@ -298,17 +298,19 @@ class AnalyticsService:
         ).scalar() or 0
 
         # New properties this period
-        new_properties = self.db.query(func.count(Property.id)).filter(
+        new_properties = db.query(func.count(Property.id)).filter(
             and_(
                 Property.agent_id == agent_id,
                 Property.created_at >= start_date
             )
         ).scalar() or 0
 
-        # Contracts signed
-        contracts_signed = self.db.query(func.count(Contract.id)).filter(
+        # Contracts signed (join through Property)
+        contracts_signed = db.query(func.count(Contract.id)).join(
+            Property, Contract.property_id == Property.id
+        ).filter(
             and_(
-                Contract.agent_id == agent_id,
+                Property.agent_id == agent_id,
                 Contract.status == ContractStatus.COMPLETED,
                 Contract.updated_at >= start_date
             )
@@ -328,7 +330,7 @@ class AnalyticsService:
         }
 
     def get_events_trend(
-        self,
+        self, db: Session,
         agent_id: int,
         event_type: Optional[str] = None,
         days: int = 30,
@@ -337,7 +339,7 @@ class AnalyticsService:
         """Get event counts over time for line charts."""
         start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-        query = self.db.query(
+        query = db.query(
             func.date_trunc(granularity, AnalyticsEvent.created_at).label("date"),
             func.count(AnalyticsEvent.id).label("count")
         ).filter(
@@ -357,7 +359,7 @@ class AnalyticsService:
             for result in results
         ]
 
-    def get_conversion_funnel(self, agent_id: int, days: int = 30) -> List[Dict[str, Any]]:
+    def get_conversion_funnel(self, db: Session, agent_id: int, days: int = 30) -> List[Dict[str, Any]]:
         """Get conversion funnel data."""
         start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
@@ -372,7 +374,7 @@ class AnalyticsService:
         funnel_data = []
 
         for event_type, stage_name in stages:
-            count = self.db.query(func.count(AnalyticsEvent.id)).filter(
+            count = db.query(func.count(AnalyticsEvent.id)).filter(
                 and_(
                     AnalyticsEvent.agent_id == agent_id,
                     AnalyticsEvent.event_type == event_type,
@@ -380,11 +382,13 @@ class AnalyticsService:
                 )
             ).scalar() or 0
 
-            # For contact_added, count from contacts table
+            # For contact_added, count from contacts table (join through Property)
             if event_type == "contact_added":
-                count = self.db.query(func.count(Contact.id)).filter(
+                count = db.query(func.count(Contact.id)).join(
+                    Property, Contact.property_id == Property.id
+                ).filter(
                     and_(
-                        Contact.agent_id == agent_id,
+                        Property.agent_id == agent_id,
                         Contact.created_at >= start_date
                     )
                 ).scalar() or 0
@@ -393,11 +397,11 @@ class AnalyticsService:
 
         return funnel_data
 
-    def get_top_properties(self, agent_id: int, days: int = 30, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_top_properties(self, db: Session, agent_id: int, days: int = 30, limit: int = 10) -> List[Dict[str, Any]]:
         """Get most viewed properties."""
         start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-        results = self.db.query(
+        results = db.query(
             AnalyticsEvent.property_id,
             Property.address,
             Property.city,
@@ -431,11 +435,11 @@ class AnalyticsService:
             for result in results
         ]
 
-    def get_traffic_sources(self, agent_id: int, days: int = 30) -> List[Dict[str, Any]]:
+    def get_traffic_sources(self, db: Session, agent_id: int, days: int = 30) -> List[Dict[str, Any]]:
         """Get traffic breakdown by UTM source."""
         start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-        results = self.db.query(
+        results = db.query(
             func.coalesce(AnalyticsEvent.utm_source, "direct").label("source"),
             func.count(AnalyticsEvent.id).label("count")
         ).filter(
@@ -456,11 +460,11 @@ class AnalyticsService:
             for result in results
         ]
 
-    def get_geo_distribution(self, agent_id: int, days: int = 30) -> List[Dict[str, Any]]:
+    def get_geo_distribution(self, db: Session, agent_id: int, days: int = 30) -> List[Dict[str, Any]]:
         """Get lead distribution by city."""
         start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-        results = self.db.query(
+        results = db.query(
             Property.city,
             func.count(AnalyticsEvent.id).label("count")
         ).join(
@@ -479,7 +483,7 @@ class AnalyticsService:
         ]
 
     def get_chart_data(
-        self,
+        self, db: Session,
         agent_id: int,
         chart_type: str,
         dimension: str,
@@ -492,15 +496,15 @@ class AnalyticsService:
         Dimensions: property_views, leads_created, traffic_source, city
         """
         if chart_type == "line":
-            return self._get_line_chart(agent_id, dimension, days)
+            return self._get_line_chart(db, agent_id, dimension, days)
         elif chart_type == "pie":
-            return self._get_pie_chart(agent_id, dimension, days)
+            return self._get_pie_chart(db, agent_id, dimension, days)
         elif chart_type == "bar":
-            return self._get_bar_chart(agent_id, dimension, days)
+            return self._get_bar_chart(db, agent_id, dimension, days)
         else:
             return {"error": f"Unknown chart type: {chart_type}"}
 
-    def _get_line_chart(self, agent_id: int, metric: str, days: int) -> Dict[str, Any]:
+    def _get_line_chart(self, db: Session, agent_id: int, metric: str, days: int) -> Dict[str, Any]:
         """Get data for line charts."""
         event_type_mapping = {
             "property_views": "property_view",
@@ -509,7 +513,7 @@ class AnalyticsService:
         }
 
         event_type = event_type_mapping.get(metric, "property_view")
-        data = self.get_events_trend(agent_id, event_type, days)
+        data = self.get_events_trend(db, agent_id, event_type, days)
 
         return {
             "chart_type": "line",
@@ -517,10 +521,10 @@ class AnalyticsService:
             "data": data,
         }
 
-    def _get_pie_chart(self, agent_id: int, dimension: str, days: int) -> Dict[str, Any]:
+    def _get_pie_chart(self, db: Session, agent_id: int, dimension: str, days: int) -> Dict[str, Any]:
         """Get data for pie charts."""
         if dimension == "traffic_source":
-            traffic_data = self.get_traffic_sources(agent_id, days)
+            traffic_data = self.get_traffic_sources(db, agent_id, days)
             return {
                 "chart_type": "pie",
                 "dimension": dimension,
@@ -530,7 +534,7 @@ class AnalyticsService:
         elif dimension == "property_type":
             # Get property type distribution
             start_date = datetime.now(timezone.utc) - timedelta(days=days)
-            results = self.db.query(
+            results = db.query(
                 Property.property_type,
                 func.count(AnalyticsEvent.id).label("count")
             ).join(
@@ -550,7 +554,7 @@ class AnalyticsService:
                 "values": [result.count for result in results],
             }
         elif dimension == "city":
-            geo_data = self.get_geo_distribution(agent_id, days)
+            geo_data = self.get_geo_distribution(db, agent_id, days)
             return {
                 "chart_type": "pie",
                 "dimension": dimension,
@@ -560,10 +564,10 @@ class AnalyticsService:
         else:
             return {"error": f"Unknown dimension: {dimension}"}
 
-    def _get_bar_chart(self, agent_id: int, dimension: str, days: int) -> Dict[str, Any]:
+    def _get_bar_chart(self, db: Session, agent_id: int, dimension: str, days: int) -> Dict[str, Any]:
         """Get data for bar charts."""
         if dimension == "top_properties":
-            top_properties = self.get_top_properties(agent_id, days)
+            top_properties = self.get_top_properties(db, agent_id, days)
 
             return {
                 "chart_type": "bar",

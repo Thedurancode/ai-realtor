@@ -5,6 +5,8 @@ from sqlalchemy.sql import func
 from app.database import Base
 # Import ContactList to avoid relationship resolution issues
 from app.models.contact_lists import ContactList  # noqa: F401
+from app.models.analytics_event import AnalyticsEvent  # noqa: F401
+from app.models.dashboard import Dashboard  # noqa: F401
 
 
 class Agent(Base):
