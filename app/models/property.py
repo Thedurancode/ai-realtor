@@ -93,3 +93,5 @@ class Property(Base):
     websites = relationship("PropertyWebsite", back_populates="property", cascade="all, delete-orphan")
     # Direct mail campaigns for this property
     direct_mail_campaigns = relationship("DirectMail", back_populates="property")
+    # Analytics events tracking
+    analytics_events = relationship("AnalyticsEvent", back_populates="property")

@@ -27,6 +27,8 @@ from app.routers import agents_router, properties_router, address_router, skip_t
 from app.routers import portal, document_extraction
 # Calendar Integration
 from app.routers import calendar
+# Advanced Analytics Dashboard
+from app.routers import analytics_dashboard
 # Property Videos with Voiceover
 from app.routers import property_videos
 # Temporarily disabled: timeline_router (import errors)
@@ -167,6 +169,7 @@ app.include_router(property_notes_router)
 app.include_router(insights_router)
 app.include_router(scheduled_tasks_router)
 app.include_router(analytics_router)
+app.include_router(analytics_dashboard.router)
 app.include_router(pipeline_router)
 app.include_router(daily_digest_router)
 app.include_router(follow_ups_router)

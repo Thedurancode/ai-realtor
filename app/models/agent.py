@@ -42,3 +42,6 @@ class Agent(Base):
     websites = relationship("PropertyWebsite", back_populates="agent")
     # Direct mail campaigns
     direct_mail_campaigns = relationship("DirectMail", back_populates="agent")
+    # Analytics and dashboards
+    analytics_events = relationship("AnalyticsEvent", back_populates="agent")
+    dashboards = relationship("Dashboard", back_populates="agent")
