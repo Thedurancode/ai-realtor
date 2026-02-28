@@ -9,21 +9,12 @@ from app.database import get_db
 from app.models.notification import Notification, NotificationType, NotificationPriority
 from app.services.notification_service import notification_service
 from app.schemas.notification import NotificationCreate, NotificationResponse
+from app.utils.websocket import get_ws_manager
 
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
-# Helper function to get WebSocket manager
-def get_ws_manager():
-    """Get WebSocket manager from main module"""
-    try:
-        import sys
-        if 'app.main' in sys.modules:
-            return sys.modules['app.main'].manager
-    except:
-        pass
-    return None
 
 
 @router.get("/", response_model=List[NotificationResponse])

@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     # Customer Portal JWT Secret
     portal_jwt_secret: str = "change-this-in-production-use-a-strong-random-secret"
 
+    # Customer Portal URL (for email links)
+    portal_url: str = "http://localhost:3025"
+
     class Config:
         env_file = ".env"
         extra = "ignore"

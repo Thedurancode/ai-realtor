@@ -21,20 +21,9 @@ from app.services.contract_auto_attach import contract_auto_attach_service
 from app.services.deal_type_service import apply_deal_type, get_deal_type_summary
 from app.services.scheduled_compliance import schedule_compliance_check
 from app.services.property_pipeline_service import run_auto_enrich_pipeline
+from app.utils.websocket import get_ws_manager
 
 router = APIRouter(prefix="/properties", tags=["properties"])
-
-
-# Helper function to get WebSocket manager
-def get_ws_manager():
-    """Get WebSocket manager from main module"""
-    try:
-        import sys
-        if 'app.main' in sys.modules:
-            return sys.modules['app.main'].manager
-    except:
-        pass
-    return None
 
 
 @router.post("/", response_model=PropertyResponse, status_code=201)

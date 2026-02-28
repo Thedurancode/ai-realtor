@@ -133,31 +133,33 @@ class AnalyticsService:
                 ConversationHistory.created_at >= cutoff
             ).scalar() or 0
 
-        # Most active properties (last 7 days)
+        # Most active properties (last 7 days) - FIXED: Use joinedload to avoid N+1
         week_ago = now - timedelta(days=7)
         most_active = (
             db.query(
                 ConversationHistory.property_id,
                 func.count(ConversationHistory.id).label("action_count"),
+                Property.address,
             )
+            .join(Property, ConversationHistory.property_id == Property.id)
             .filter(
                 ConversationHistory.property_id.isnot(None),
                 ConversationHistory.created_at >= week_ago,
             )
-            .group_by(ConversationHistory.property_id)
+            .group_by(ConversationHistory.property_id, Property.address)
             .order_by(func.count(ConversationHistory.id).desc())
             .limit(5)
             .all()
         )
 
-        most_active_list = []
-        for row in most_active:
-            prop = db.query(Property).filter(Property.id == row.property_id).first()
-            most_active_list.append({
+        most_active_list = [
+            {
                 "property_id": row.property_id,
-                "address": prop.address if prop else "Unknown",
+                "address": row.address,
                 "action_count": row.action_count,
-            })
+            }
+            for row in most_active
+        ]
 
         return {
             "last_24h": count_since(24),

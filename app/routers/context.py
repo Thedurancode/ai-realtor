@@ -20,20 +20,9 @@ from app.models.skip_trace import SkipTrace
 from app.services.zillow_enrichment import zillow_enrichment_service
 from app.models.zillow_enrichment import ZillowEnrichment
 from app.services.memory_graph import MemoryRef, memory_graph_service
+from app.utils.websocket import get_ws_manager
 
 router = APIRouter(prefix="/context", tags=["context"])
-
-
-# Helper function to get WebSocket manager (avoids circular import)
-def get_ws_manager():
-    """Get WebSocket manager from main module"""
-    try:
-        import sys
-        if 'app.main' in sys.modules:
-            return sys.modules['app.main'].manager
-    except:
-        pass
-    return None
 
 
 class ContextPropertyCreate(BaseModel):

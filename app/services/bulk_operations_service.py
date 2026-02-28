@@ -183,13 +183,20 @@ class BulkOperationsService:
         svc = _get_zillow_service()
         results: list[dict] = []
 
+        # FIXED: Batch load all enrichments to avoid N+1 queries
+        prop_ids = [p.id for p in properties]
+        enrichments = db.query(ZillowEnrichment).filter(
+            ZillowEnrichment.property_id.in_(prop_ids)
+        ).all()
+        enrichment_map = {e.property_id: e for e in enrichments}
+
         for prop in properties:
             try:
-                if not force:
-                    existing = db.query(ZillowEnrichment).filter(ZillowEnrichment.property_id == prop.id).first()
-                    if existing and existing.zestimate:
-                        results.append({"property_id": prop.id, "address": prop.address, "status": "skipped", "detail": "Already enriched"})
-                        continue
+                existing = enrichment_map.get(prop.id)
+
+                if not force and existing and existing.zestimate:
+                    results.append({"property_id": prop.id, "address": prop.address, "status": "skipped", "detail": "Already enriched"})
+                    continue
 
                 full_address = f"{prop.address}, {prop.city}, {prop.state} {prop.zip_code or ''}".strip()
                 data = await svc.enrich_by_address(full_address)
@@ -198,7 +205,6 @@ class BulkOperationsService:
                 rent_zestimate = data.get("rent_zestimate") or data.get("rentZestimate")
                 zpid = data.get("zpid")
 
-                existing = db.query(ZillowEnrichment).filter(ZillowEnrichment.property_id == prop.id).first()
                 if existing:
                     existing.zestimate = zestimate
                     existing.rent_zestimate = rent_zestimate
@@ -222,6 +228,7 @@ class BulkOperationsService:
                         price_history=data.get("price_history") or data.get("priceHistory"),
                     )
                     db.add(new_e)
+                    enrichment_map[prop.id] = new_e  # Update map for potential re-use
 
                 db.commit()
                 detail = f"Zestimate: ${zestimate:,.0f}" if zestimate else "Enriched (no Zestimate)"
@@ -238,13 +245,20 @@ class BulkOperationsService:
         svc = _get_skip_trace_service()
         results: list[dict] = []
 
+        # FIXED: Batch load all skip traces to avoid N+1 queries
+        prop_ids = [p.id for p in properties]
+        skip_traces = db.query(SkipTrace).filter(
+            SkipTrace.property_id.in_(prop_ids)
+        ).all()
+        skip_trace_map = {st.property_id: st for st in skip_traces}
+
         for prop in properties:
             try:
-                if not force:
-                    existing = db.query(SkipTrace).filter(SkipTrace.property_id == prop.id).first()
-                    if existing and existing.owner_name and existing.owner_name != "Unknown":
-                        results.append({"property_id": prop.id, "address": prop.address, "status": "skipped", "detail": f"Already traced: {existing.owner_name}"})
-                        continue
+                existing = skip_trace_map.get(prop.id)
+
+                if not force and existing and existing.owner_name and existing.owner_name != "Unknown":
+                    results.append({"property_id": prop.id, "address": prop.address, "status": "skipped", "detail": f"Already traced: {existing.owner_name}"})
+                    continue
 
                 data = await svc.skip_trace(
                     address=prop.address,
@@ -257,7 +271,6 @@ class BulkOperationsService:
                 phones = data.get("phone_numbers", [])
                 emails = data.get("email_addresses", data.get("emails", []))
 
-                existing = db.query(SkipTrace).filter(SkipTrace.property_id == prop.id).first()
                 if existing:
                     existing.owner_name = owner_name
                     existing.phone_numbers = phones

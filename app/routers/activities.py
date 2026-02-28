@@ -9,21 +9,12 @@ import json
 from app.database import get_db
 from app.models.activity_event import ActivityEvent, ActivityEventType, ActivityEventStatus
 from app.schemas.activity import ActivityEventCreate, ActivityEventUpdate, ActivityEventResponse
+from app.utils.websocket import get_ws_manager
 
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 
 
-# Helper function to get WebSocket manager
-def get_ws_manager():
-    """Get WebSocket manager from main module"""
-    try:
-        import sys
-        if 'app.main' in sys.modules:
-            return sys.modules['app.main'].manager
-    except:
-        pass
-    return None
 
 
 @router.post("/log", response_model=ActivityEventResponse)

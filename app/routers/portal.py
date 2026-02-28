@@ -19,6 +19,7 @@ from app.models.contract import Contract
 from app.models.agent import Agent
 from app.utils.property_resolver import resolve_property, resolve_property_list, format_property_match
 from app.config import settings
+from app.services.email_service import email_service
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 security = HTTPBearer()
@@ -150,7 +151,28 @@ async def register(user_data: PortalUserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    # TODO: Send verification email
+    # Send verification email
+    if email_service.enabled:
+        verification_link = f"{settings.portal_url}/verify?token={user.verification_token}"
+        email_service.send_email(
+            to=user.email,
+            subject="Verify Your Email Address",
+            html_content=f"""
+            <h2>Welcome to AI Realtor Portal!</h2>
+            <p>Hi {user.full_name or user.email.split('@')[0]},</p>
+            <p>Thank you for registering as a {user_data.client_type}.</p>
+            <p>Please click the link below to verify your email address:</p>
+            <p><a href="{verification_link}" style="background:#3b82f6;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;margin:16px 0;">Verify Email</a></p>
+            <p>Or copy this link: {verification_link}</p>
+            <p>This link will expire in 24 hours.</p>
+            <p>Welcome aboard!<br>The AI Realtor Team</p>
+            """,
+            tags=[{"name": "portal", "value": "verification"}]
+        )
+    else:
+        # Log if email service not configured
+        import logging
+        logging.warning(f"Email service disabled - verification email not sent to {user.email}")
 
     log_activity(db, user.id, "register", metadata=f"Registered as {user_data.client_type}")
 
@@ -589,7 +611,28 @@ async def grant_property_access(
         db.commit()
         db.refresh(user)
 
-        # TODO: Send invitation email with temp password
+        # Send invitation email with temporary password
+        if email_service.enabled:
+            login_link = f"{settings.portal_url}/login"
+            email_service.send_email(
+                to=user.email,
+                subject="Welcome to AI Realtor Portal - Your Account is Ready",
+                html_content=f"""
+                <h2>Welcome to AI Realtor Portal!</h2>
+                <p>An account has been created for you to access your property information.</p>
+                <p><strong>Temporary Password:</strong> <code style="background:#f3f4f6;padding:8px 12px;border-radius:4px;font-size:16px;">{temp_password}</code></p>
+                <p>Please log in and change your password immediately.</p>
+                <p><a href="{login_link}" style="background:#3b82f6;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;margin:16px 0;">Log In to Portal</a></p>
+                <p>Or visit: {login_link}</p>
+                <p><strong>Important:</strong> For security, please change your password after your first login.</p>
+                <p>Welcome aboard!<br>The AI Realtor Team</p>
+                """,
+                tags=[{"name": "portal", "value": "invitation"}]
+            )
+        else:
+            # Log if email service not configured
+            import logging
+            logging.warning(f"Email service disabled - invitation email not sent to {user.email}")
 
     # Check if access already exists
     existing_access = db.query(PropertyAccess).filter(

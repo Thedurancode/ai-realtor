@@ -39,20 +39,11 @@ from app.services.conversation_context import get_context, persist_context_to_gr
 from app.services.memory_graph import memory_graph_service
 from app.models.contract_template import ContractRequirement, ContractTemplate
 from app.models.contract import RequirementSource
+from app.utils.websocket import get_ws_manager
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
 
-# Helper function to get WebSocket manager
-def get_ws_manager():
-    """Get WebSocket manager from main module"""
-    try:
-        import sys
-        if 'app.main' in sys.modules:
-            return sys.modules['app.main'].manager
-    except:
-        pass
-    return None
 
 
 @router.get("/", response_model=list[ContractResponse])
