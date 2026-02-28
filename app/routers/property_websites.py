@@ -4,7 +4,7 @@ Property Website Builder API
 AI-powered landing page generation for properties
 Voice-activated: "Create a landing page for property 5"
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, Form, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
@@ -455,6 +455,7 @@ async def view_published_website(
 @router.post("/view/{website_slug}/submit", include_in_schema=False)
 async def submit_contact_form(
     website_slug: str,
+    request: Request,  # Add to get visitor info
     name: str = Form(...),
     email: str = Form(...),
     phone: Optional[str] = Form(None),
@@ -464,7 +465,13 @@ async def submit_contact_form(
     """
     Public endpoint to submit contact form from published website
 
-    Tracks submission as analytics event and returns success response
+    Automatically:
+    - Tracks submission as analytics event
+    - Creates Contact record in database
+    - Sends notification to agent
+    - Sends confirmation email to submitter (if configured)
+
+    Default behavior - no configuration needed!
     """
 
     # Find website by slug
@@ -479,7 +486,16 @@ async def submit_contact_form(
     if not website.is_published or not website.is_active:
         raise HTTPException(status_code=404, detail="Website is not available")
 
-    # Track form submission
+    from app.models.contact import Contact, ContactRole
+    from app.models.notification import Notification, NotificationType, NotificationPriority
+    from app.services.email_service import email_service
+
+    # Get visitor info
+    visitor_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent", "")
+    referrer = request.headers.get("referer", "")
+
+    # 1. Track form submission as analytics event
     analytics = WebsiteAnalytics(
         website_id=website.id,
         event_type="contact_form_submit",
@@ -489,18 +505,105 @@ async def submit_contact_form(
             "phone": phone,
             "message": message
         },
+        visitor_ip=visitor_ip,
+        user_agent=user_agent,
+        referrer=referrer,
         created_at=datetime.utcnow()
     )
     db.add(analytics)
+
+    # 2. Create Contact record (auto-linked to property)
+    # Check if contact with this email already exists for this property
+    existing_contact = db.query(Contact).filter(
+        Contact.property_id == website.property_id,
+        Contact.email == email
+    ).first()
+
+    if not existing_contact:
+        contact = Contact(
+            property_id=website.property_id,
+            name=name,
+            email=email,
+            phone=phone,
+            role=ContactRole.BUYER,  # Default to buyer for website inquiries
+            notes=f"Submitted via website landing page: {website.website_name}\n\nMessage: {message or 'No message provided'}"
+        )
+        db.add(contact)
+        db.flush()  # Get contact.id without committing yet
+    else:
+        # Update existing contact with new inquiry
+        contact = existing_contact
+        if not contact.phone and phone:
+            contact.phone = phone
+        existing_notes = contact.notes or ""
+        contact.notes = f"{existing_notes}\n\n--- New Inquiry ---\nSubmitted via website: {website.website_name}\nMessage: {message or 'No message provided'}"
+
+    # 3. Create notification for agent
+    notification = Notification(
+        agent_id=website.agent_id,
+        type=NotificationType.NEW_LEAD,
+        priority=NotificationPriority.HIGH,
+        title=f"New Lead from Website: {name}",
+        message=f"{name} ({email}) submitted an inquiry via the landing page for {website.website_name}.\n\nPhone: {phone or 'Not provided'}\nMessage: {message or 'No message provided'}",
+        property_id=website.property_id,
+        link=f"/properties/{website.property_id}/websites/{website.id}/analytics"
+    )
+    db.add(notification)
+
+    # Commit all changes
     db.commit()
 
-    # TODO: Send email notification to agent
-    # TODO: Create lead in database
-    # TODO: Send confirmation email to submitter
+    # 4. Send email notification to agent (if Resend is configured)
+    try:
+        agent = website.agent
+        if agent and email_service.enabled:
+            email_service.send_alert_notification(
+                to=[agent.email],
+                alert_name="New Website Lead",
+                alert_message=f"{name} has submitted an inquiry via your property landing page.",
+                metric_name="website_leads",
+                metric_value=1,
+                severity="high",
+                additional_context={
+                    "name": name,
+                    "email": email,
+                    "phone": phone,
+                    "message": message,
+                    "property_id": website.property_id,
+                    "website_name": website.website_name,
+                    "lead_source": "website_form"
+                }
+            )
+    except Exception as e:
+        # Don't fail the request if email fails
+        print(f"Warning: Failed to send lead notification email: {e}")
+
+    # 5. Send confirmation email to submitter (optional - only if configured)
+    try:
+        if email_service.enabled:
+            email_service.send_email(
+                to=email,
+                subject=f"Thank you for your inquiry!",
+                html_content=f"""
+                <h2>Thank You for Your Interest!</h2>
+                <p>Hi {name},</p>
+                <p>Thank you for submitting an inquiry about <strong>{website.website_name}</strong>.</p>
+                <p>We have received your message and will be in touch with you shortly.</p>
+                <p><strong>Your Message:</strong></p>
+                <p>{message or 'No message provided'}</p>
+                <p>Best regards,<br>The Team</p>
+                """,
+                tags=[{"name": "website_form", "value": "confirmation"}]
+            )
+    except Exception as e:
+        # Don't fail the request if confirmation email fails
+        print(f"Warning: Failed to send confirmation email: {e}")
 
     return {
         "success": True,
-        "message": "Thank you for your inquiry! We'll be in touch soon."
+        "message": "Thank you for your inquiry! We'll be in touch soon.",
+        "contact_id": contact.id,
+        "lead_created": not existing_contact
     }
 
 
