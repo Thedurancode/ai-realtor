@@ -20,7 +20,7 @@ from app.auth import verify_api_key
 from app.models.phone_number import PhoneNumber
 from app.models.phone_call import PhoneCall
 
-from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router, web_scraper, approval_router, credential_scrubbing_router, observer_router, agent_brand_router, postiz_router, videogen_router, sqlite_tuning_router, skills_router, setup_router, campaigns_router, document_analysis_router, zuckerbot_router, facebook_targeting_router, composio_router, renders_router, telnyx, photo_orders, direct_mail_router, contact_lists_router, property_websites, enhanced_property_videos
+from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router, web_scraper, approval_router, credential_scrubbing_router, observer_router, agent_brand_router, postiz_router, videogen_router, sqlite_tuning_router, skills_router, setup_router, campaigns_router, document_analysis_router, zuckerbot_router, facebook_targeting_router, composio_router, renders_router, telnyx, photo_orders, direct_mail_router, contact_lists_router, property_websites, enhanced_property_videos, property_comparison_router
 # Temporarily disabled facebook_ads_router due to table conflict
 # from app.routers import facebook_ads_router
 # NEW: Customer Portal and Document Extraction
@@ -203,6 +203,7 @@ app.include_router(voice_campaigns_router)
 app.include_router(offers_router)
 app.include_router(search_router)
 app.include_router(deal_calculator_router)
+app.include_router(property_comparison_router)
 app.include_router(workflows_router)
 app.include_router(property_notes_router)
 app.include_router(insights_router)

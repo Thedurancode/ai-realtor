@@ -61,5 +61,7 @@ from . import zuckerbot  # noqa: F401
 from . import skills  # noqa: F401
 # Enhanced Property Videos
 from . import enhanced_property_videos  # noqa: F401
+# Property Comparison
+from . import property_comparison  # noqa: F401
 # Web scraper tools - TODO: Fix import issues
 # from . import web_scraper  # noqa: F401
