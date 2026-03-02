@@ -63,5 +63,7 @@ from . import skills  # noqa: F401
 from . import enhanced_property_videos  # noqa: F401
 # Property Comparison
 from . import property_comparison  # noqa: F401
+# Portfolio Dashboard
+from . import portfolio_dashboard  # noqa: F401
 # Web scraper tools - TODO: Fix import issues
 # from . import web_scraper  # noqa: F401
