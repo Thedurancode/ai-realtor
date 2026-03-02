@@ -2,8 +2,8 @@
 
 A voice-first AI real estate platform that handles the entire property lifecycle through natural language. From property discovery and agentic research, to deal scoring, offer drafting, contract management, phone call automation, and PDF reporting — all controlled through Claude Desktop via MCP.
 
-**Live API:** https://ai-realtor.fly.dev
-**Docs:** https://ai-realtor.fly.dev/docs
+**Live API:** http://ai-realtor.emprezario.com
+**Docs:** http://ai-realtor.emprezario.com/docs
 **Additional Guides:** See [docs/](docs/) for current docs and [docs/root-notes/](docs/root-notes/) for archived root-level guides
 
 ```
@@ -430,7 +430,7 @@ PUT    /todos/{id}                           Update todo
 DELETE /todos/{id}                           Delete todo
 ```
 
-Full interactive docs at https://ai-realtor.fly.dev/docs
+Full interactive docs at http://ai-realtor.emprezario.com/docs
 
 ---
 
