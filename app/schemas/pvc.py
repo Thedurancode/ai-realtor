@@ -5,6 +5,20 @@ from typing import List, Optional, Any
 from datetime import datetime
 
 
+class CreatePVCVoiceRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    language: str = Field(default="en", pattern="^[a-z]{2,3}$")
+    description: Optional[str] = Field(default=None, max_length=500)
+
+
+class UploadPVCSamplesRequest(BaseModel):
+    file_paths: List[str] = Field(..., min_items=1, max_items=10)
+
+
+class StartSpeakerSeparationRequest(BaseModel):
+    sample_ids: List[str] = Field(..., min_items=1)
+
+
 class PVCVoiceResponse(BaseModel):
     """Response for PVC voice operations"""
     voice_id: str

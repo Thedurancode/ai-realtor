@@ -2,7 +2,7 @@
 Stores Professional Voice Clones (PVCs) from ElevenLabs.
 """
 
-from sqlalchemy import Column, String, DateTime, Integer, Text, JSON, ForeignKey
+from sqlalchemy import Column, String, DateTime, Integer, Text, JSON, ForeignKey, Boolean
 from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
 
@@ -52,8 +52,8 @@ class PVCVoice(Base):
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)  # Optional: Link to agent
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=True)  # Optional: Link to property
 
-    # Metadata
-    metadata = Column(JSON, nullable=True)  # Additional fields as JSON
+    # Voice metadata
+    voice_metadata = Column(JSON, nullable=True)  # Additional fields as JSON
 
     def __repr__(self):
         return f"<PVCVoice(id={self.id}, name={self.name}, status={self.status})>"
@@ -73,5 +73,5 @@ class PVCVoice(Base):
             "training_progress": self.training_progress,
             "is_trained": self.is_trained,
             "trained_at": self.trained_at.isoformat() if self.trained_at else None,
-            "metadata": self.metadata,
+            "metadata": self.voice_metadata,
         }

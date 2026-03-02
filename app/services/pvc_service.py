@@ -48,10 +48,10 @@ class PVCService:
         self,
         name: str,
         language: str = "en",
-        description: str,
+        description: str = "",
     ) -> Dict[str, Any]:
         """
-        Create a new PVC voice (Instant Voice Clone equivalent).
+        Create a new PVC voice (Personal Voice Clone).
 
         Args:
             name: Display name for the voice
@@ -70,7 +70,7 @@ class PVCService:
 
         logger.info(f"Creating PVC voice: {name}")
 
-        url = f"{BASE_URL}/{API_VERSION}/voices"
+        url = f"{BASE_URL}/{API_VERSION}/voices/pvc"
         headers = {
             "xi-api-key": self.api_key,
             "Content-Type": "application/json",
@@ -80,16 +80,17 @@ class PVCService:
         payload = {
             "name": name,
             "language": language,
-            "description": description,
-            "instant_clone": True,  # Mark as PVC (not instant clone)
         }
+
+        if description:
+            payload["description"] = description
 
         try:
             response = await self.client.post(url, headers=headers, json=payload)
             response.raise_for_status()
 
             result = response.json()
-            voice_id = result.get("id")
+            voice_id = result.get("voice_id")
             logger.info(f"PVC voice created with ID: {voice_id}")
 
             return {
@@ -97,12 +98,14 @@ class PVCService:
                 "name": name,
                 "language": language,
                 "description": description,
-                "status": result.get("status", "processing"),
+                "status": "creating",
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
         except httpx.HTTPStatusError as e:
+            error_detail = e.response.text if hasattr(e, 'response') and e.response else str(e)
             logger.error(f"HTTP error creating PVC voice: {e}")
-            raise Exception(f"Failed to create PVC voice: {str(e)}")
+            logger.error(f"Response body: {error_detail}")
+            raise Exception(f"Failed to create PVC voice: {str(e)} - {error_detail}")
         except Exception as e:
             logger.error(f"Error creating PVC voice: {str(e)}")
             raise Exception(f"Failed to create PVC voice: {str(e)}")
@@ -131,22 +134,25 @@ class PVCService:
 
         logger.info(f"Uploading {len(file_paths)} samples for voice {voice_id}")
 
-        url = f"{BASE_URL}/{API_VERSION}/voices/{voice_id}/samples"
+        url = f"{BASE_URL}/{API_VERSION}/voices/pvc/{voice_id}/samples"
         headers = {
             "xi-api-key": self.api_key,
-            "Content-Type": "multipart/form-data",
             "Accept": "application/json"
         }
 
         # Build multipart form with files
-        files = [("files", open(filepath, "rb")) for filepath in file_paths]
+        files = [("files", (os.path.basename(filepath), open(filepath, "rb"))) for filepath in file_paths]
 
         try:
             response = await self.client.post(url, headers=headers, files=files)
             response.raise_for_status()
 
             result = response.json()
-            sample_ids = result.get("sample_ids", [])
+
+            # Parse sample IDs from response
+            # Response is an array of sample objects
+            samples = result if isinstance(result, list) else result.get("samples", [])
+            sample_ids = [s.get("sample_id") for s in samples if s.get("sample_id")]
 
             logger.info(f"Uploaded {len(sample_ids)} samples for voice {voice_id}")
 
@@ -154,6 +160,7 @@ class PVCService:
                 "voice_id": voice_id,
                 "sample_ids": sample_ids,
                 "upload_count": len(sample_ids),
+                "samples": samples,
             }
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error uploading PVC samples: {e}")
@@ -232,7 +239,7 @@ class PVCService:
         if not self.api_key:
             raise Exception("ElevenLabs API key not configured. Cannot get PVC status.")
 
-        url = f"{BASE_URL}/{API_VERSION}/voices/{voice_id}"
+        url = f"{BASE_URL}/{API_VERSION}/voices/pvc/{voice_id}"
         headers = {
             "xi-api-key": self.api_key,
             "Accept": "application/json"

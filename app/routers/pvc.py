@@ -10,33 +10,30 @@ Endpoints:
 - DELETE /v1/pvc/voices/{id}           - Delete PVC voice
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from datetime import datetime, timezone
 
 from app.services.pvc_service import PVCService
+from app.services.resend_service import resend_service
 from app.database import get_db
 from app.models.pvc_voice import PVCVoice, PVCVoiceStatus
+from app.schemas.pvc import (
+    PVCVoiceResponse,
+    CreatePVCVoiceRequest,
+    UploadPVCSamplesRequest,
+    PVCSamplesResponse,
+    StartSpeakerSeparationRequest,
+    SpeakerSeparationResponse,
+    PVCStatusResponse,
+    ListPVCVoicesResponse,
+)
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+from app.config import settings
 
 router = APIRouter(prefix="/v1/pvc", tags=["PVC", "Voices"])
-
-
-# Pydantic models
-class CreatePVCVoiceRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    language: str = Field(default="en", pattern="^[a-z]{2,3}$")
-    description: Optional[str] = Field(default=None, max_length=500)
-
-
-class UploadPVCSamplesRequest(BaseModel):
-    file_paths: List[str] = Field(..., min_items=1, max_items=10)
-
-
-class StartSpeakerSeparationRequest(BaseModel):
-    sample_ids: List[str] = Field(..., min_items=1)
-
 
 # Endpoints
 @router.post("/voices", response_model=PVCVoiceResponse)
@@ -47,7 +44,7 @@ async def create_pvc_voice(
     """
     Create a new Professional Voice Clone.
     """
-    service = PVCService()
+    service = PVCService(api_key=settings.elevenlabs_api_key)
 
     try:
         result = await service.create_pvc_voice(
@@ -58,7 +55,7 @@ async def create_pvc_voice(
 
         # Save to database
         pvc_voice = PVCVoice(
-            voice_id=result["voice_id"],
+            id=result["voice_id"],
             name=result["name"],
             language=result["language"],
             description=result.get("description"),
@@ -95,7 +92,7 @@ async def upload_pvc_samples(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/voices/{voice_id}/samples/speakers", response_model=PVCVoiceResponse)
+@router.post("/voices/{voice_id}/samples/speakers", response_model=SpeakerSeparationResponse)
 async def start_speaker_separation(
     voice_id: str,
     request: StartSpeakerSeparationRequest,
@@ -124,18 +121,58 @@ async def get_pvc_voice_status(
 ):
     """
     Get current status of a PVC voice.
+    Sends email notification when voice becomes ready.
     """
-    service = PVCService()
+    service = PVCService(api_key=settings.elevenlabs_api_key)
 
     try:
         result = await service.get_pvc_status(voice_id=voice_id)
+        new_status = result.get("status")
 
         # Update database with latest status
-        pvc_voice = db.query(PVCVoice).filter(PVCVoice.voice_id == voice_id).first()
+        pvc_voice = db.query(PVCVoice).filter(PVCVoice.id == voice_id).first()
         if pvc_voice:
-            pvc_voice.status = result.get("status")
+            old_status = pvc_voice.status
+            pvc_voice.status = new_status
             pvc_voice.updated_at = datetime.now(timezone.utc)
+
+            # Update additional fields if provided
+            if "speakers_count" in result:
+                pvc_voice.speakers_count = result.get("speakers_count")
+            if "model_id" in result:
+                pvc_voice.model_id = result.get("model_id")
+            if "is_trained" in result:
+                pvc_voice.is_trained = result.get("is_trained", False)
+            if pvc_voice.is_trained and not pvc_voice.trained_at:
+                pvc_voice.trained_at = datetime.now(timezone.utc)
+
             db.commit()
+
+            # Send email notification when voice becomes ready
+            if old_status != "ready" and new_status == "ready":
+                # Calculate training time
+                training_time = "Unknown"
+                if pvc_voice.created_at:
+                    duration = datetime.now(timezone.utc) - pvc_voice.created_at
+                    hours = duration.total_seconds() / 3600
+                    if hours < 1:
+                        training_time = f"{int(duration.total_seconds() / 60)} minutes"
+                    else:
+                        training_time = f"{int(hours)} hours"
+
+                # Send notification email
+                email_result = resend_service.send_pvc_voice_ready_notification(
+                    to_email=settings.admin_email,
+                    to_name=settings.admin_name,
+                    voice_id=voice_id,
+                    voice_name=pvc_voice.name,
+                    language=pvc_voice.language,
+                    sample_count=pvc_voice.sample_count,
+                    training_time=training_time,
+                )
+
+                # Log the notification
+                print(f"✅ PVC voice ready notification sent to {settings.admin_email}: {email_result}")
 
         return result
     except Exception as e:
@@ -170,11 +207,12 @@ async def delete_pvc_voice(
     try:
         # In a real implementation, this would call the ElevenLabs API to delete
         # For now, just mark as deleted in database
-        pvc_voice = db.query(PVCVoice).filter(PVCVoice.voice_id == voice_id).first()
+        pvc_voice = db.query(PVCVoice).filter(PVCVoice.id == voice_id).first()
         if pvc_voice:
             db.delete(pvc_voice)
             db.commit()
 
             return {"voice_id": voice_id, "deleted": True}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -9,7 +9,12 @@ class Settings(BaseSettings):
     resend_from_email: str = "notifications@ai-realtor.com"
     from_email: str = "noreply@yourdomain.com"
     from_name: str = "Real Estate Contracts"
+    # Admin email for notifications
+    admin_email: str = "emprezarioinc@gmail.com"
+    admin_name: str = "Admin"
     rapidapi_key: str = ""
+    # ElevenLabs API key for PVC
+    elevenlabs_api_key: str = ""
     skip_trace_api_host: str = "skip-tracing-working-api.p.rapidapi.com"
     zillow_api_host: str = "private-zillow.p.rapidapi.com"
     anthropic_api_key: str = ""
