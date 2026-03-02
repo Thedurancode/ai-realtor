@@ -4,7 +4,7 @@ A voice-first AI real estate platform that handles the entire property lifecycle
 
 **Live API:** https://ai-realtor.fly.dev
 **Docs:** https://ai-realtor.fly.dev/docs
-**Additional Guides:** See [docs/](docs/) folder for comprehensive documentation
+**Additional Guides:** See [docs/](docs/) for current docs and [docs/root-notes/](docs/root-notes/) for archived root-level guides
 
 ```
 61 MCP Tools  ·  223 API Endpoints  ·  31 Models  ·  31 Services  ·  12 External APIs

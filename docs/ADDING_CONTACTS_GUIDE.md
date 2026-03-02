@@ -411,14 +411,14 @@ curl http://localhost:8000/contacts/?role=buyer
 
 ## Testing with the Script
 
-I've created `add_contact_example.py` for you:
+I've created `scripts/manual/add_contact_example.py` for you:
 
 ```bash
 # Edit the script first (change property_id and details)
-nano add_contact_example.py
+nano scripts/manual/add_contact_example.py
 
 # Run it
-python3 add_contact_example.py
+python3 scripts/manual/add_contact_example.py
 ```
 
 ---

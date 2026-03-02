@@ -377,7 +377,7 @@ All three parties can sign simultaneously.
 Run the included test script to verify multi-party functionality:
 
 ```bash
-python simple_multi_party_test.py
+python3 tests/manual/simple_multi_party_test.py
 ```
 
 This will:

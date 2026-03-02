@@ -78,7 +78,7 @@ https://abc123.ngrok.io/contracts/webhook/docuseal
 Use the included test script:
 
 ```bash
-python test_webhook.py
+python3 tests/manual/test_webhook.py
 ```
 
 This will:
@@ -244,7 +244,7 @@ DocuSeal will retry failed webhooks automatically.
 
 - [ ] Webhook URL configured in DocuSeal
 - [ ] All events enabled (8 checkboxes checked)
-- [ ] Test script runs successfully: `python test_webhook.py`
+- [ ] Test script runs successfully: `python3 tests/manual/test_webhook.py`
 - [ ] Created real contract with DocuSeal template
 - [ ] Sent contract to test email address
 - [ ] Opened document (should trigger `form.started`)
@@ -379,7 +379,7 @@ Contract:
 ## Next Steps
 
 1. Configure webhook URL in DocuSeal (see Step 2)
-2. Run test script: `python test_webhook.py`
+2. Run test script: `python3 tests/manual/test_webhook.py`
 3. Send a real contract and watch it update automatically
 4. Check database to see real-time status changes
 5. Build UI to show users their contract progress
@@ -387,6 +387,6 @@ Contract:
 ## Additional Resources
 
 - DocuSeal Webhook Documentation: https://docuseal.com/docs/webhooks
-- Test script: `test_webhook.py`
+- Test script: `tests/manual/test_webhook.py`
 - Multi-party contracts guide: `MULTI_PARTY_CONTRACTS.md`
 - General DocuSeal integration: `DOCUSEAL_INTEGRATION.md`

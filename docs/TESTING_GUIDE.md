@@ -10,8 +10,8 @@
 # Navigate to project directory
 cd /Users/edduran/Documents/GitHub/ai-realtor
 
-# Run the test script
-python test_memory.py
+# Run the executable memory test
+python3 tests/manual/test_memory_system.py
 ```
 
 **What it does:**
@@ -19,6 +19,8 @@ python test_memory.py
 - Tests legacy backward compatibility
 - Tests graph relationships
 - Shows detailed output
+
+The older template-style walkthrough now lives in `docs/root-notes/MEMORY_TEST_SCRIPT_TEMPLATE.md`.
 
 **Expected output:**
 ```

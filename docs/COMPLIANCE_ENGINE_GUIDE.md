@@ -694,7 +694,7 @@ After deployment, verify:
 
 - **COMPLIANCE_SYSTEM_GUIDE.md** - Knowledge base management
 - **test_compliance_engine.py** - Test suite
-- **seed_compliance_rules.py** - Example rules
+- **scripts/seeds/seed_compliance_rules.py** - Example rules
 
 ---
 

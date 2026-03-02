@@ -144,7 +144,7 @@ docker-compose -f docker-compose-local-nanobot.yml restart nanobot
 
 I already created a simple web client for you:
 ```bash
-open nanobot-web-client.html
+open examples/web/nanobot-web-client.html
 ```
 
 This gives you a basic chat interface in your browser.

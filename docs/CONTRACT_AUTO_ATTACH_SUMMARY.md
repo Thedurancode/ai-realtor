@@ -23,7 +23,7 @@ When you create a property, the system:
 - `app/schemas/contract_template.py` - Pydantic schemas
 - `app/services/contract_auto_attach.py` - Auto-attach logic
 - `app/routers/contract_templates.py` - Template management API (12 endpoints)
-- `seed_contract_templates.py` - 15 pre-configured templates
+- `scripts/seeds/seed_contract_templates.py` - 15 pre-configured templates
 
 **Modified:**
 - `app/routers/properties.py` - Auto-attach on create
@@ -42,7 +42,7 @@ fly deploy
 
 ### 2. Seed Templates
 ```bash
-python3 seed_contract_templates.py
+python3 scripts/seeds/seed_contract_templates.py
 ```
 
 ### 3. Link DocuSeal Templates

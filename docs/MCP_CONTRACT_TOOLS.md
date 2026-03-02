@@ -95,7 +95,7 @@ Agent: "Created the property. I've also attached 3 required contracts that need 
    git add .
    git commit -m "feat: Add contract auto-attach system"
    fly deploy
-   python3 seed_contract_templates.py
+   python3 scripts/seeds/seed_contract_templates.py
    ```
 
 2. **MCP Server Already Updated:**

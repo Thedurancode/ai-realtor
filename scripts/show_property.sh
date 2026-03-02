@@ -1,3 +1,3 @@
 #!/bin/bash
 # Quick wrapper to show properties on TV from CLI
-python3 tv_control.py show "$@"
+python3 scripts/manual/tv_control.py show "$@"

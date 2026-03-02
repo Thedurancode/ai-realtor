@@ -260,14 +260,14 @@ All schemas are in `/Users/edduran/Documents/GitHub/ai-realtor/app/schemas/`
 
 These are Python scripts for testing the system:
 
-- **`send_test_contract.py`** - Test contract sending via DocuSeal
-- **`test_docuseal_api.py`** - Test DocuSeal API connection
-- **`test_resend_email.py`** - Test email sending
-- **`test_webhook.py`** - Test webhook integration
-- **`test_complete_multiparty.py`** - Test multi-signer workflow
-- **`simple_multi_party_test.py`** - Simple multi-party test
-- **`diagnose_docuseal.py`** - Diagnostic tool for DocuSeal issues
-- **`get_docuseal_templates.py`** - Fetch available DocuSeal templates
+- **`scripts/manual/send_test_contract.py`** - Test contract sending via DocuSeal
+- **`tests/manual/test_docuseal_api.py`** - Test DocuSeal API connection
+- **`tests/manual/test_resend_email.py`** - Test email sending
+- **`tests/manual/test_webhook.py`** - Test webhook integration
+- **`tests/manual/test_complete_multiparty.py`** - Test multi-signer workflow
+- **`tests/manual/simple_multi_party_test.py`** - Simple multi-party test
+- **`scripts/manual/diagnose_docuseal.py`** - Diagnostic tool for DocuSeal issues
+- **`scripts/manual/get_docuseal_templates.py`** - Fetch available DocuSeal templates
 
 ---
 
@@ -328,11 +328,19 @@ These are Python scripts for testing the system:
 │   ├── MULTI_PARTY_CONTRACTS.md    # Multi-signer workflow
 │   └── WEBHOOK_SETUP.md            # Real-time updates
 │
-└── Test Scripts/
-    ├── send_test_contract.py
-    ├── test_docuseal_api.py
-    ├── test_resend_email.py
-    ├── test_webhook.py
+├── scripts/
+│   ├── manual/                     # One-off utilities and admin scripts
+│   ├── migrations/                 # Manual migration helpers
+│   ├── seeds/                      # Seed data scripts
+│   └── setup/                      # Environment/bootstrap setup scripts
+│
+├── examples/
+│   ├── data/                       # Sample CSV fixtures
+│   ├── output/                     # Generated example outputs
+│   └── web/                        # Standalone HTML prototypes
+│
+└── tests/
+    ├── manual/                     # Ad hoc/manual test scripts
     └── ...
 ```
 
@@ -402,4 +410,3 @@ These are Python scripts for testing the system:
 4. **Display**: Contract status from `/contracts/{id}/status` endpoint
 5. **Refresh**: Every 30 seconds using polling pattern
 6. **Optimize**: For large TV screens (fonts, colors, spacing)
-

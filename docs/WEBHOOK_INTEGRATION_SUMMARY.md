@@ -106,7 +106,7 @@ All webhook events tested and working:
 
 Run tests yourself:
 ```bash
-python test_webhook.py
+python3 tests/manual/test_webhook.py
 ```
 
 ## Database Updates
@@ -354,7 +354,7 @@ DocuSeal will automatically retry failed webhooks.
 ## Files Created
 
 1. **Updated Endpoint** - `/app/routers/contracts.py` - Enhanced webhook handler
-2. **Test Script** - `test_webhook.py` - Test all webhook events
+2. **Test Script** - `tests/manual/test_webhook.py` - Test all webhook events
 3. **Setup Guide** - `WEBHOOK_SETUP.md` - Detailed configuration
 4. **This Summary** - `WEBHOOK_INTEGRATION_SUMMARY.md`
 
@@ -368,7 +368,7 @@ DocuSeal will automatically retry failed webhooks.
 
 ### 2. Test It
 ```bash
-python test_webhook.py
+python3 tests/manual/test_webhook.py
 ```
 
 ### 3. Send Real Contract

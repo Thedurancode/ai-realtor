@@ -21,7 +21,7 @@ Your AI Realtor platform now has a comprehensive **Compliance Knowledge Manageme
 - **`app/routers/compliance_knowledge.py`** - Complete CRUD API with 30+ endpoints
 
 ### Seed Data
-- **`seed_compliance_rules.py`** - Script to populate database with example rules for NY, CA, FL, TX
+- **`scripts/seeds/seed_compliance_rules.py`** - Script to populate database with example rules for NY, CA, FL, TX
 
 ### Updated Files
 - **`app/main.py`** - Added compliance_knowledge_router
@@ -60,7 +60,7 @@ curl -X POST "https://ai-realtor.fly.dev/compliance/knowledge/rules/bulk" \
 ```bash
 fly ssh console
 cd /app
-python3 seed_compliance_rules.py
+python3 scripts/seeds/seed_compliance_rules.py
 exit
 ```
 

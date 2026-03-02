@@ -4,7 +4,7 @@
 
 1. Open the HTML file in your browser:
    ```bash
-   open nanobot-web-client.html
+   open examples/web/nanobot-web-client.html
    ```
 
    Or double-click the file to open it.

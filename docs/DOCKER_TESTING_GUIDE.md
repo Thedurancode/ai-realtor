@@ -584,7 +584,7 @@ docker push your-registry/ai-realtor:latest
 - **API Documentation:** http://localhost:8000/docs
 - **ReDoc Documentation:** http://localhost:8000/redoc
 - **Test Script:** `./test-docker.sh`
-- **Import Test:** `python3 test-imports.py`
+- **Import Test:** `python3 tests/manual/test-imports.py`
 
 ---
 

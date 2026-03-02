@@ -55,7 +55,7 @@ POST /compliance-knowledge/voice/add-rule
 fly deploy
 
 # 2. Seed compliance rules
-python3 seed_compliance_rules.py
+python3 scripts/seeds/seed_compliance_rules.py
 
 # 3. Test the endpoints
 python3 test_compliance_engine.py
@@ -69,7 +69,7 @@ cd app
 uvicorn main:app --reload --port 8000
 
 # 2. In another terminal, seed rules
-python3 seed_compliance_rules.py
+python3 scripts/seeds/seed_compliance_rules.py
 
 # 3. Test the system
 python3 test_compliance_engine.py
@@ -152,7 +152,7 @@ Your voice agent can now handle:
 - `app/routers/compliance.py` - Checking API (15+ endpoints)
 
 ### Support Files
-- `seed_compliance_rules.py` - Database seeding
+- `scripts/seeds/seed_compliance_rules.py` - Database seeding
 - `test_compliance_engine.py` - Test suite
 - `COMPLIANCE_SYSTEM_GUIDE.md` - Knowledge base docs
 - `COMPLIANCE_ENGINE_GUIDE.md` - Engine docs
@@ -246,7 +246,7 @@ Your compliance system is **complete and ready to deploy**.
 **Next Steps:**
 1. Review the documentation files
 2. Deploy to Fly.io: `fly deploy`
-3. Seed the compliance rules: `python3 seed_compliance_rules.py`
+3. Seed the compliance rules: `python3 scripts/seeds/seed_compliance_rules.py`
 4. Test with your properties: `python3 test_compliance_engine.py`
 5. Integrate with your voice agent using the voice-optimized endpoints
 

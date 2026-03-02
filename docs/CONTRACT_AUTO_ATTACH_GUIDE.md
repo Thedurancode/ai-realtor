@@ -13,7 +13,7 @@ Your AI Realtor platform now has **automatic contract attachment**! When you cre
 - **`app/schemas/contract_template.py`** - Pydantic schemas
 - **`app/services/contract_auto_attach.py`** - Auto-attach service logic
 - **`app/routers/contract_templates.py`** - Template management API
-- **`seed_contract_templates.py`** - Database seed script with 15 templates
+- **`scripts/seeds/seed_contract_templates.py`** - Database seed script with 15 templates
 
 ### Modified Files
 - **`app/routers/properties.py`** - Added auto-attach on property creation
@@ -413,7 +413,7 @@ async def check_property_contracts(address: str) -> str:
 fly deploy
 
 # 2. Seed contract templates
-python3 seed_contract_templates.py
+python3 scripts/seeds/seed_contract_templates.py
 
 # 3. Update templates with DocuSeal IDs
 # Go to DocuSeal dashboard and create templates
@@ -475,7 +475,7 @@ Your contract auto-attach system is **complete and ready to use**!
 
 **Next Steps:**
 1. Deploy to Fly.io: `fly deploy`
-2. Seed templates: `python3 seed_contract_templates.py`
+2. Seed templates: `python3 scripts/seeds/seed_contract_templates.py`
 3. Create DocuSeal templates and link them
 4. Create a test property and watch contracts auto-attach!
 

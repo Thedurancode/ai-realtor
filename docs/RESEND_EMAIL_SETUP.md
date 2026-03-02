@@ -159,7 +159,7 @@ You've been requested to sign as Owner:
 ### Test Email Sending
 
 ```bash
-python test_resend_email.py
+python3 tests/manual/test_resend_email.py
 ```
 
 This will:

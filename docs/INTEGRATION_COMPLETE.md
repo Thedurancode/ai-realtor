@@ -68,7 +68,7 @@ FROM_NAME=Emprezario Inc
 
 ### Send Test Contract
 ```bash
-python send_test_contract.py
+python3 scripts/manual/send_test_contract.py
 ```
 
 ### Check Contract Status
@@ -78,12 +78,12 @@ curl "http://localhost:8000/contracts/{contract_id}/status?refresh=true"
 
 ### Test Resend Emails
 ```bash
-python test_resend_email.py
+python3 tests/manual/test_resend_email.py
 ```
 
 ### Check DocuSeal Templates
 ```bash
-python get_docuseal_templates.py
+python3 scripts/manual/get_docuseal_templates.py
 ```
 
 ---

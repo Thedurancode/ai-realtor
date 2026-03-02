@@ -166,7 +166,7 @@ TOTAL: 44/44 tests passed ✅
 - `skills/short-sale-expert/SKILL.md` (500+ lines)
 - `test-docker.sh` — Automated test script
 - `test-docker-simulation.sh` — Test simulation
-- `test-imports.py` — Import verification
+- `tests/manual/test-imports.py` — Import verification
 
 **Modified Files (7):**
 - `app/routers/__init__.py` — Added 5 new routers
