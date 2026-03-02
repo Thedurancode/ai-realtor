@@ -2,13 +2,14 @@
 
 Generate AI avatar videos and post to social media via Postiz.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.models.agent import Agent
 from app.models.property import Property
 from app.models.videogen import VideoGenVideo, VideoGenAvatar, VideoGenScriptTemplate
@@ -140,8 +141,10 @@ async def list_cached_avatars(
 # ============================================================================
 
 @router.post("/generate")
+@limiter.limit(limit_value=premium_limit("critical"))
 async def generate_video(
-    request: VideoGenerateRequest,
+    request: Request,
+    body: VideoGenerateRequest,
     agent_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
@@ -159,11 +162,11 @@ async def generate_video(
 
     # Get property if specified
     property = None
-    if request.property_id:
-        property = db.query(Property).filter(Property.id == request.property_id).first()
+    if body.property_id:
+        property = db.query(Property).filter(Property.id == body.property_id).first()
 
     # Generate script if not provided
-    if not request.script:
+    if not body.script:
         service = VideoGenService()
         if property:
             property_data = {
@@ -174,22 +177,22 @@ async def generate_video(
                 "square_footage": property.square_footage,
                 "price": property.price
             }
-            script = await service.generate_property_script(property_data, request.script_type)
+            script = await service.generate_property_script(property_data, body.script_type)
         else:
             script = "Check out this amazing property opportunity!"
     else:
-        script = request.script
+        script = body.script
 
     # Generate video
     service = VideoGenService()
     try:
         result = await service.generate_video(
             script=script,
-            avatar_id=request.avatar_id,
-            voice_id=request.voice_id,
-            background=request.background,
-            aspect_ratio=request.aspect_ratio,
-            test=request.test
+            avatar_id=body.avatar_id,
+            voice_id=body.voice_id,
+            background=body.background,
+            aspect_ratio=body.aspect_ratio,
+            test=body.test
         )
 
         video_data = result.get("data", {})
@@ -292,8 +295,10 @@ async def get_video_status(
 # ============================================================================
 
 @router.post("/post")
+@limiter.limit(limit_value=premium_limit("critical"))
 async def generate_and_post(
-    request: VideoPostRequest,
+    request: Request,
+    body: VideoPostRequest,
     agent_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
@@ -315,15 +320,15 @@ async def generate_and_post(
 
     # Get property
     property = None
-    if request.property_id:
-        property = db.query(Property).filter(Property.id == request.property_id).first()
+    if body.property_id:
+        property = db.query(Property).filter(Property.id == body.property_id).first()
         if not property:
             raise HTTPException(status_code=404, detail="Property not found")
 
     # Auto-detect aspect ratio for TikTok/Reels
-    aspect_ratio = request.aspect_ratio
+    aspect_ratio = body.aspect_ratio
     if not aspect_ratio:
-        if "tiktok" in request.platforms or "instagram" in request.platforms:
+        if "tiktok" in body.platforms or "instagram" in body.platforms:
             aspect_ratio = "9:16"  # Portrait for Reels/TikTok
         else:
             aspect_ratio = "16:9"  # Landscape for YouTube/Facebook
@@ -339,12 +344,12 @@ async def generate_and_post(
             "square_footage": property.square_footage,
             "price": property.price
         }
-        script = await service.generate_property_script(property_data, request.script_type)
+        script = await service.generate_property_script(property_data, body.script_type)
     else:
         script = "Check out this amazing opportunity!"
 
     # Generate caption if not provided
-    caption = request.caption
+    caption = body.caption
     if not caption and property:
         brand = db.query(AgentBrand).filter(AgentBrand.agent_id == agent_id).first()
         caption = f"🏠 {property.city} Property Tour!\n\n{property.bedrooms} bed | {property.bathrooms} bath | ${property.price:,}\n\n{brand.tagline if brand else 'DM for details!'}\n\n#realestate #propertytour #dreamhome"
@@ -355,11 +360,11 @@ async def generate_and_post(
         # Generate video and upload to Postiz
         result = await generate_video_and_upload(
             script=script,
-            avatar_id=request.avatar_id,
+            avatar_id=body.avatar_id,
             agent_id=agent_id,
             db=db,
             aspect_ratio=aspect_ratio,
-            platforms=request.platforms
+            platforms=body.platforms
         )
 
         # Post to social media
@@ -369,7 +374,7 @@ async def generate_and_post(
             property=property,
             brand=db.query(AgentBrand).filter(AgentBrand.agent_id == agent_id).first(),
             caption=caption,
-            platforms=request.platforms,
+            platforms=body.platforms,
             media_urls=[result["postiz_media_url"]],
             publish_immediately=True
         )

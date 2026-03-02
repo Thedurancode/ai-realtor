@@ -9,11 +9,12 @@ Provides endpoints for:
 - Order templates
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.models.property import Property
 from app.models.photo_order import PhotoOrder, PhotoOrderTemplate, PhotoProvider
 from app.schemas.photo_order import (
@@ -172,7 +173,9 @@ def update_photo_order(
 
 
 @router.post("/{order_id}/submit", response_model=PhotoOrderResponse)
+@limiter.limit(limit_value=premium_limit("high"))
 async def submit_photo_order(
+    request: Request,
     order_id: int,
     payload: PhotoOrderSubmit = PhotoOrderSubmit(),
     db: Session = Depends(get_db)

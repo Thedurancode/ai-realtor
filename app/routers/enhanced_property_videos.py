@@ -2,11 +2,12 @@
 
 API endpoints for enhanced property video generation with avatar + footage.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.models.agent import Agent
 from app.models.property import Property
 from app.models.agent_video_profile import AgentVideoProfile
@@ -32,7 +33,9 @@ router = APIRouter(prefix="/enhanced-videos", tags=["Enhanced Property Videos"])
 # ============================================================================
 
 @router.post("/generate/{property_id}", response_model=dict)
+@limiter.limit(limit_value=premium_limit("critical"))
 async def generate_property_video(
+    request: Request,
     property_id: int,
     agent_id: int = Query(..., description="Agent ID"),
     style: str = Query("luxury", description="Video style: luxury, friendly, professional"),
@@ -355,7 +358,9 @@ async def update_agent_profile(
 
 
 @router.post("/agent/{agent_id}/avatar", response_model=dict)
+@limiter.limit(limit_value=premium_limit("critical"))
 async def create_agent_avatar(
+    request: Request,
     agent_id: int,
     photo_url: str = Query(..., description="URL to agent's headshot photo"),
     gender: str = Query("female", description="Gender for voice matching"),

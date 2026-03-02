@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 
-from app.rate_limit import limiter
+from app.rate_limit import limiter, premium_limit
 from app.services.elevenlabs_service import elevenlabs_service
 
 
@@ -95,7 +95,7 @@ def assign_phone_to_agent(phone_number_id: str):
 
 
 @router.post("/call", response_model=dict)
-@limiter.limit("3/minute")
+@limiter.limit(limit_value=premium_limit("critical"))
 def make_elevenlabs_call(request: Request, call_data: CallRequest):
     """
     Make an outbound call using the ElevenLabs voice agent.

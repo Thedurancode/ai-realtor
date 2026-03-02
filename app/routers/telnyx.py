@@ -7,6 +7,7 @@ from datetime import datetime
 import logging
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.services.telnyx_service import get_telnyx_service
 from app.models import Agent, ScheduledTask, PhoneCall, Property
 from app.auth import get_current_agent, verify_telnyx_webhook_request
@@ -82,8 +83,10 @@ class TelnyxStatusResponse(BaseModel):
 
 
 @router.post("/calls", response_model=TelnyxCallResponse)
+@limiter.limit(limit_value=premium_limit("critical"))
 async def create_telnyx_call(
-    request: TelnyxCallRequest,
+    request: Request,
+    body: TelnyxCallRequest,
     current_agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db),
 ):
@@ -101,8 +104,8 @@ async def create_telnyx_call(
     service = get_telnyx_service()
 
     # Verify property ownership if property_id provided
-    if request.property_id:
-        property = db.query(Property).filter(Property.id == request.property_id).first()
+    if body.property_id:
+        property = db.query(Property).filter(Property.id == body.property_id).first()
         if not property:
             raise HTTPException(status_code=404, detail="Property not found")
         if property.agent_id != current_agent.id:
@@ -110,27 +113,27 @@ async def create_telnyx_call(
 
     try:
         result = await service.create_call(
-            to=request.to,
-            script=request.script,
-            from_number=request.from_number,
-            property_id=request.property_id,
-            questions=request.questions,
-            detect_machine=request.detect_machine,
-            record_call=request.record_call,
-            webhook_url=request.webhook_url,
+            to=body.to,
+            script=body.script,
+            from_number=body.from_number,
+            property_id=body.property_id,
+            questions=body.questions,
+            detect_machine=body.detect_machine,
+            record_call=body.record_call,
+            webhook_url=body.webhook_url,
         )
 
         # Save call to database with proper agent_id
         phone_call = PhoneCall(
             agent_id=current_agent.id,  # FIXED: Use authenticated agent's ID
             direction="outbound",
-            phone_number=request.to,
+            phone_number=body.to,
             provider="telnyx",
             telnyx_call_id=result["call_id"],
             telnyx_call_session_id=result["call_session_id"],
             telnyx_call_leg_id=result["call_leg_id"],
             status="initiated",
-            property_id=request.property_id,
+            property_id=body.property_id,
             transcription=None,  # Will be updated by webhook
             recording_url=None,  # Will be updated by webhook
             created_at=datetime.utcnow(),
@@ -209,9 +212,11 @@ async def hangup_telnyx_call(
 
 
 @router.post("/calls/{call_control_id}/speak")
+@limiter.limit(limit_value=premium_limit("high"))
 async def speak_to_telnyx_call(
+    request: Request,
     call_control_id: str,
-    request: TelnyxSpeakRequest,
+    body: TelnyxSpeakRequest,
     db: Session = Depends(get_db),
 ):
     """
@@ -224,9 +229,9 @@ async def speak_to_telnyx_call(
     try:
         result = await service.speak_text(
             call_control_id=call_control_id,
-            text=request.text,
-            language=request.language,
-            voice=request.voice,
+            text=body.text,
+            language=body.language,
+            voice=body.voice,
         )
         return result
     except Exception as e:
@@ -234,9 +239,11 @@ async def speak_to_telnyx_call(
 
 
 @router.post("/calls/{call_control_id}/gather")
+@limiter.limit(limit_value=premium_limit("high"))
 async def gather_from_telnyx_call(
+    request: Request,
     call_control_id: str,
-    request: TelnyxGatherRequest,
+    body: TelnyxGatherRequest,
     db: Session = Depends(get_db),
 ):
     """
@@ -249,9 +256,9 @@ async def gather_from_telnyx_call(
     try:
         result = await service.gather_audio(
             call_control_id=call_control_id,
-            prompt=request.prompt,
-            max_digits=request.max_digits,
-            timeout_secs=request.timeout_secs,
+            prompt=body.prompt,
+            max_digits=body.max_digits,
+            timeout_secs=body.timeout_secs,
         )
         return result
     except Exception as e:

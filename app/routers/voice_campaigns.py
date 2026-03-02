@@ -1,9 +1,10 @@
 """Voice campaign management endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.models.property import Property
 from app.schemas.voice_campaign import (
     VoiceCampaignAnalyticsResponse,
@@ -143,7 +144,8 @@ def list_targets(
 
 
 @router.post("/{campaign_id}/start", response_model=VoiceCampaignResponse)
-def start_campaign(campaign_id: int, db: Session = Depends(get_db)):
+@limiter.limit(limit_value=premium_limit("critical"))
+def start_campaign(request: Request, campaign_id: int, db: Session = Depends(get_db)):
     campaign = _require_campaign(db, campaign_id)
     try:
         return voice_campaign_service.start_campaign(db, campaign)
@@ -164,7 +166,8 @@ def resume_campaign(campaign_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{campaign_id}/process", response_model=VoiceCampaignProcessResponse)
-async def process_campaign(campaign_id: int, max_calls: int = 5, db: Session = Depends(get_db)):
+@limiter.limit(limit_value=premium_limit("critical"))
+async def process_campaign(request: Request, campaign_id: int, max_calls: int = 5, db: Session = Depends(get_db)):
     campaign = _require_campaign(db, campaign_id)
     max_calls = max(1, min(max_calls, 200))
 
@@ -184,7 +187,8 @@ async def process_campaign(campaign_id: int, max_calls: int = 5, db: Session = D
 
 
 @router.post("/process", response_model=VoiceCampaignProcessResponse)
-async def process_all_active_campaigns(max_calls_per_campaign: int = 5):
+@limiter.limit(limit_value=premium_limit("critical"))
+async def process_all_active_campaigns(request: Request, max_calls_per_campaign: int = 5):
     max_calls_per_campaign = max(1, min(max_calls_per_campaign, 200))
     summary = await voice_campaign_service.process_active_campaigns_once(
         max_calls_per_campaign=max_calls_per_campaign,

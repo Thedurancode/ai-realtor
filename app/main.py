@@ -13,7 +13,7 @@ from functools import lru_cache
 
 from app.database import engine, Base, SessionLocal
 from app.config import settings
-from app.rate_limit import limiter, RateLimitToggleMiddleware, RATE_LIMIT_ENABLED, RATE_LIMIT_DEFAULT, RATE_LIMIT_TIERS
+from app.rate_limit import limiter, RateLimitToggleMiddleware, RATE_LIMIT_ENABLED, RATE_LIMIT_DEFAULT, RATE_LIMIT_TIERS, PREMIUM_LIMITS
 from app.auth import verify_api_key
 
 # Import phone models FIRST to avoid circular dependency
@@ -496,6 +496,7 @@ def rate_limit_status():
             "burst": "30/minute",
         },
         "tiers": RATE_LIMIT_TIERS,
+        "premium_limits": PREMIUM_LIMITS,
         "how_to_disable": {
             "description": "Set RATE_LIMIT_ENABLED environment variable to 'false'",
             "example": "export RATE_LIMIT_ENABLED=false",

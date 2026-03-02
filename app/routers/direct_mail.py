@@ -4,7 +4,7 @@ Direct Mail API Router
 Endpoints for sending postcards, letters, and checks via Lob.com
 """
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -12,6 +12,7 @@ import csv
 import io
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.models.direct_mail import (
     DirectMail,
     DirectMailTemplate,
@@ -44,7 +45,9 @@ router = APIRouter(prefix="/direct-mail", tags=["Direct Mail"])
 # ==========================================================================
 
 @router.post("/postcards", response_model=DirectMailResponse)
+@limiter.limit(limit_value=premium_limit("high"))
 async def send_postcard(
+    request: Request,
     data: PostcardCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -202,7 +205,9 @@ async def cancel_postcard(mailpiece_id: int, db: Session = Depends(get_db)):
 # ==========================================================================
 
 @router.post("/letters", response_model=DirectMailResponse)
+@limiter.limit(limit_value=premium_limit("high"))
 async def send_letter(
+    request: Request,
     data: LetterCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -389,7 +394,9 @@ async def list_campaigns(
 
 
 @router.post("/campaigns/{campaign_id}/execute")
+@limiter.limit(limit_value=premium_limit("critical"))
 async def execute_campaign_endpoint(
+    request: Request,
     campaign_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)

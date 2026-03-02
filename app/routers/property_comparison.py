@@ -1,16 +1,19 @@
 """Property Comparison router — compare 2-5 properties side by side."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.services.property_comparison_service import compare_properties
 
 router = APIRouter(prefix="/property-comparison", tags=["property-comparison"])
 
 
 @router.get("/compare")
+@limiter.limit(limit_value=premium_limit("standard"))
 def compare(
+    request: Request,
     property_ids: str = Query(
         ...,
         description="Comma-separated property IDs (2-5), e.g. '1,3,7'",

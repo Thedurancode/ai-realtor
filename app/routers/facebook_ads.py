@@ -8,13 +8,14 @@
 5. Launch & Manage - Deploy to Meta Ads Manager
 """
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import json
 import httpx
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.models.agent import Agent
 from app.models.property import Property
 from app.models.facebook_ads import (
@@ -147,8 +148,10 @@ class ReviewIntelligenceResponse(BaseModel):
 # ============================================================================
 
 @router.post("/campaigns/generate", response_model=CampaignResponse)
+@limiter.limit(limit_value=premium_limit("medium"))
 def generate_campaign(
-    request: CampaignCreateRequest,
+    request: Request,
+    body: CampaignCreateRequest,
     agent_id: int,
     db: Session = Depends(get_db)
 ):
@@ -169,28 +172,28 @@ def generate_campaign(
         raise HTTPException(status_code=404, detail="Agent not found")
 
     # Verify property if provided
-    if request.property_id:
-        property = db.query(Property).filter(Property.id == request.property_id).first()
+    if body.property_id:
+        property = db.query(Property).filter(Property.id == body.property_id).first()
         if not property:
             raise HTTPException(status_code=404, detail="Property not found")
 
     # AI-powered campaign generation
     # In production, this would call Claude/GPT-4
-    campaign_data = _generate_campaign_with_ai(request.url, request.campaign_objective)
+    campaign_data = _generate_campaign_with_ai(body.url, body.campaign_objective)
 
     # Create campaign
     campaign = FacebookCampaign(
         agent_id=agent_id,
-        property_id=request.property_id,
-        campaign_name=request.campaign_name or f"Campaign for {request.url}",
-        campaign_objective=request.campaign_objective,
+        property_id=body.property_id,
+        campaign_name=body.campaign_name or f"Campaign for {body.url}",
+        campaign_objective=body.campaign_objective,
         campaign_status="draft",
         targeting_audience=campaign_data["targeting_audience"],
-        daily_budget=request.daily_budget or campaign_data["recommended_budget"],
+        daily_budget=body.daily_budget or campaign_data["recommended_budget"],
         ad_copy=campaign_data["ad_copy"],
         ad_creatives=campaign_data["ad_creatives"],
         ad_format=campaign_data["ad_format"],
-        source_url=request.url,
+        source_url=body.url,
         generated_by="ai",
         generation_model="claude-3-5-sonnet-20241022"
     )
@@ -199,7 +202,7 @@ def generate_campaign(
     db.commit()
     db.refresh(campaign)
 
-    voice_summary = f"Generated {campaign.campaign_objective} campaign for {request.url}. Budget ${campaign.daily_budget:.2f}/day. Ready for review."
+    voice_summary = f"Generated {campaign.campaign_objective} campaign for {body.url}. Budget ${campaign.daily_budget:.2f}/day. Ready for review."
 
     return CampaignResponse(
         id=campaign.id,
@@ -220,9 +223,11 @@ def generate_campaign(
 
 
 @router.post("/campaigns/{campaign_id}/launch", response_model=CampaignResponse)
+@limiter.limit(limit_value=premium_limit("high"))
 async def launch_campaign(
+    request: Request,
     campaign_id: int,
-    request: CampaignLaunchRequest,
+    body: CampaignLaunchRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -245,11 +250,11 @@ async def launch_campaign(
 
     campaign.campaign_id_meta = meta_campaign_id
     campaign.campaign_status = "active"
-    campaign.meta_access_token = _encrypt_token(request.meta_access_token)
+    campaign.meta_access_token = _encrypt_token(body.meta_access_token)
     campaign.auto_launch = True
     campaign.launch_config = {
-        "ad_account_id": request.ad_account_id,
-        "page_id": request.page_id
+        "ad_account_id": body.ad_account_id,
+        "page_id": body.page_id
     }
     campaign.metrics = {
         "impressions": 0,

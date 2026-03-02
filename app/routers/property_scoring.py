@@ -2,11 +2,12 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.services.property_scoring_service import property_scoring_service
 
 router = APIRouter(prefix="/scoring", tags=["scoring"])
@@ -18,7 +19,9 @@ class BulkScoreRequest(BaseModel):
 
 
 @router.post("/property/{property_id}")
+@limiter.limit(limit_value=premium_limit("medium"))
 def score_property(
+    request: Request,
     property_id: int,
     db: Session = Depends(get_db),
 ):
@@ -50,15 +53,17 @@ def get_score_breakdown(
 
 
 @router.post("/bulk")
+@limiter.limit(limit_value=premium_limit("high"))
 def bulk_score(
-    request: BulkScoreRequest,
+    request: Request,
+    body: BulkScoreRequest,
     db: Session = Depends(get_db),
 ):
     """Score multiple properties."""
     return property_scoring_service.bulk_score(
         db,
-        property_ids=request.property_ids,
-        filters=request.filters,
+        property_ids=body.property_ids,
+        filters=body.filters,
     )
 
 

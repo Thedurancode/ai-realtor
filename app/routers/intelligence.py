@@ -1,11 +1,12 @@
 """Intelligence API endpoints —谈判 agents, campaigns, documents, and competitive analysis."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.services.autonomous_campaign_manager import autonomous_campaign_manager
 from app.services.negotiation_agent_service import negotiation_agent_service
 from app.services.document_analyzer_service import document_analyzer_service
@@ -28,7 +29,9 @@ async def optimize_campaign_parameters(campaign_id: int, db: Session = Depends(g
 
 
 @router.post("/campaigns/autonomous")
+@limiter.limit(limit_value=premium_limit("critical"))
 async def run_autonomous_campaign(
+    request: Request,
     goal: str,
     agent_id: int,
     campaign_name: Optional[str] = None,
@@ -65,9 +68,11 @@ class AnalyzeOfferRequest(BaseModel):
 
 
 @router.post("/negotiation/property/{property_id}/analyze-offer")
+@limiter.limit(limit_value=premium_limit("medium"))
 async def analyze_offer(
+    request: Request,
     property_id: int,
-    request: AnalyzeOfferRequest,
+    body: AnalyzeOfferRequest,
     db: Session = Depends(get_db),
 ):
     """Analyze an offer against deal metrics and market data.
@@ -78,9 +83,9 @@ async def analyze_offer(
     result = await negotiation_agent_service.analyze_offer(
         db,
         property_id,
-        request.offer_amount,
-        request.buyer_concessions,
-        request.contingencies,
+        body.offer_amount,
+        body.buyer_concessions,
+        body.contingencies,
     )
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -241,8 +246,10 @@ class Sequence1031Request(BaseModel):
 
 
 @router.post("/sequencing/1031-exchange")
+@limiter.limit(limit_value=premium_limit("medium"))
 async def sequence_1031_exchange(
-    request: Sequence1031Request,
+    request: Request,
+    body: Sequence1031Request,
     db: Session = Depends(get_db),
 ):
     """Orchestrate a 1031 exchange with timeline management.
@@ -252,9 +259,9 @@ async def sequence_1031_exchange(
     """
     result = await deal_sequencer_service.sequence_1031_exchange(
         db,
-        request.sale_property_id,
-        request.target_criteria,
-        request.agent_id,
+        body.sale_property_id,
+        body.target_criteria,
+        body.agent_id,
     )
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -262,7 +269,9 @@ async def sequence_1031_exchange(
 
 
 @router.post("/sequencing/portfolio-acquisition")
+@limiter.limit(limit_value=premium_limit("medium"))
 async def sequence_portfolio_acquisition(
+    request: Request,
     property_ids: List[int],
     agent_id: int,
     strategy: str = "parallel",  # parallel or sequential

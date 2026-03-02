@@ -1,7 +1,8 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.models.agentic_property import ResearchProperty
 from app.schemas.agentic_research import (
     AgenticJobCreateResponse,
@@ -18,7 +19,9 @@ router = APIRouter(prefix="/agentic", tags=["agentic-research"])
 
 
 @router.post("/jobs", response_model=AgenticJobCreateResponse, status_code=201)
+@limiter.limit(limit_value=premium_limit("critical"))
 async def create_agentic_job(
+    request: Request,
     payload: ResearchInput,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -110,7 +113,8 @@ def get_agentic_dossier(property_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/research", response_model=PropertyEnvelope)
-async def run_agentic_research_sync(payload: ResearchInput, db: Session = Depends(get_db)):
+@limiter.limit(limit_value=premium_limit("critical"))
+async def run_agentic_research_sync(request: Request, payload: ResearchInput, db: Session = Depends(get_db)):
     # Uses service-level session handling to avoid returning from a closed transaction.
     job = await agentic_research_service.run_sync(payload=payload)
 

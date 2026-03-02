@@ -40,6 +40,53 @@ RATE_LIMIT_TIERS = {
     "enterprise": os.getenv("RATE_LIMIT_ENTERPRISE", "1000/hour"),
 }
 
+# ── Premium endpoint limits (per-tier, per minute) ──────────────────────────
+# Each key maps to { tier: "N/minute" }.  Routers import the category they need
+# and pass the callable to @limiter.limit(limit_value=...).
+PREMIUM_LIMITS = {
+    # Very high cost: video generation, voice calls, AI agents
+    "critical": {
+        "free":       os.getenv("RL_CRITICAL_FREE",       "2/hour"),
+        "pro":        os.getenv("RL_CRITICAL_PRO",         "10/hour"),
+        "enterprise": os.getenv("RL_CRITICAL_ENTERPRISE",  "60/hour"),
+    },
+    # High cost: research pipelines, direct mail, telephony
+    "high": {
+        "free":       os.getenv("RL_HIGH_FREE",       "5/hour"),
+        "pro":        os.getenv("RL_HIGH_PRO",         "30/hour"),
+        "enterprise": os.getenv("RL_HIGH_ENTERPRISE",  "200/hour"),
+    },
+    # Medium cost: scoring, calculators, ads, analytics
+    "medium": {
+        "free":       os.getenv("RL_MEDIUM_FREE",       "10/hour"),
+        "pro":        os.getenv("RL_MEDIUM_PRO",         "60/hour"),
+        "enterprise": os.getenv("RL_MEDIUM_ENTERPRISE",  "500/hour"),
+    },
+    # Low-medium cost: dashboard, comparison, enrichment reads
+    "standard": {
+        "free":       os.getenv("RL_STANDARD_FREE",       "20/hour"),
+        "pro":        os.getenv("RL_STANDARD_PRO",         "100/hour"),
+        "enterprise": os.getenv("RL_STANDARD_ENTERPRISE",  "1000/hour"),
+    },
+}
+
+
+def premium_limit(category: str):
+    """Dynamic rate limit resolver for @limiter.limit().
+
+    Usage:
+        @limiter.limit(limit_value=premium_limit("critical"))
+
+    Returns a callable(request) -> str that SlowAPI invokes per request.
+    """
+    tier_map = PREMIUM_LIMITS.get(category, PREMIUM_LIMITS["standard"])
+
+    def _resolve(request: Request) -> str:
+        tier = get_agent_tier(request)
+        return tier_map.get(tier, tier_map["free"])
+
+    return _resolve
+
 
 # ============================================================================
 # Key Functions
@@ -234,6 +281,8 @@ __all__ = [
     "get_agent_id",
     "get_agent_tier",
     "agent_rate_limit",
+    "premium_limit",
+    "PREMIUM_LIMITS",
     "RateLimitToggleMiddleware",
     "get_rate_limit_headers",
     "rate_limit",

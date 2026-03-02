@@ -3,12 +3,13 @@ AI Agents Router
 
 Execute autonomous AI agents with tool use and multi-step reasoning.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime as dt
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.models.agent_conversation import AgentConversation, ConversationStatus
 from app.models.research_template import ResearchTemplate
 from app.models.property import Property
@@ -79,8 +80,10 @@ async def _execute_agent_task(
 # ========== Endpoints ==========
 
 @router.post("/execute", response_model=AgentConversationResponse, status_code=201)
+@limiter.limit(limit_value=premium_limit("critical"))
 async def execute_agent(
-    request: AgentExecuteRequest,
+    request: Request,
+    body: AgentExecuteRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
@@ -108,20 +111,20 @@ async def execute_agent(
     5. Synthesize findings into a recommendation
     """
     # Validate property if provided
-    if request.property_id:
-        property = db.query(Property).filter(Property.id == request.property_id).first()
+    if body.property_id:
+        property = db.query(Property).filter(Property.id == body.property_id).first()
         if not property:
             raise HTTPException(status_code=404, detail="Property not found")
 
     # Create conversation record
     conversation = AgentConversation(
-        task=request.task,
-        property_id=request.property_id,
-        agent_id=request.agent_id,
-        model=request.model,
-        system_prompt=request.system_prompt,
-        temperature=str(request.temperature),
-        max_tokens=request.max_tokens,
+        task=body.task,
+        property_id=body.property_id,
+        agent_id=body.agent_id,
+        model=body.model,
+        system_prompt=body.system_prompt,
+        temperature=str(body.temperature),
+        max_tokens=body.max_tokens,
         status=ConversationStatus.PENDING
     )
 
@@ -136,8 +139,10 @@ async def execute_agent(
 
 
 @router.post("/voice-goals/execute", response_model=VoiceGoalExecuteResponse)
+@limiter.limit(limit_value=premium_limit("critical"))
 async def execute_voice_goal(
-    request: VoiceGoalExecuteRequest,
+    request: Request,
+    body: VoiceGoalExecuteRequest,
     db: Session = Depends(get_db),
 ):
     """
@@ -150,27 +155,27 @@ async def execute_voice_goal(
       "property_id": 42
     }
     """
-    if request.execution_mode not in {"safe", "autonomous"}:
+    if body.execution_mode not in {"safe", "autonomous"}:
         raise HTTPException(status_code=400, detail="execution_mode must be 'safe' or 'autonomous'")
 
-    if request.property_id:
-        property_record = db.query(Property).filter(Property.id == request.property_id).first()
+    if body.property_id:
+        property_record = db.query(Property).filter(Property.id == body.property_id).first()
         if not property_record:
             raise HTTPException(status_code=404, detail="Property not found")
 
     result = await voice_goal_planner_service.execute_goal(
         db=db,
-        goal=request.goal,
-        session_id=request.session_id,
-        property_id=request.property_id,
-        property_query=request.property_query,
-        execution_mode=request.execution_mode,
-        confirm_high_risk=request.confirm_high_risk,
-        dry_run=request.dry_run,
+        goal=body.goal,
+        session_id=body.session_id,
+        property_id=body.property_id,
+        property_query=body.property_query,
+        execution_mode=body.execution_mode,
+        confirm_high_risk=body.confirm_high_risk,
+        dry_run=body.dry_run,
     )
 
     # Keep in-memory context hot for low-latency follow-up commands.
-    hydrate_context_from_graph(db=db, session_id=request.session_id)
+    hydrate_context_from_graph(db=db, session_id=body.session_id)
 
     return result
 
@@ -225,9 +230,11 @@ def write_voice_memory_event(
 
 
 @router.post("/templates/{template_id}/execute", response_model=AgentConversationResponse, status_code=201)
+@limiter.limit(limit_value=premium_limit("critical"))
 async def execute_agent_from_template(
+    request: Request,
     template_id: int,
-    request: AgentFromTemplateRequest,
+    body: AgentFromTemplateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
@@ -258,24 +265,24 @@ async def execute_agent_from_template(
         raise HTTPException(status_code=400, detail="Template is not active")
 
     # Validate property if provided
-    if request.property_id:
-        property = db.query(Property).filter(Property.id == request.property_id).first()
+    if body.property_id:
+        property = db.query(Property).filter(Property.id == body.property_id).first()
         if not property:
             raise HTTPException(status_code=404, detail="Property not found")
 
     # Build task from template
-    task = request.task_override or template.ai_prompt_template or "Analyze this property comprehensively."
+    task = body.task_override or template.ai_prompt_template or "Analyze this property comprehensively."
 
     # Add additional context if provided
-    if request.additional_context:
-        task = f"{task}\n\nAdditional context: {request.additional_context}"
+    if body.additional_context:
+        task = f"{task}\n\nAdditional context: {body.additional_context}"
 
     # Create conversation record
     conversation = AgentConversation(
         template_id=template_id,
         agent_name=template.agent_name,
         task=task,
-        property_id=request.property_id,
+        property_id=body.property_id,
         model=template.ai_model or "claude-3-5-sonnet-20241022",
         system_prompt=template.ai_system_prompt,
         temperature=template.ai_temperature or "0.7",
@@ -350,7 +357,9 @@ def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
 # ========== Quick Access Endpoints ==========
 
 @router.post("/property/{property_id}/analyze", response_model=AgentConversationResponse)
+@limiter.limit(limit_value=premium_limit("high"))
 async def quick_property_analysis(
+    request: Request,
     property_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)

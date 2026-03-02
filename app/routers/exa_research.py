@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 import httpx
 
+from app.rate_limit import limiter, premium_limit
 from app.schemas.exa_research import (
     ExaPropertyDossierRequest,
     ExaSubdivisionDossierRequest,
@@ -14,7 +15,8 @@ router = APIRouter(prefix="/exa", tags=["exa-research"])
 
 
 @router.post("/research/subdivision-dossier", response_model=ExaResearchResponse)
-async def create_subdivision_dossier_research_task(request: ExaSubdivisionDossierRequest):
+@limiter.limit(limit_value=premium_limit("critical"))
+async def create_subdivision_dossier_research_task(request: Request, body: ExaSubdivisionDossierRequest):
     """
     One-click subdivision feasibility dossier task.
 
@@ -23,14 +25,14 @@ async def create_subdivision_dossier_research_task(request: ExaSubdivisionDossie
     """
     try:
         instructions = exa_research_service.build_subdivision_dossier_instructions(
-            address=request.address,
-            county=request.county,
-            target_strategy=request.target_strategy,
-            target_lot_count=request.target_lot_count,
+            address=body.address,
+            county=body.county,
+            target_strategy=body.target_strategy,
+            target_lot_count=body.target_lot_count,
         )
         raw = await exa_research_service.create_research_task(
             instructions=instructions,
-            model=request.model,
+            model=body.model,
         )
         return ExaResearchResponse(
             task_id=exa_research_service.extract_task_id(raw),
@@ -48,7 +50,8 @@ async def create_subdivision_dossier_research_task(request: ExaSubdivisionDossie
 
 
 @router.post("/research/property-dossier", response_model=ExaResearchResponse)
-async def create_property_dossier_research_task(request: ExaPropertyDossierRequest):
+@limiter.limit(limit_value=premium_limit("critical"))
+async def create_property_dossier_research_task(request: Request, body: ExaPropertyDossierRequest):
     """
     One-click property dossier task.
 
@@ -57,13 +60,13 @@ async def create_property_dossier_research_task(request: ExaPropertyDossierReque
     """
     try:
         instructions = exa_research_service.build_property_dossier_instructions(
-            address=request.address,
-            county=request.county,
-            strategy=request.strategy,
+            address=body.address,
+            county=body.county,
+            strategy=body.strategy,
         )
         raw = await exa_research_service.create_research_task(
             instructions=instructions,
-            model=request.model,
+            model=body.model,
         )
         return ExaResearchResponse(
             task_id=exa_research_service.extract_task_id(raw),
@@ -81,7 +84,8 @@ async def create_property_dossier_research_task(request: ExaPropertyDossierReque
 
 
 @router.post("/research", response_model=ExaResearchResponse)
-async def create_exa_research_task(request: ExaResearchCreateRequest):
+@limiter.limit(limit_value=premium_limit("high"))
+async def create_exa_research_task(request: Request, body: ExaResearchCreateRequest):
     """
     Create an Exa Research task.
 
@@ -90,8 +94,8 @@ async def create_exa_research_task(request: ExaResearchCreateRequest):
     """
     try:
         raw = await exa_research_service.create_research_task(
-            instructions=request.instructions,
-            model=request.model,
+            instructions=body.instructions,
+            model=body.model,
         )
         return ExaResearchResponse(
             task_id=exa_research_service.extract_task_id(raw),

@@ -1,9 +1,10 @@
 """Deal Calculator router — underwriting endpoints for any property."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.rate_limit import limiter, premium_limit
 from app.schemas.deal_calculator import (
     DealCalculatorInput,
     DealCalculatorResponse,
@@ -15,7 +16,8 @@ router = APIRouter(prefix="/deal-calculator", tags=["deal-calculator"])
 
 
 @router.post("/calculate", response_model=DealCalculatorResponse)
-def calculate(payload: DealCalculatorInput, db: Session = Depends(get_db)):
+@limiter.limit(limit_value=premium_limit("medium"))
+def calculate(request: Request, payload: DealCalculatorInput, db: Session = Depends(get_db)):
     """Full deal calculation with all overrides supported."""
     try:
         return calculate_deal(db, payload)
@@ -33,7 +35,8 @@ def quick_calculate(property_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/compare", response_model=DealCalculatorResponse)
-def compare_strategies(payload: DealCalculatorInput, db: Session = Depends(get_db)):
+@limiter.limit(limit_value=premium_limit("medium"))
+def compare_strategies(request: Request, payload: DealCalculatorInput, db: Session = Depends(get_db)):
     """Side-by-side strategy comparison (same data, different framing)."""
     try:
         return calculate_deal(db, payload)
