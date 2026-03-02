@@ -656,7 +656,32 @@ The AI Realtor platform integrates with **30+ external services** for comprehens
 
 ## Quick Start
 
-### Local Development
+### Option 1: Docker (Recommended - Default)
+
+```bash
+# Clone repository
+git clone https://github.com/Thedurancode/ai-realtor.git
+cd ai-realtor
+
+# Start with Docker (one command!)
+./scripts/start-docker.sh
+```
+
+**Docker setup includes:**
+- PostgreSQL database
+- Redis for caching
+- All AI Realtor services
+- Automatic environment variable loading
+
+**After starting:**
+- API: http://localhost:8000/docs
+- Health: http://localhost:8000/health
+
+**See detailed Docker guide:** [docs/DOCKER_QUICKSTART.md](docs/DOCKER_QUICKSTART.md)
+
+---
+
+### Option 2: Local Development (Advanced)
 
 ```bash
 # Clone

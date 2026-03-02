@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     lob_webhook_secret: str = ""
     lob_test_mode: bool = False
 
+    # Coolify Auto-Provisioning
+    coolify_api_base: str = "https://api.coolify.com/v1"
+    coolify_api_key: str = ""
+
     # Enhanced Video Generation
     heygen_api_key: str = ""  # HeyGen API for avatar videos
     did_api_key: str = ""  # D-ID API for talking head videos
