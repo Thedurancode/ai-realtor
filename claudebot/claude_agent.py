@@ -24,7 +24,13 @@ Guidelines:
 - Always confirm before destructive actions (deleting, sending contracts, making calls).
 """
 
-client = AsyncAnthropic()
+# Support custom API base (e.g. Z.AI proxy)
+_base_url = os.getenv("ANTHROPIC_BASE_URL")
+_api_key = os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_API_KEY")
+client = AsyncAnthropic(
+    api_key=_api_key,
+    **{"base_url": _base_url} if _base_url else {},
+)
 
 # Per-user conversation history (chat_id -> messages)
 conversations: dict[str, list[dict]] = {}

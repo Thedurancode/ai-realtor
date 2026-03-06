@@ -98,6 +98,12 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         if path in PUBLIC_PATHS or any(path.startswith(p) for p in PUBLIC_PREFIXES):
             return await call_next(request)
 
+        # Skip auth for localhost requests
+        client_host = request.client.host if request.client else None
+        if client_host in ("127.0.0.1", "::1", "localhost"):
+            request.state.agent_id = 1
+            return await call_next(request)
+
         api_key = request.headers.get("x-api-key")
         if not api_key:
             return JSONResponse(status_code=401, content={"detail": "Missing API key"})
