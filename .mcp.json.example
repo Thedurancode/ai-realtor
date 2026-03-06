@@ -13,7 +13,7 @@
         "elevenlabs-mcp"
       ],
       "env": {
-        "ELEVENLABS_API_KEY": "{YOUR_KEY}"
+        "ELEVENLABS_API_KEY": "YOUR_KEY_HERE"
       }
     },
     "realtorclaw": {
@@ -22,10 +22,10 @@
         "-m",
         "mcp_server.property_mcp"
       ],
-      "cwd": "/Users/edduran/Documents/GitHub/ai-realtor",
+      "cwd": "YOUR_PATH_HERE",
       "env": {
         "MCP_API_BASE_URL": "http://localhost:8000",
-        "MCP_API_KEY": "{YOUR_KEY}",
+        "MCP_API_KEY": "YOUR_KEY_HERE",
         "DATABASE_URL": "sqlite:///./ai_realtor.db"
       }
     },
@@ -36,7 +36,7 @@
         "@modelcontextprotocol/server-github"
       ],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "{YOUR_GITHUB_TOKEN}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_TOKEN_HERE"
       }
     },
     "stripe": {
@@ -117,7 +117,7 @@
         "-m",
         "mcp_server.social_mcp"
       ],
-      "cwd": "/Users/edduran/Documents/GitHub/ai-realtor",
+      "cwd": "YOUR_PATH_HERE",
       "env": {
         "TWITTER_API_KEY": "YOUR_TWITTER_API_KEY",
         "TWITTER_API_SECRET": "YOUR_TWITTER_API_SECRET",
@@ -160,6 +160,90 @@
         "DRIBBBLE_ACCESS_TOKEN": "YOUR_DRIBBBLE_ACCESS_TOKEN"
       }
     },
+    "zillow": {
+      "command": "YOUR_PATH_HERE",
+      "args": [
+        "YOUR_PATH_HERE"
+      ],
+      "env": {
+        "ZILLOW_API_KEY": "YOUR_ZILLOW_BRIDGE_API_KEY"
+      }
+    },
+    "woocommerce": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@automattic/mcp-wordpress-remote@latest"
+      ],
+      "env": {
+        "WP_API_URL": "YOUR_STORE_URL/wp-json/woocommerce/mcp",
+        "WP_API_USERNAME": "YOUR_WOO_CONSUMER_KEY",
+        "WP_API_PASSWORD": "YOUR_WOO_CONSUMER_SECRET"
+      }
+    },
+    "shopify": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@ajackus/shopify-mcp-server"
+      ],
+      "env": {
+        "SHOPIFY_ACCESS_TOKEN": "YOUR_SHOPIFY_ADMIN_API_ACCESS_TOKEN",
+        "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com"
+      }
+    },
+    "gohighlevel": {
+      "command": "node",
+      "args": [
+        "YOUR_PATH_HERE"
+      ],
+      "env": {
+        "GHL_API_KEY": "YOUR_GHL_PRIVATE_INTEGRATION_API_KEY",
+        "GHL_BASE_URL": "https://services.leadconnectorhq.com",
+        "GHL_LOCATION_ID": "YOUR_GHL_LOCATION_ID"
+      }
+    },
+    "google-ads": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "mcp_server.google_ads_mcp"
+      ],
+      "cwd": "YOUR_PATH_HERE",
+      "env": {
+        "GOOGLE_ADS_DEVELOPER_TOKEN": "YOUR_DEVELOPER_TOKEN",
+        "GOOGLE_ADS_CLIENT_ID": "YOUR_OAUTH_CLIENT_ID",
+        "GOOGLE_ADS_CLIENT_SECRET": "YOUR_OAUTH_CLIENT_SECRET",
+        "GOOGLE_ADS_REFRESH_TOKEN": "YOUR_REFRESH_TOKEN",
+        "GOOGLE_ADS_LOGIN_CUSTOMER_ID": "YOUR_MCC_ID_IF_APPLICABLE",
+        "GOOGLE_ADS_CUSTOMER_ID": "YOUR_DEFAULT_CUSTOMER_ID"
+      }
+    },
+    "figma": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "figma-developer-mcp@latest"
+      ],
+      "env": {
+        "FIGMA_API_KEY": "YOUR_FIGMA_PERSONAL_ACCESS_TOKEN"
+      }
+    },
+    "canva": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@canva/cli@latest",
+        "mcp"
+      ]
+    },
+    "quickbooks": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "quickbooks-mcp"
+      ]
+    },
     "wordpress": {
       "command": "npx",
       "args": [
@@ -179,7 +263,7 @@
         "@piotr-agier/google-drive-mcp"
       ],
       "env": {
-        "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "/Users/edduran/.config/google-drive-mcp/gcp-oauth.keys.json"
+        "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "YOUR_PATH_HERE"
       }
     }
   }
