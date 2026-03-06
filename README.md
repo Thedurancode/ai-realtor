@@ -1,486 +1,192 @@
-# AI Realtor - Intelligent Real Estate Management Platform
+# AI Realtor — The AI-Powered Real Estate Operating System
 
-A voice-first AI real estate platform that handles the entire property lifecycle through natural language. From property discovery and agentic research, to deal scoring, offer drafting, contract management, phone call automation, and PDF reporting — all controlled through Claude Desktop via MCP.
+An autonomous AI platform that manages the entire real estate lifecycle — from property discovery to closing — through natural language. Built on FastAPI + Next.js with 500+ AI tools, 30+ API integrations, and a Claude-powered brain that can research, negotiate, market, call, email, design, and close deals.
 
 **Live API:** http://ai-realtor.emprezario.com
 **Docs:** http://ai-realtor.emprezario.com/docs
-**Additional Guides:** See [docs/](docs/) for current docs and [docs/root-notes/](docs/root-notes/) for archived root-level guides
 
 ```
-61 MCP Tools  ·  223 API Endpoints  ·  31 Models  ·  31 Services  ·  12 External APIs
+500+ MCP Tools  ·  223 API Endpoints  ·  31 Models  ·  31 Services  ·  30+ External APIs
+21 Social Platforms  ·  269 CRM Tools  ·  22 Ad Management Tools  ·  21 E-commerce Tools
 ```
 
 ---
 
 ## Table of Contents
 
-- [Features](#features)
+- [Real Estate API](#real-estate-api)
+  - [Property Management](#property-management)
+  - [Deal Calculator & Scoring](#deal-calculator--scoring)
+  - [Offer & Negotiation Engine](#offer--negotiation-engine)
+  - [AI Contract Management](#ai-contract-management)
+  - [Agentic Property Research](#agentic-property-research)
+  - [Phone Call Automation](#phone-call-automation)
+  - [Skip Tracing & Owner Discovery](#skip-tracing--owner-discovery)
+  - [Compliance Engine](#compliance-engine)
+  - [CMA Reports & Listing Presentations](#cma-reports--listing-presentations)
+- [MCP Tool Ecosystem](#mcp-tool-ecosystem)
+  - [RealtorClaw (200+ Tools)](#realtorclaw-200-tools)
+  - [Social Media MCP (21 Platforms)](#social-media-mcp-21-platforms)
+  - [Google Ads MCP (22 Tools)](#google-ads-mcp-22-tools)
+  - [GoHighLevel CRM (269 Tools)](#gohighlevel-crm-269-tools)
+  - [E-commerce (WooCommerce + Shopify)](#e-commerce-woocommerce--shopify)
+  - [Google Workspace (Drive, Docs, Sheets, Slides)](#google-workspace)
+  - [WordPress Management](#wordpress-management)
+  - [Design (Figma + Canva)](#design-figma--canva)
+  - [Finance (QuickBooks + Stripe)](#finance-quickbooks--stripe)
+  - [Zillow Market Data](#zillow-market-data)
+  - [Voice & Media (ElevenLabs)](#voice--media-elevenlabs)
+  - [Additional Integrations](#additional-integrations)
+- [AI Brain](#ai-brain)
 - [Architecture](#architecture)
-- [MCP Voice Control](#mcp-voice-control--61-tools)
-- [API Endpoints](#api-endpoints-223)
-- [Deal Calculator](#deal-calculator--scoring)
-- [Agentic Research](#agentic-property-research)
-- [Phone Call Automation](#phone-call-automation)
-- [Tech Stack](#tech-stack)
 - [Quick Start](#quick-start)
-- [Environment Variables](#environment-variables)
-- [Example Workflows](#example-workflows)
-- [Deployment](#deployment)
+- [API Endpoints (223)](#api-endpoints-223)
 - [Database Schema](#database-schema)
+- [Environment Variables](#environment-variables)
+- [Deployment](#deployment)
 
 ---
 
-## Features
+# Real Estate API
 
-### Property Management
-- Create, list, update, and delete properties with Google Places address autocomplete
-- Property types: house, condo, townhouse, apartment, land, commercial, multi-family
-- Status tracking: available, pending, sold, rented, off_market
-- Auto-enrich pipeline: create property -> enrich -> research -> score -> attach contracts
-- Voice-optimized creation and lookup (say the address instead of IDs)
+The core of the platform — a full-stack real estate backend with AI at every layer.
 
-### Zillow Data Enrichment
-- High-res photos (up to 10), Zestimate, rent estimates
-- Tax history, price history, nearby schools with ratings
-- Property features: year built, lot size, parking, heating/cooling
-- Market statistics and comparables
-- Background processing with TV display animation
+## Property Management
 
-### Skip Tracing & Owner Discovery
-- Find property owner names, phone numbers, emails, mailing addresses
-- Relatives and associates
-- Direct cold calling integration with VAPI
-- Voice-optimized responses with formatted phone numbers
-
-### Contact Management
-- 19 contact roles: buyer, seller, lawyer, attorney, contractor, inspector, appraiser, lender, mortgage_broker, title_company, tenant, landlord, property_manager, handyman, plumber, electrician, photographer, stager, other
-- Role aliases for voice input (e.g., "attorney" maps to lawyer)
-- Auto-contract matching by role
-
-### AI Contract Management
-Three-tier requirement system:
-
-| Tier | How It Works |
-|---|---|
-| **Auto-attach** | Template matching by state, city, price range, property type (15+ templates for NY, CA, FL, TX) |
-| **AI Suggestions** | Claude analyzes property and recommends required vs optional contracts with reasoning |
-| **Manual Override** | Mark any contract required/optional with deadline and reason |
-
-- DocuSeal e-signature integration with multi-party signing
-- Smart sending with role-based signer detection (e.g., buyer + seller for Purchase Agreement)
-- Real-time status via DocuSeal webhooks (HMAC-SHA256 verified)
-- Contract statuses: draft, sent, in_progress, pending_signature, completed, cancelled, expired, archived
-
-### Offer & Negotiation Engine
-- Create, counter, accept, reject, and withdraw offers
-- Full negotiation chain tracking with parent/child offer history
-- MAO calculation (Maximum Allowable Offer) for wholesale deals
-- AI-drafted professional offer letters with negotiation strategy and talking points
-- DocuSeal pre-fill for instant buyer signature
-- Contingency tracking: inspection, financing, appraisal, sale of buyer's home
-- Financing types: cash, conventional, FHA, VA, hard_money, seller_financing
-
-### Deal Calculator & Scoring
-Four investment strategies calculated with full underwriting:
-
-| Strategy | Key Metrics |
-|---|---|
-| **Wholesale** | Offer price, assignment fee, profit, ROI |
-| **Fix & Flip** | Purchase + rehab costs, ARV, profit, ROI, hold time |
-| **Rental** | Monthly cash flow, cap rate, expense breakdown, debt service |
-| **BRRRR** | Initial cash in, refi amount, cash back, infinite return flag, post-refi cash flow |
-
-- Deal scoring (A-F grades) based on market conditions and profitability
-- Data fallback chain: user override -> agentic underwriting -> Zestimate -> comp average -> list price
-- Rehab cost tiers: light ($15/sqft), medium ($35/sqft), heavy ($60/sqft)
-- Side-by-side strategy comparison
-- What-if scenario analysis with custom assumptions
-
-### AI Property Recaps
-- Three formats: detailed (3-4 paragraphs), voice summary (2-3 sentences), structured context (JSON for VAPI)
-- Auto-regenerates when contracts are signed, data is enriched, or skip trace completes
-- Version tracking with trigger history
-- Embedded for vector search
-
-### PDF Property Reports
-- Professional PDF reports generated in-memory with fpdf2
-- Property overview report: hero photo, key stats, market analysis, schools table, contract status, contacts, deal score
-- Extensible registry pattern (add new report types with one file)
-- Emailed as attachment via Resend
-- Voice: "Send me the property overview for 123 Main St"
-
-### Agentic Property Research
-12+ parallel AI research workers:
-- **Property Profile** — parcel facts, owner, geocoding
-- **Comparable Sales** — nearby sales with similarity scores
-- **Comparable Rentals** — rental comp analysis
-- **Underwriting** — ARV, rent estimate, rehab costs, offer price recommendation
-- **Neighborhood Intel** — crime, schools, market trends
-- **Extensive agents** (optional):
-  - EPA environmental hazards and superfund sites
-  - Wildfire hazard assessment
-  - Seismic hazard and nearby faults
-  - Wetlands detection
-  - HUD opportunity zone indices
-  - Historic places and district detection
-- Investor-grade dossier generation with evidence tracking
-- Exa AI web research integration
-
-### Semantic Vector Search
-- pgvector-powered natural language property search
-- OpenAI embeddings (text-embedding-3-small, 1536 dimensions)
-- Queries like "Modern condo in Brooklyn under $700k with parking"
-- Similar property matching via cosine similarity
-- Cross-search: properties, recaps, dossiers, and evidence items
-
-### Phone Call Automation
-
-**VAPI Integration:**
-| Call Type | What It Does |
-|---|---|
-| `property_update` | Shares property details, answers questions |
-| `contract_reminder` | Reminds about pending contracts |
-| `closing_ready` | Celebrates all contracts complete |
-| `specific_contract_reminder` | Calls specific person about specific contract |
-| `skip_trace_outreach` | Cold calls owner to ask about selling |
-
-- GPT-4 Turbo + 11Labs voice, full property context injected
-- Recording enabled for all calls
-
-**ElevenLabs Conversational AI:**
-- Voice agent with live MCP tool access during calls
-- Can look up properties, check contracts, calculate deals mid-conversation
-- Claude Sonnet 4.5 as the brain + natural 11Labs voice
-- Embeddable website widget
-- Twilio phone number integration
-
-### Voice Campaign Management
-- Bulk outbound calling campaigns with target enrollment
-- Target filtering by property, contact role, or manual selection
-- Configurable rate limiting, retry logic (exponential backoff), max attempts
-- Campaign lifecycle: draft -> active -> paused -> completed -> canceled
-- Campaign analytics: success rate, total calls, completions, average attempts
-- Background worker with automatic processing every 15 seconds
-
-### Deal Type Workflows
-Pre-configured deal types with auto-setup:
-- Traditional, short_sale, REO, FSBO, new_construction, wholesale, rental, commercial
-- Auto-attach required contracts per deal type
-- Create checklist todos per deal type
-- Set required contact roles per deal type
-- Deal progress tracking with readiness status
-
-### Compliance Engine
-- AI-powered checks against federal (RESPA, TILA, Fair Housing), state, and local regulations
-- Rule types: disclosure, contract, deadline, documentation, fair_housing, data_privacy
-- Violation severity levels: critical, high, medium, low, info
-- Claude-generated compliance summary with remediation steps
-- Scheduled auto-checks after property creation
-
-### Real-time Activity Feed & Notifications
-- WebSocket-powered real-time updates
-- TV display integration with animated notifications
-- Activity logging for all tool executions, property updates, contract events
-- Notification types: contract signed, new lead, price change, status change, compliance alerts
-- Priority levels with auto-dismiss
-
-### Todo Management
-- Property-specific task tracking with priorities and deadlines
-- Categories: contract signing, inspection, appraisal, closing, follow-up, research, compliance
-- Agent assignment and reminder notifications
-
-### Agent Preferences
-- Per-agent settings: auto-enrich, preferred templates, notification preferences
-- API key authentication (X-API-Key header)
-- Work hours and communication preferences
-
----
-
-## Architecture
+Create, enrich, research, score, and manage properties through voice or API.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Claude Desktop                           │
-│                   (Voice Interface)                          │
-└───────────────────────┬─────────────────────────────────────┘
-                        │ MCP Protocol (stdio / SSE)
-                        v
-┌─────────────────────────────────────────────────────────────┐
-│                  MCP Server (Python)                         │
-│          61 Voice-Controlled Tools (13 modules)             │
-│   properties · contacts · contracts · offers · research     │
-│   recaps · calls · campaigns · search · reports · deals     │
-└───────────────────────┬─────────────────────────────────────┘
-                        │ HTTP API (localhost:8000)
-                        v
-┌─────────────────────────────────────────────────────────────┐
-│                    FastAPI Backend                            │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │  27 Routers · 223 Endpoints · Rate Limiting · CORS    │  │
-│  └───────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │  31 Services: AI Analysis, VAPI Calls, ElevenLabs,    │  │
-│  │  Enrichment, Skip Trace, Compliance, Offers,          │  │
-│  │  Research Pipeline, Campaigns, PDF Reports             │  │
-│  └───────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │  31 Models: Property, Contract, Contact, Offer,       │  │
-│  │  Recap, Dossier, Evidence, Campaign, Compliance,      │  │
-│  │  Agent, Enrichment, SkipTrace, DealType...            │  │
-│  └───────────────────────────────────────────────────────┘  │
-└──────────┬──────────────────────────┬───────────────────────┘
-           │                          │
-           v                          v
-┌─────────────────────┐   ┌──────────────────────────────────┐
-│ PostgreSQL + pgvec  │   │       External APIs (12)          │
-│                     │   │  Google Places · Zillow · Exa     │
-│ 31 tables           │   │  Skip Trace · DocuSeal · VAPI    │
-│ Vector embeddings   │   │  ElevenLabs · Resend · RentCast  │
-│ 1536-dim OpenAI     │   │  Anthropic Claude · OpenAI · GPT │
-└─────────────────────┘   └──────────────────────────────────┘
-           ^
-           │ WebSocket
-           v
-┌─────────────────────────────────────────────────────────────┐
-│               Frontend (Next.js 15)                          │
-│         Real-time Dashboard · TV Display · Activity Feed     │
-└─────────────────────────────────────────────────────────────┘
+"Create a property at 123 Main St, Brooklyn for $650,000 with 3 beds"
+"Enrich it with Zillow data"
+"Run full agentic research"
+"Score the deal"
 ```
 
----
+- **Property types:** house, condo, townhouse, apartment, land, commercial, multi-family
+- **Status tracking:** available, pending, sold, rented, off_market
+- **Auto-enrich pipeline:** create → enrich → research → score → attach contracts
+- **Google Places** address autocomplete and geocoding
+- **Zillow enrichment:** high-res photos, Zestimate, rent estimates, tax history, schools, comps
+- **Semantic vector search** via pgvector + OpenAI embeddings (1536 dims)
 
-## MCP Voice Control — 61 Tools
-
-All features are accessible through natural language via the MCP server for Claude Desktop.
-
-| Category | Tools | Count |
-|---|---|---|
-| Property | list, get, create, update, delete | 5 |
-| Enrichment | enrich_property, skip_trace_property | 2 |
-| Contacts | add_contact | 1 |
-| Contracts | send, check status, list, signing status, readiness, attach, AI suggest, apply suggestions, mark required, smart send | 13 |
-| Recaps & Calls | generate/get recap, phone call, call about contract, cold call owner | 5 |
-| Offers | create, get, list, counter, accept, reject, withdraw, calculate MAO | 8 |
-| Deal Calculator | calculate, compare strategies, what-if scenario | 3 |
-| Research | research (sync/async), status, dossier, search | 5 |
-| Search | semantic search, find similar properties | 2 |
-| ElevenLabs | call, setup, status | 3 |
-| Deal Types | list, get, create, update, delete, preview, set, status | 8 |
-| Reports | send_property_report | 1 |
-| Notifications | send, list | 2 |
-| Webhooks | test configuration | 1 |
-
-**Voice examples:**
+### API Endpoints
 ```
-"Create a property at 123 Main St, New York for $850,000 with 2 bedrooms"
-"Enrich property 5 with Zillow data and generate a recap"
-"Is the property at 123 Main Street ready to close?"
-"Call John about the Purchase Agreement that needs his signature"
-"Skip trace property 5 and call the owner to ask if they want to sell"
-"What contracts are required for this property based on AI analysis?"
-"Submit an offer of $600K on property 3 with inspection contingency"
-"Calculate the deal for property 5"
-"Compare wholesale vs flip vs rental for property 8"
-"Find me properties similar to the Brooklyn condo"
-"Run full agentic research on property 8"
-"Send me the property overview for 123 Main St"
+POST   /properties/                    Create property
+GET    /properties/                    List with filtering
+GET    /properties/{id}                Get details
+PATCH  /properties/{id}                Update
+DELETE /properties/{id}                Delete
+POST   /properties/{id}/set-deal-type  Set deal type
+GET    /properties/{id}/deal-status    Deal progress
 ```
-
----
-
-## API Endpoints (223)
-
-### Properties
-```
-POST   /properties/                          Create property
-POST   /properties/voice                     Voice-optimized creation
-GET    /properties/                          List with filtering
-GET    /properties/{id}                      Get details
-PATCH  /properties/{id}                      Update
-DELETE /properties/{id}                      Delete
-POST   /properties/{id}/set-deal-type        Set deal type
-GET    /properties/{id}/deal-status          Deal progress
-```
-
-### Contracts
-```
-GET    /contracts/                           List contracts
-POST   /contracts/                           Create contract
-GET    /contracts/{id}                       Get contract
-PATCH  /contracts/{id}                       Update
-DELETE /contracts/{id}                       Delete
-POST   /contracts/{id}/send                  Send via DocuSeal
-POST   /contracts/{id}/send-to-contact       Send to contact
-POST   /contracts/{id}/send-multi-party      Multi-party signing
-GET    /contracts/{id}/status                DocuSeal status
-POST   /contracts/{id}/cancel               Cancel/archive
-PATCH  /contracts/{id}/mark-required        Mark required/optional
-POST   /contracts/voice/send                Voice send
-POST   /contracts/voice/smart-send          Auto-determine signers
-POST   /contracts/property/{id}/auto-attach  Auto-attach templates
-POST   /contracts/property/{id}/ai-suggest   AI suggestions
-POST   /contracts/property/{id}/ai-apply-suggestions  Apply suggestions
-GET    /contracts/property/{id}/required-status       Readiness check
-GET    /contracts/property/{id}/signing-status         Who signed
-GET    /contracts/property/{id}/missing-contracts      What's missing
-```
-
-### Offers
-```
-POST   /offers/                              Create offer
-GET    /offers/                              List offers
-GET    /offers/{id}                          Get offer
-POST   /offers/{id}/counter                  Counter offer
-POST   /offers/{id}/accept                   Accept
-POST   /offers/{id}/reject                   Reject
-POST   /offers/{id}/withdraw                 Withdraw
-GET    /offers/{id}/chain                    Negotiation chain
-GET    /offers/property/{id}/summary         Property offer summary
-POST   /offers/property/{id}/mao             Calculate MAO
-POST   /offers/{id}/draft-letter             Draft AI offer letter
-POST   /offers/property/{id}/draft-letter    Standalone offer letter
-```
-
-### Deal Calculator
-```
-POST   /deal-calculator/calculate            Full calculation with overrides
-GET    /deal-calculator/property/{id}        Quick calculate with defaults
-POST   /deal-calculator/compare              Compare strategies side-by-side
-POST   /deal-calculator/voice                Voice-optimized calculation
-```
-
-### Property Recaps & Reports
-```
-POST   /property-recap/property/{id}/generate        Generate AI recap
-GET    /property-recap/property/{id}                 Get current recap
-POST   /property-recap/property/{id}/send-report     Generate and email PDF report
-POST   /property-recap/property/{id}/call            VAPI phone call
-GET    /property-recap/call/{id}/status              Call status
-POST   /property-recap/call/{id}/end                 End call
-GET    /property-recap/call/{id}/recording           Get recording
-```
-
-### Agentic Research
-```
-POST   /agentic-research/property/{id}/run           Run full pipeline
-GET    /agentic-research/property/{id}/status         Get status
-POST   /agentic-research/property/{id}/rerun-worker   Rerun specific worker
-GET    /agentic-research/property/{id}/dossier         Get dossier markdown
-POST   /agentic-research/voice/run                     Voice research
-POST   /exa-research/property/{id}                     Exa web research
-GET    /exa-research/property/{id}/results             Exa results
-```
-
-### Semantic Search
-```
-POST   /search/properties                    Natural language property search
-POST   /search/research                      Search dossiers and evidence
-GET    /search/similar/{id}                  Find similar properties
-POST   /search/backfill                      Backfill embeddings
-```
-
-### Phone Calls & Campaigns
-```
-POST   /elevenlabs/setup                              One-time agent setup
-POST   /elevenlabs/call                                ElevenLabs outbound call
-GET    /elevenlabs/agent                               Agent status
-PATCH  /elevenlabs/agent/prompt                        Update agent prompt
-GET    /elevenlabs/widget                              Embed widget HTML
-POST   /voice-campaigns/                               Create campaign
-GET    /voice-campaigns/                               List campaigns
-GET    /voice-campaigns/{id}                           Get campaign
-PATCH  /voice-campaigns/{id}                           Update campaign
-DELETE /voice-campaigns/{id}                           Cancel campaign
-POST   /voice-campaigns/{id}/targets                   Add targets manually
-POST   /voice-campaigns/{id}/targets/from-filters      Add from property filters
-GET    /voice-campaigns/{id}/targets                   List targets
-POST   /voice-campaigns/{id}/start                     Start campaign
-POST   /voice-campaigns/{id}/pause                     Pause campaign
-POST   /voice-campaigns/{id}/resume                    Resume campaign
-POST   /voice-campaigns/{id}/process                   Process one campaign
-POST   /voice-campaigns/process                        Process all active
-GET    /voice-campaigns/{id}/analytics                 Campaign analytics
-```
-
-### Compliance
-```
-POST   /compliance/properties/{id}/check               Full compliance check
-POST   /compliance/properties/{id}/quick-check          Quick check
-GET    /compliance/properties/{id}/report               Compliance report
-POST   /compliance/voice/check                          Voice compliance check
-GET    /compliance/voice/status                          Voice status
-```
-
-### Contacts, Notifications, Todos, Webhooks
-```
-POST   /contacts/                            Create contact
-POST   /contacts/voice                       Voice creation
-GET    /contacts/property/{id}               Property contacts
-PUT    /contacts/{id}                        Update contact
-DELETE /contacts/{id}                        Delete contact
-POST   /notifications/                       Create notification
-GET    /notifications/                       List notifications
-WS     /ws                                   WebSocket real-time feed
-POST   /display/command                      TV display command
-POST   /webhooks/docuseal                    DocuSeal signing webhook
-GET    /webhooks/docuseal/test               Test webhook config
-GET    /todos/                               List todos
-POST   /todos/                               Create todo
-PUT    /todos/{id}                           Update todo
-DELETE /todos/{id}                           Delete todo
-```
-
-Full interactive docs at http://ai-realtor.emprezario.com/docs
 
 ---
 
 ## Deal Calculator & Scoring
 
-The deal calculator provides investor-grade underwriting across four strategies:
+Investor-grade underwriting across four strategies with AI-powered scoring.
 
 ```
-Voice: "Calculate the deal for property 5"
-Voice: "Compare wholesale vs flip vs rental for 123 Main St"
-Voice: "What if ARV is $400K and rent is $2,800/month?"
+"Calculate the deal for property 5"
+"Compare wholesale vs flip vs rental for 123 Main St"
+"What if ARV is $400K and rent is $2,800/month?"
 ```
 
-### Data Fallback Chain
-1. User-provided overrides
-2. Agentic underwriting results (research job)
-3. Zillow Zestimate (for ARV)
-4. Comparable sales average
-5. List price (last resort)
+### Four Investment Strategies
 
-### Output Per Strategy
-- Offer price with reasoning
-- Total investment breakdown
-- Profit / ROI / monthly cash flow
-- Expense line items (property mgmt, vacancy, capex, repairs, insurance, tax, debt service)
-- Financing details (loan amount, rate, monthly P&I)
-- **Deal score (A-F)** with weighted factors
+| Strategy | Key Metrics |
+|----------|------------|
+| **Wholesale** | Offer price, assignment fee, profit, ROI |
+| **Fix & Flip** | Purchase + rehab costs, ARV, profit, ROI, hold time |
+| **Rental** | Monthly cash flow, cap rate, expense breakdown, debt service |
+| **BRRRR** | Initial cash in, refi amount, cash back, infinite return flag, post-refi cash flow |
+
+### Scoring
+- **Deal grades A–F** based on weighted market conditions and profitability
+- **Data fallback chain:** user override → agentic underwriting → Zestimate → comp average → list price
+- **Rehab cost tiers:** light ($15/sqft), medium ($35/sqft), heavy ($60/sqft)
+- Side-by-side strategy comparison
+- What-if scenario analysis with custom assumptions
 
 ### BRRRR-Specific
 - Initial cash in (down payment + closing costs + rehab)
 - Refi at 75% ARV after stabilization
-- Cash back at refinance
-- Cash left in deal
+- Cash back at refinance, cash left in deal
 - Infinite return detection (all cash recovered)
 - Post-refi monthly cash flow
 
 ---
 
+## Offer & Negotiation Engine
+
+Full offer lifecycle with AI-drafted letters and negotiation tracking.
+
+```
+"Submit an offer of $600K on property 3 with inspection contingency"
+"Counter at $575K"
+"Draft the offer letter"
+```
+
+- Create, counter, accept, reject, and withdraw offers
+- Full negotiation chain tracking (parent/child offer history)
+- **MAO calculation** (Maximum Allowable Offer) for wholesale deals
+- **AI-drafted offer letters** with negotiation strategy and talking points
+- DocuSeal pre-fill for instant buyer signature
+- **Contingencies:** inspection, financing, appraisal, sale of buyer's home
+- **Financing types:** cash, conventional, FHA, VA, hard_money, seller_financing
+
+### API Endpoints
+```
+POST   /offers/                         Create offer
+GET    /offers/                         List offers
+POST   /offers/{id}/counter             Counter offer
+POST   /offers/{id}/accept              Accept
+POST   /offers/{id}/reject              Reject
+POST   /offers/{id}/withdraw            Withdraw
+GET    /offers/{id}/chain               Negotiation chain
+POST   /offers/property/{id}/mao        Calculate MAO
+POST   /offers/{id}/draft-letter        AI offer letter
+```
+
+---
+
+## AI Contract Management
+
+Three-tier requirement system with e-signatures and multi-party signing.
+
+| Tier | How It Works |
+|------|-------------|
+| **Auto-attach** | Template matching by state, city, price range, property type (15+ templates) |
+| **AI Suggestions** | Claude analyzes property and recommends required vs optional contracts |
+| **Manual Override** | Mark any contract required/optional with deadline and reason |
+
+- **DocuSeal e-signature** integration with multi-party signing
+- **Smart sending** with role-based signer detection
+- Real-time status via DocuSeal webhooks (HMAC-SHA256 verified)
+- Contract statuses: draft → sent → in_progress → pending_signature → completed
+
+### API Endpoints
+```
+POST   /contracts/{id}/send              Send via DocuSeal
+POST   /contracts/{id}/send-multi-party  Multi-party signing
+POST   /contracts/voice/smart-send       Auto-determine signers
+POST   /contracts/property/{id}/ai-suggest   AI suggestions
+GET    /contracts/property/{id}/signing-status  Who signed what
+```
+
+---
+
 ## Agentic Property Research
 
-Multi-agent AI research pipeline that runs parallel workers:
+12+ parallel AI research workers that produce investor-grade dossiers.
 
 ```
-Voice: "Run full agentic research on property 8"
-Voice: "Research 123 Main St with extensive environmental analysis"
+"Run full agentic research on property 8"
+"Research 123 Main St with extensive environmental analysis"
 ```
 
-### Research Workers
 | Worker | Output |
-|---|---|
+|--------|--------|
 | Property Profile | Normalized address, geocoding, parcel facts, owner |
 | Comp Sales | Nearby sales with price, distance, similarity score |
 | Comp Rentals | Rental comps with rent, distance, similarity score |
@@ -494,7 +200,7 @@ Voice: "Research 123 Main St with extensive environmental analysis"
 | HUD Opportunity | Opportunity zone indices |
 | Historic Places | Nearby historic places, district detection |
 
-All findings are stored as searchable **Dossiers** (markdown) and **Evidence Items** (claims with source URLs) with vector embeddings for semantic search.
+All findings stored as searchable **Dossiers** and **Evidence Items** with vector embeddings.
 
 ---
 
@@ -502,451 +208,592 @@ All findings are stored as searchable **Dossiers** (markdown) and **Evidence Ite
 
 ### VAPI Calls
 ```
-Voice: "Call +14155551234 about property 5"
-Voice: "Call John about the Purchase Agreement"
-Voice: "Call the owner of property 5 and ask if they want to sell"
+"Call the owner of property 5 and ask if they want to sell"
+"Call John about the Purchase Agreement"
 ```
 
-Each call includes the full property recap as system context. The AI assistant can answer questions about the property, contracts, and next steps.
+| Call Type | What It Does |
+|-----------|-------------|
+| `property_update` | Shares property details, answers questions |
+| `contract_reminder` | Reminds about pending contracts |
+| `skip_trace_outreach` | Cold calls owner about selling |
+| `closing_ready` | Celebrates all contracts complete |
 
 ### ElevenLabs Conversational Agent
-```
-Voice: "Set up the ElevenLabs voice agent"
-Voice: "Make an ElevenLabs call to +14155551234"
-```
-
-The ElevenLabs agent connects to the MCP server and has **live access to all 61 tools** during the call. It can look up properties, check contract status, calculate deals, and draft offers mid-conversation.
+- Voice agent with **live access to all 200+ tools** during calls
+- Can look up properties, check contracts, calculate deals mid-conversation
+- Claude Sonnet as the brain + natural ElevenLabs voice
+- Embeddable website widget + Twilio phone number
 
 ### Voice Campaigns
 ```
-Voice: "Create a campaign to call all buyers about contract reminders"
-Voice: "Start campaign 3"
-Voice: "Show me campaign analytics"
+"Create a campaign to call all property owners"
+"Start campaign 3"
+"Show me campaign analytics"
+```
+- Bulk outbound calling with retry logic and rate limiting
+- Campaign lifecycle: draft → active → paused → completed
+- Background worker with automatic processing
+
+---
+
+## Skip Tracing & Owner Discovery
+
+```
+"Skip trace property 5"
+"Find the owner of 123 Main St and call them"
 ```
 
-Automated bulk calling with retry logic, rate limiting, and webhook-driven outcome tracking.
+- Owner names, phone numbers, emails, mailing addresses
+- Relatives and associates
+- Direct cold calling integration with VAPI
+- Voice-optimized responses with formatted phone numbers
 
 ---
 
-## Tech Stack
+## Compliance Engine
 
-### Backend
-- **FastAPI** (Python 3.11) — Web framework with auto-generated OpenAPI docs
-- **SQLAlchemy** — ORM with 31 models
-- **PostgreSQL** — Database with pgvector extension for semantic search
-- **Alembic** — Database migrations (auto-run on deploy)
-- **Pydantic v2** — Data validation (`model_dump`, `from_attributes`)
+```
+"Run a compliance check on property 5"
+```
 
-### AI & ML
-- **Anthropic Claude Sonnet 4** — Contract analysis, recaps, compliance, offer letters, research synthesis
-- **GPT-4 Turbo** — VAPI phone conversations
-- **OpenAI Embeddings** — text-embedding-3-small (1536 dims) for vector search
-- **fpdf2** — PDF report generation
-
-### External APIs (30+ Integrations)
-
-The AI Realtor platform integrates with **30+ external services** for comprehensive real estate automation.
-
-#### Property & Address (4)
-| Service | Purpose | Required |
-|---|---|---|
-| **Google Places API** | Address autocomplete, geocoding, verification | ✅ Yes |
-| **Zillow API** (RapidAPI) | Property enrichment (photos, Zestimates, schools, tax history) | Optional |
-| **Skip Trace API** (RapidAPI) | Owner contact discovery (phone, email, mailing) | Optional |
-| **Web Scraping** | Generic scraper + Zillow/Redfin/Realtor.com specialized | Optional |
-
-#### Voice & Phone (4)
-| Service | Purpose | Required |
-|---|---|---|
-| **VAPI** | AI phone calls with property context (GPT-4 + voice) | Optional |
-| **Telnyx** | Alternative phone provider (AMD, recording, calls) | Optional |
-| **ElevenLabs** | Text-to-speech for calls and videos | Optional |
-
-#### Contracts & Documents (2)
-| Service | Purpose | Required |
-|---|---|---|
-| **DocuSeal** | E-signatures with webhook sync | Optional |
-| **Anthropic Claude** | Contract analysis, AI suggestions, compliance | ✅ Yes |
-
-#### Email & Communication (2)
-| Service | Purpose | Required |
-|---|---|---|
-| **Resend** | Transactional emails (notifications, portal invites) | Optional |
-| **OpenAI** | Alternative LLM for some features | Optional |
-
-#### Direct Mail (1)
-| Service | Purpose | Required |
-|---|---|---|
-| **Lob.com** | Postcards, letters, checks via USPS | Optional |
-
-#### Calendar (1)
-| Service | Purpose | Required |
-|---|---|---|
-| **Google Calendar API** | OAuth sync for tasks, appointments, follow-ups | Optional |
-
-#### Marketing - Paid Ads (3)
-| Service | Purpose | Required |
-|---|---|---|
-| **Facebook Ads / Meta** | Ad campaigns, targeting, launch to Ads Manager | Optional |
-| **Postiz** | Multi-platform social posting (Facebook, Instagram, LinkedIn, TikTok, Twitter) | Optional |
-| **Zuckerbot AI** | AI-powered Facebook ad generation | Optional |
-
-#### Video Generation (5)
-| Service | Purpose | Required |
-|---|---|---|
-| **HeyGen** | AI avatar videos | Optional |
-| **D-ID** | Talking head videos | Optional |
-| **Replicate** | PixVerse video footage | Optional |
-| **Remotion** | Video rendering and assembly | Optional |
-
-#### AI & Research (3)
-| Service | Purpose | Required |
-|---|---|---|
-| **Exa AI** | AI-powered web research | Optional |
-| **RentCast** | Rental market data and comparables | Optional |
-| **OpenRouter** | LLM routing for video scripts | Optional |
-
-#### Storage & Infrastructure (3)
-| Service | Purpose | Required |
-|---|---|---|
-| **AWS S3** | Cloud storage for videos and assets | Optional |
-| **Redis** | Caching layer for performance | Optional |
-| **PostgreSQL / SQLite** | Primary database | ✅ Yes |
-
-#### Additional Integrations (5)
-| Service | Purpose | Required |
-|---|---|---|
-| **Composio** | External tool connections | Optional |
-| **Google OAuth** | Calendar authentication | Optional |
-| **GitHub Webhooks** | CI/CD triggers | Optional |
+- AI-powered checks against federal (RESPA, TILA, Fair Housing), state, and local regulations
+- Rule types: disclosure, contract, deadline, documentation, fair_housing, data_privacy
+- Violation severity: critical, high, medium, low, info
+- Claude-generated compliance summary with remediation steps
 
 ---
 
-#### API Cost Estimates (Monthly)
+## CMA Reports & Listing Presentations
 
-| Tier | Cost | Usage |
-|---|---|---|
-| **Free/Dev** | $100-300 | Minimal usage, free tiers |
-| **Production** | $500-1,500 | Moderate usage across all features |
-| **Enterprise** | $2,000-5,000+ | Heavy usage, all features enabled |
+### CMA Report Generator
+- Claude AI analysis → branded PDF (navy/gold)
+- Comparable sales analysis with adjustments
+- Email delivery via Resend
 
-**Major cost drivers:**
-- Claude Sonnet 4 (heavy usage for analysis)
-- VAPI phone calls (charged per minute)
-- Video generation (HeyGen, D-ID)
-- Direct mail (Lob.com per piece)
-- Facebook Ads spend (separate from platform costs)
-
-**All APIs are optional** - the platform functions with only the services you configure!
-
-### Frontend
-- **Next.js 15** — React framework
-- **TypeScript** — Type safety
-- **Zustand** — State management
-- **Framer Motion** — Animations
-- **Remotion** — Video/animation rendering
-
-### Infrastructure
-- **Fly.io** — Cloud hosting (EWR region, 1GB RAM)
-- **Docker** — Multi-stage builds with Python 3.11-slim
-- **Depot** — Fast container builds
-- **WebSocket** — Real-time updates to frontend
+### Listing Presentation Builder
+Address → 8-component marketing package:
+1. CMA Report
+2. Marketing Plan
+3. Video Script
+4. Social Media Posts
+5. MLS Description
+6. Email Blast
+7. Talking Points
+8. Timeline
 
 ---
 
-## Quick Start
+## Follow-Up Sequences
 
-### Option 1: Docker (Recommended - Default)
+Multi-channel drip campaigns with 5 built-in templates:
+- Email, SMS, phone calls, postcards
+- Configurable timing and touch sequence
+- Engagement tracking
+
+## Deal Journal
+
+Auto-logs all deal interactions → Knowledge Base for RAG search. Every call, email, note, and status change is captured and searchable.
+
+## Direct Mail
+
+- Postcards and letters via Lob.com USPS integration
+- Address verification before sending
+- Campaign tracking
+
+---
+
+# MCP Tool Ecosystem
+
+Beyond the core real estate API, the platform connects to 500+ tools across 20+ MCP servers.
+
+## RealtorClaw (200+ Tools)
+
+The primary MCP server — the full real estate platform exposed as Claude tools.
+
+| Category | Tools | Examples |
+|----------|-------|---------|
+| Properties | 20+ | list, create, update, enrich, research, score |
+| Deals | 15+ | calculate, compare strategies, what-if, MAO |
+| Contracts | 15+ | send, check status, AI suggest, smart send |
+| Offers | 10+ | create, counter, accept, reject, draft letter |
+| Research | 10+ | async research, dossier, evidence search |
+| Calls | 10+ | VAPI calls, ElevenLabs, voice campaigns |
+| Contacts | 5+ | add, list, score relationship |
+| Calendar | 10+ | events, conflicts, optimize schedule |
+| Mail | 5+ | postcards, letters, address verification |
+| Social | 5+ | preview, publish, schedule posts |
+| Search | 5+ | semantic search, similar properties |
+| Reports | 5+ | CMA, listing presentations, property reports |
+| Knowledge | 5+ | ingest docs, search knowledge base |
+| Notifications | 5+ | send, list, acknowledge |
+| Webhooks | 5+ | register, test, list |
+
+---
+
+## Social Media MCP (21 Platforms)
+
+Custom-built MCP server — direct API calls, no third-party dependency.
+
+**File:** `mcp_server/social_mcp.py`
+
+| # | Platform | Tool | Content Type |
+|---|----------|------|-------------|
+| 1 | Twitter/X | `post_tweet` | Tweets (280 char) |
+| 2 | LinkedIn | `post_linkedin` | Personal posts |
+| 3 | LinkedIn Page | `post_linkedin_page` | Company page posts |
+| 4 | Facebook | `post_facebook` | Page posts + links |
+| 5 | Instagram | `post_instagram` | Photos + captions |
+| 6 | Threads | `post_threads` | Text posts |
+| 7 | TikTok | `post_tiktok` | Videos |
+| 8 | YouTube | `post_youtube` | Community posts |
+| 9 | Reddit | `post_reddit` | Subreddit posts |
+| 10 | Pinterest | `post_pinterest` | Pins |
+| 11 | Discord | `post_discord` | Webhook messages |
+| 12 | Slack | `post_slack` | Webhook messages |
+| 13 | Telegram | `post_telegram` | Bot messages |
+| 14 | Bluesky | `post_bluesky` | Posts |
+| 15 | Mastodon | `post_mastodon` | Toots |
+| 16 | Medium | `post_medium` | Articles (draft) |
+| 17 | Dev.to | `post_devto` | Articles |
+| 18 | Hashnode | `post_hashnode` | Blog posts |
+| 19 | WordPress | `post_wordpress` | Blog posts |
+| 20 | Google My Business | `post_gmb` | Business updates |
+| 21 | Dribbble | `post_dribbble` | Design shots |
+
+Plus `crosspost` (hit multiple at once) and `check_social_connections` (see what's ready).
+
+---
+
+## Google Ads MCP (22 Tools)
+
+Custom-built full CRUD Google Ads management.
+
+**File:** `mcp_server/google_ads_mcp.py`
+
+| Category | Tools | Actions |
+|----------|-------|---------|
+| Account | 3 | List accounts, get info, check connection |
+| Campaigns | 4 | List, create, update (enable/pause), delete |
+| Ad Groups | 3 | List, create, update (bid/status) |
+| Ads | 3 | List, create responsive search ads, enable/pause |
+| Keywords | 3 | List with quality scores, add keywords, add negatives |
+| Targeting | 2 | Search locations by name, set geo targeting |
+| Budget | 1 | Update daily budget |
+| Reporting | 2 | Performance reports (4 levels), daily spend |
+| GAQL | 1 | Run any custom query |
+
+**Safety:** New campaigns and ads start PAUSED. Budget changes are explicit.
+
+```
+"Create a Search campaign for NJ real estate, $50/day, maximize clicks"
+"Add keywords: homes for sale bergen county, NJ realtor, sell my house NJ"
+"Set targeting to New Jersey only"
+"Show me top campaigns by cost this month"
+"What search terms are wasting budget?"
+```
+
+---
+
+## GoHighLevel CRM (269 Tools)
+
+Full CRM management via the GoHighLevel MCP server.
+
+| Category | Tools | Highlights |
+|----------|-------|-----------|
+| Contacts | 31 | CRUD, tags, tasks, notes, workflow automation |
+| Conversations | 20 | SMS, email, call recordings, live chat |
+| Opportunities | 10 | Pipeline management, deal tracking |
+| Calendars | 14 | Appointments, free slots, time blocking |
+| Invoices & Billing | 39 | Invoices, estimates, recurring, text2pay |
+| Payments | 20 | Orders, subscriptions, coupons, transactions |
+| Social Media | 17 | Post management, account integration |
+| Location Mgmt | 24 | Sub-accounts, custom fields, templates |
+| Products | 10 | CRUD, pricing, inventory, collections |
+| Store/E-commerce | 18 | Shipping, carriers, store settings |
+| Email Marketing | 5 | Campaigns, templates |
+| Blogs | 7 | Posts, authors, categories, SEO |
+| Custom Objects | 9 | Schema + record management |
+| Associations | 10 | Relationship mapping between objects |
+| Custom Fields | 8 | Field management |
+| Surveys | 2 | Survey management and responses |
+
+---
+
+## E-commerce (WooCommerce + Shopify)
+
+### WooCommerce
+Official Automattic MCP adapter — full store management through WordPress REST API.
+- Products, orders, customers, coupons, shipping, inventory, refunds
+
+### Shopify (70+ Tools)
+`@ajackus/shopify-mcp-server` — comprehensive Shopify Admin API access.
+
+| Category | Capabilities |
+|----------|-------------|
+| Products | CRUD, variants, images, collections |
+| Orders | List, filter, fulfill, refund |
+| Customers | Search, manage, tags |
+| Inventory | Track stock levels, adjust |
+| Discounts | Create/manage discount codes |
+| Shipping | Fulfillment, tracking |
+
+---
+
+## Google Workspace
+
+### Google Drive MCP
+`@piotr-agier/google-drive-mcp` — authenticated and connected.
+
+- **Google Drive** — files, folders, sharing
+- **Google Docs** — read/write documents
+- **Google Sheets** — read/write spreadsheets
+- **Google Slides** — read/write presentations
+- **Google Calendar** — events, scheduling
+
+### Gmail MCP
+- Read, search, draft emails
+- Auto-triage with AI classification
+
+---
+
+## WordPress Management
+
+Official WordPress MCP adapter (`@automattic/mcp-wordpress-remote`).
+- Posts, pages, custom post types
+- Media uploads
+- Users, plugins, themes
+- Full site administration
+
+---
+
+## Design (Figma + Canva)
+
+### Figma MCP
+- Read design data, inspect properties
+- List components, extract styles
+- Export assets (PNG, SVG)
+- Code to Canvas (push UI back to Figma)
+
+### Canva MCP
+`@canva/cli@latest mcp`
+- Create designs from templates
+- Manage folders and assets
+- Autofill templates
+- Export as PDF/image
+
+---
+
+## Finance (QuickBooks + Stripe)
+
+### QuickBooks MCP
+`quickbooks-mcp` — full accounting management.
+- P&L reports, balance sheets, trial balance
+- Create invoices and journal entries
+- SQL-like queries across all QuickBooks entities
+- Draft/preview mode by default (safe)
+
+### Stripe
+Payment processing (configured, needs API key).
+- Payments, invoices, subscriptions
+
+---
+
+## Zillow Market Data
+
+Zillow MCP server for supplementary market intelligence.
+- Property search by location, price, beds, baths
+- Zestimates (Zillow's proprietary valuations)
+- Market trends by location
+- Mortgage calculator with PMI, taxes, insurance
+
+---
+
+## Voice & Media (ElevenLabs)
+
+ElevenLabs MCP — text-to-speech, voice cloning, AI agents, phone calls.
+- Generate speech in any voice
+- Clone voices
+- Make outbound AI phone calls
+- Conversational agents with tool access
+
+---
+
+## Additional Integrations
+
+| MCP Server | Purpose | Status |
+|-----------|---------|--------|
+| **Playwright** | Browser automation, screenshots, UI testing | Active |
+| **Context7** | Live documentation lookup for any library | Active |
+| **Z.AI Vision** | Image/video analysis, UI diffs, screenshots | Active |
+| **Web Search** | Live internet search | Active |
+| **Sequential Thinking** | Structured reasoning for complex problems | Active |
+| **Claude-mem** | Cross-session searchable memory | Active |
+| **Fetch** | HTTP requests to any URL | Active |
+| **Docker** | Container management | Configured |
+| **Meta Ads** | Facebook/Instagram ad campaigns | Needs API key |
+| **Resend** | Transactional email | Needs API key |
+
+---
+
+# AI Brain
+
+### Memory System
+- **Persistent memory** across sessions (projects, bugs, decisions, preferences)
+- **Heartbeat system** — auto-checks for tasks at session start
+- **Claude-mem plugin** — cross-session searchable memory database
+- **End-of-session learning** — auto-saves discoveries before signing off
+
+### Skills System
+12 installable skill packs that teach Claude new domain expertise:
+- Luxury Negotiation, Short-Sale Expert, FSBO Converter
+- Find Skills, and 8+ nanobot skills
+
+### Autonomy
+- Full YOLO mode — autonomous task execution
+- Subagent delegation for parallel work
+- Automated video pipeline (ElevenLabs TTS → HeyGen → Pexels → Shotstack)
+
+---
+
+# Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Claude Code (AI Brain)                      │
+│    Persistent Memory · 12 Skills · YOLO Mode · Subagents        │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ MCP Protocol
+           ┌─────────────────┼─────────────────────┐
+           v                 v                     v
+┌──────────────────┐ ┌──────────────┐ ┌────────────────────────┐
+│  RealtorClaw     │ │ Social Media │ │   Google Ads MCP       │
+│  200+ RE Tools   │ │ 21 Platforms │ │   22 Campaign Tools    │
+└────────┬─────────┘ └──────────────┘ └────────────────────────┘
+         │
+         │ HTTP API                    ┌────────────────────────┐
+         v                            │   External MCPs         │
+┌──────────────────────────────┐      │  GoHighLevel (269)     │
+│      FastAPI Backend          │      │  Shopify (70+)         │
+│  27 Routers · 223 Endpoints  │      │  WooCommerce           │
+│  31 Services · 31 Models     │      │  Google Drive/Docs     │
+│  Rate Limiting · CORS        │      │  WordPress             │
+└──────┬──────────────┬────────┘      │  Figma · Canva         │
+       │              │               │  QuickBooks · Stripe   │
+       v              v               │  Zillow · ElevenLabs   │
+┌────────────┐ ┌─────────────────┐    │  Gmail · Calendar      │
+│ PostgreSQL │ │ External APIs   │    │  Playwright · Vision   │
+│ + pgvector │ │ (30+ services)  │    └────────────────────────┘
+│ 31 tables  │ │ Google · Zillow │
+│ Embeddings │ │ DocuSeal · VAPI │
+└────────────┘ │ ElevenLabs      │
+               │ Resend · Lob    │
+               └─────────────────┘
+```
+
+---
+
+# Quick Start
+
+### Docker (Recommended)
 
 ```bash
-# Clone repository
 git clone https://github.com/Thedurancode/ai-realtor.git
 cd ai-realtor
-
-# Start with Docker (one command!)
 ./scripts/start-docker.sh
 ```
 
-**Docker setup includes:**
-- PostgreSQL database
-- Redis for caching
-- All AI Realtor services
-- Automatic environment variable loading
-
-**After starting:**
-- API: http://localhost:8000/docs
-- Health: http://localhost:8000/health
-
-**See detailed Docker guide:** [docs/DOCKER_QUICKSTART.md](docs/DOCKER_QUICKSTART.md)
-
----
-
-### Option 2: Local Development (Advanced)
+### Local Development
 
 ```bash
-# Clone
 git clone https://github.com/Thedurancode/ai-realtor.git
 cd ai-realtor
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-# Set environment variables
-cp .env.example .env
-# Edit .env with your API keys
-
-# Create database
-createdb ai_realtor
-
-# Run database migrations
+cp .env.example .env  # Edit with your API keys
 alembic upgrade head
-
-# Start backend
 python3 -m uvicorn app.main:app --reload --port 8000
-
-# Start frontend (separate terminal)
-cd frontend && npm install && npm run dev
 ```
-
-**Visit:**
-- Backend API: http://localhost:8000/docs
-- Frontend TV Display: http://localhost:3025
 
 ### MCP Server Setup
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "property-management": {
-      "command": "/path/to/ai-realtor/venv/bin/python3",
-      "args": ["/path/to/ai-realtor/mcp_server/property_mcp.py"],
-      "env": {
-        "MCP_API_BASE_URL": "http://localhost:8000",
-        "MCP_API_KEY": "your_api_key"
-      }
-    }
-  }
-}
-```
-
-Restart Claude Desktop. You should see 61 tools available.
-
----
-
-## Environment Variables
-
-The platform uses **30+ external API integrations**. All are optional - configure only what you need.
-
-### Minimum Required (Core Features)
+Copy `.mcp.json.example` to `.mcp.json` and fill in your API keys:
 
 ```bash
-# Database (Required)
-DATABASE_URL=postgresql://user:password@localhost:5432/ai_realtor
-
-# AI (Required)
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-
-# Address Lookup (Required)
-GOOGLE_PLACES_API_KEY=your-google-places-api-key-here
+cp .mcp.json.example .mcp.json
+# Edit .mcp.json with your credentials
 ```
 
-### Complete Configuration
-
-For all 30+ API integrations, see **`.env.example`** in the repository root.
-
-```bash
-# Copy the example file
-cp .env.example .env
-
-# Edit with your API keys
-nano .env
-```
-
-The `.env.example` file includes:
-- All API keys with descriptions
-- Get setup links for each service
-- Usage requirements (optional vs required)
-- Cost estimates per tier
-- Feature-specific API requirements
-
-### Feature-Specific Requirements
-
-| Feature | Required APIs |
-|---|---|
-| **Property Management** | Google Places, Anthropic Claude |
-| **Property Enrichment** | Zillow (RapidAPI) |
-| **Skip Tracing** | Skip Trace (RapidAPI) |
-| **Contract E-Signatures** | DocuSeal |
-| **Phone Calls** | VAPI or Telnyx |
-| **Voice Generation** | ElevenLabs |
-| **Direct Mail** | Lob.com |
-| **Calendar Sync** | Google OAuth |
-| **Facebook Ads** | Meta Access Token |
-| **Social Media** | Postiz |
-| **Video Generation** | HeyGen, D-ID, Replicate |
-| **Research** | Exa AI |
-| **Email** | Resend |
-
-See `.env.example` for complete list with setup instructions.
+Then restart Claude Code. All configured MCP servers will be available.
 
 ---
 
-## Example Workflows
+# API Endpoints (223)
 
-### New Property — Full Pipeline
+### Properties
 ```
-"Create property at 123 Main St, Brooklyn, NY for $650,000 with 2 bedrooms"
-  -> "Enrich it with Zillow data"
-  -> "Run full agentic research"
-  -> "Calculate the deal"
-  -> "Skip trace to find the owner"
-  -> "Attach required contracts based on AI analysis"
-  -> "Generate a recap"
-  -> "Send me the property overview"
-  -> "Call the owner and ask if they're interested in selling"
+POST   /properties/                    Create property
+GET    /properties/                    List with filtering
+GET    /properties/{id}                Get details
+PATCH  /properties/{id}                Update
+DELETE /properties/{id}                Delete
 ```
 
-### Contract to Close
+### Contracts
 ```
-"What contracts are required for property 5?"
-  -> "AI suggest contracts for this property"
-  -> "Apply the AI suggestions"
-  -> "Send the purchase agreement to John Smith"
-  -> [DocuSeal webhook fires when signed]
-  -> "Is the property ready to close?"
+POST   /contracts/{id}/send            Send via DocuSeal
+POST   /contracts/voice/smart-send     Auto-determine signers
+POST   /contracts/property/{id}/ai-suggest   AI suggestions
+GET    /contracts/property/{id}/signing-status  Who signed
 ```
 
-### Wholesale Deal Analysis
+### Offers
 ```
-"Set property 3 to wholesale deal type"
-  -> "Calculate the deal for property 3"
-  -> "Compare wholesale vs flip vs rental"
-  -> "What if ARV is $300K and rehab is heavy?"
-  -> "Calculate MAO for property 3"
-  -> "Submit an offer of $180K with inspection contingency"
-  -> "Draft the offer letter"
+POST   /offers/                         Create offer
+POST   /offers/{id}/counter             Counter offer
+POST   /offers/{id}/accept              Accept
+POST   /offers/property/{id}/mao        Calculate MAO
+POST   /offers/{id}/draft-letter        AI offer letter
 ```
 
-### Lead Generation Campaign
+### Deal Calculator
 ```
-"Skip trace property 8"
-  -> "Generate a recap with market analysis"
-  -> "Create a voice campaign for skip trace outreach"
-  -> "Add all property owners as targets"
-  -> "Start the campaign"
-  -> [Background worker calls each target with retry logic]
-  -> "Show me campaign analytics"
+POST   /deal-calculator/calculate       Full calculation
+POST   /deal-calculator/compare         Compare strategies
+POST   /deal-calculator/voice           Voice-optimized
 ```
 
-### Research Deep Dive
+### Research
 ```
-"Run full agentic research on 456 Oak Ave with extensive environmental"
-  -> "Show me the research dossier"
-  -> "What's the flood zone status?"
-  -> "Find similar properties in the area"
-  -> "Search research for environmental hazards in Brooklyn"
+POST   /agentic-research/property/{id}/run    Run pipeline
+GET    /agentic-research/property/{id}/dossier  Get dossier
 ```
+
+### Calls & Campaigns
+```
+POST   /elevenlabs/call                  ElevenLabs outbound call
+POST   /voice-campaigns/                 Create campaign
+POST   /voice-campaigns/{id}/start       Start campaign
+```
+
+Full interactive docs at http://ai-realtor.emprezario.com/docs
 
 ---
 
-## Deployment
-
-### Fly.io
-
-```bash
-# Deploy
-fly deploy
-
-# Set secrets
-fly secrets set \
-  GOOGLE_PLACES_API_KEY="..." \
-  ANTHROPIC_API_KEY="..." \
-  DOCUSEAL_API_KEY="..." \
-  VAPI_API_KEY="..." \
-  RESEND_API_KEY="..." \
-  OPENAI_API_KEY="..." \
-  --app ai-realtor
-
-# View logs
-fly logs --app ai-realtor
-
-# SSH into instance
-fly ssh console --app ai-realtor
-
-# Database access
-fly postgres connect -a ai-realtor-db
-```
-
-### Startup Sequence (start.sh)
-1. `alembic upgrade head` — Run database migrations
-2. Start MCP SSE server on port 8001 (background)
-3. Start FastAPI on port 8000 (foreground)
-
-### Docker
-- Base: Python 3.11-slim
-- Dependencies: gcc, libpq-dev (PostgreSQL)
-- Multi-stage build with requirement caching
-- Copies: app/, mcp_server/, scripts/, alembic/, alembic.ini
-
----
-
-## Database Schema
+# Database Schema
 
 ### Core Tables
 | Table | Purpose |
-|---|---|
-| `agents` | Real estate agents with API key auth |
+|-------|---------|
 | `properties` | Property listings with deal scoring |
-| `contacts` | Buyers, sellers, agents, and 16 other roles |
 | `contracts` | Contract documents with DocuSeal integration |
-| `contract_templates` | Reusable templates with state/city/price filters |
-| `contract_submitters` | Per-contract signer roles and statuses |
+| `contacts` | 19 roles: buyer, seller, lawyer, contractor, etc. |
 | `offers` | Offer lifecycle with negotiation chains |
+| `agents` | Real estate agents with API key auth |
 
 ### Enrichment & Research
 | Table | Purpose |
-|---|---|
-| `zillow_enrichments` | Photos, Zestimate, schools, tax/price history |
-| `skip_traces` | Owner contact info from skip trace |
-| `property_recaps` | AI-generated summaries (3 formats) |
-| `agentic_jobs` | Research job tracking |
-| `research_properties` | Normalized research output |
-| `comp_sales` | Comparable sale records |
-| `comp_rentals` | Comparable rental records |
+|-------|---------|
+| `zillow_enrichments` | Photos, Zestimate, schools, tax history |
+| `skip_traces` | Owner contact info |
 | `dossiers` | Research markdown with embeddings |
 | `evidence_items` | Research claims with source URLs |
-| `worker_runs` | Individual AI worker execution logs |
+| `comp_sales` / `comp_rentals` | Comparable records |
 | `underwritings` | ARV/rent/rehab/offer estimates |
-| `risk_scores` | Title risk, data confidence, compliance flags |
 
 ### Campaigns & Activity
 | Table | Purpose |
-|---|---|
-| `voice_campaigns` | Campaign metadata and configuration |
+|-------|---------|
+| `voice_campaigns` | Campaign metadata |
 | `voice_campaign_targets` | Phone numbers with attempt tracking |
 | `activity_events` | Event log for all tool executions |
-| `notifications` | System notifications with priority |
-| `todos` | Property-specific tasks |
-
-### Configuration
-| Table | Purpose |
-|---|---|
-| `agent_preferences` | Per-agent settings |
-| `deal_type_configs` | Deal type definitions |
-| `compliance_rules` | Compliance rule definitions |
-| `research_templates` | Research strategy templates |
+| `notifications` | System notifications |
 
 ---
 
-## License
+# Environment Variables
 
-MIT License — See LICENSE file for details.
+### Minimum Required
+```bash
+DATABASE_URL=postgresql://user:password@localhost:5432/ai_realtor
+ANTHROPIC_API_KEY=sk-ant-your-key
+GOOGLE_PLACES_API_KEY=your-key
+```
+
+### MCP Servers
+All MCP server credentials are in `.mcp.json` (gitignored). See `.mcp.json.example` for the full template with all 20+ servers.
+
+### Feature-Specific
+| Feature | Required APIs |
+|---------|--------------|
+| Property Management | Google Places, Anthropic Claude |
+| Property Enrichment | Zillow (RapidAPI) |
+| Skip Tracing | Skip Trace (RapidAPI) |
+| E-Signatures | DocuSeal |
+| Phone Calls | VAPI or ElevenLabs |
+| Direct Mail | Lob.com |
+| Video Generation | ElevenLabs, Shotstack, HeyGen |
+| Social Media | Platform-specific API keys |
+| Google Ads | Google Ads Developer Token + OAuth |
+| CRM | GoHighLevel Private Integration key |
+| E-commerce | WooCommerce keys or Shopify Admin token |
+
+All APIs are optional — the platform functions with only the services you configure.
 
 ---
 
-**Built with [Claude Code](https://claude.ai/code) via [Happy](https://happy.engineering)**
+# Deployment
+
+### Fly.io
+```bash
+fly deploy
+fly secrets set ANTHROPIC_API_KEY="..." GOOGLE_PLACES_API_KEY="..." --app ai-realtor
+```
+
+### Docker
+```bash
+docker build -t ai-realtor .
+docker run -p 8000:8000 --env-file .env ai-realtor
+```
+
+---
+
+# Example Workflows
+
+### Full Property Pipeline
+```
+"Create property at 123 Main St, Brooklyn for $650,000"
+→ "Enrich with Zillow data"
+→ "Run full agentic research"
+→ "Calculate the deal"
+→ "Skip trace the owner"
+→ "Call them and ask if they want to sell"
+→ "Submit an offer of $500K with inspection contingency"
+→ "Send the purchase agreement for e-signature"
+```
+
+### Marketing Blitz
+```
+"Generate a listing presentation for 456 Oak Ave"
+→ "Create a property video"
+→ "Crosspost to Twitter, LinkedIn, Facebook, and Instagram"
+→ "Create a Google Ads search campaign targeting Bergen County"
+→ "Send a postcard to nearby homeowners"
+→ "Schedule a blog post on WordPress"
+```
+
+### Business Operations
+```
+"Show me my QuickBooks P&L for last quarter"
+→ "Check my Google Ads spend this month"
+→ "List all pending GHL opportunities"
+→ "Send an invoice for $5,000 to the buyer"
+→ "Create a follow-up sequence for cold leads"
+```
+
+---
+
+**Built by [Ed Duran](https://www.emprezario.com) at Emprezario Inc**
+**Powered by [Claude Code](https://claude.ai/code)**
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
