@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Now Streaming | March 2026 Movie Reviews</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #1a0a2e 0%, #16213e 50%, #0a0a0a 100%);
+            padding: 80px 20px 60px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 50%, rgba(236, 72, 153, 0.06) 0%, transparent 50%);
+            animation: pulse 8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .hero-content { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
+
+        .hero-label {
+            display: inline-block;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, #ffffff 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 16px;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            color: #9ca3af;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Container */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+        }
+
+        /* Movie Card */
+        .movie-card {
+            background: #141414;
+            border: 1px solid #222;
+            border-radius: 16px;
+            margin-bottom: 40px;
+            overflow: hidden;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .movie-card:hover {
+            transform: translateY(-4px);
+            border-color: #333;
+        }
+
+        .card-header {
+            padding: 32px 32px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .card-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            color: #fff;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .score-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+        }
+
+        .score-fresh {
+            background: rgba(34, 197, 94, 0.12);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .score-certified {
+            background: rgba(250, 204, 21, 0.12);
+            color: #facc15;
+            border: 1px solid rgba(250, 204, 21, 0.2);
+        }
+
+        .score-rotten {
+            background: rgba(239, 68, 68, 0.12);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .score-icon { font-size: 1.1rem; }
+
+        .card-meta {
+            padding: 12px 32px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: #6b7280;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .meta-label { color: #9ca3af; font-weight: 600; }
+
+        .card-body { padding: 24px 32px; }
+
+        .synopsis {
+            font-size: 1rem;
+            color: #d1d5db;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+
+        .consensus {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(236, 72, 153, 0.05));
+            border-left: 3px solid #8b5cf6;
+            padding: 16px 20px;
+            border-radius: 0 12px 12px 0;
+            margin-bottom: 24px;
+        }
+
+        .consensus-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #8b5cf6;
+            margin-bottom: 8px;
+        }
+
+        .consensus p {
+            font-style: italic;
+            color: #c4b5fd;
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        /* Review Quote */
+        .review-section { margin-top: 20px; }
+
+        .review-section h3 {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #6b7280;
+            margin-bottom: 16px;
+        }
+
+        .review-quote {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            border: 1px solid #1f1f1f;
+        }
+
+        .review-quote p {
+            font-size: 0.9rem;
+            color: #d1d5db;
+            font-style: italic;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        .review-attribution {
+            font-size: 0.8rem;
+            color: #6b7280;
+            font-style: normal;
+        }
+
+        .review-attribution strong { color: #9ca3af; }
+
+        /* Tags */
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 0 32px 24px;
+        }
+
+        .tag {
+            background: #1f1f1f;
+            color: #9ca3af;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        /* Verdict bar */
+        .verdict-bar {
+            padding: 16px 32px;
+            border-top: 1px solid #1f1f1f;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .verdict {
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .verdict-watch { color: #22c55e; }
+        .verdict-maybe { color: #facc15; }
+        .verdict-skip { color: #ef4444; }
+
+        .streaming-info {
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+
+        /* Divider */
+        .section-divider {
+            text-align: center;
+            padding: 20px 0;
+            color: #333;
+            font-size: 1.5rem;
+            letter-spacing: 8px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            border-top: 1px solid #1a1a1a;
+            color: #4b5563;
+            font-size: 0.8rem;
+        }
+
+        .footer a {
+            color: #8b5cf6;
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .card-header { padding: 20px 20px 0; }
+            .card-meta { padding: 12px 20px 0; }
+            .card-body { padding: 20px; }
+            .tags { padding: 0 20px 20px; }
+            .verdict-bar { padding: 16px 20px; }
+            .card-header h2 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="hero">
+        <div class="hero-content">
+            <div class="hero-label">March 2026</div>
+            <h1>Now Streaming</h1>
+            <p>Fresh reviews of everything worth watching (and skipping) from the comfort of your couch this month.</p>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <!-- 1. Paul McCartney: Man on the Run -->
+        <article class="movie-card">
+            <div class="card-header">
+                <h2>Paul McCartney: Man on the Run</h2>
+                <div class="score-badge score-certified">
+                    <span class="score-icon">&#9733;</span> 100%
+                </div>
+            </div>
+            <div class="card-meta">
+                <div class="meta-item"><span class="meta-label">Director</span> Morgan Neville</div>
+                <div class="meta-item"><span class="meta-label">Rated</span> R</div>
+                <div class="meta-item"><span class="meta-label">Genre</span> Documentary</div>
+                <div class="meta-item"><span class="meta-label">Released</span> Feb 27, 2026</div>
+            </div>
+            <div class="card-body">
+                <p class="synopsis">
+                    Oscar-winning director Morgan Neville explores Paul McCartney's transformative decade after The Beatles' breakup in 1970 &mdash; his evolution from the world's most famous band member into a solo artist and Wings frontman, all alongside his creative and romantic partnership with Linda McCartney. Featuring interviews with Mick Jagger, Chrissie Hynde, and Sean Ono Lennon.
+                </p>
+                <div class="consensus">
+                    <div class="consensus-label">Critics Consensus</div>
+                    <p>"Chronicling Paul McCartney's time spent in the creative wilderness through when he regrew his wings, Man on the Run is a lovely testament to the musical genius and his romantic partnership with Linda McCartney."</p>
+                </div>
+                <div class="review-section">
+                    <h3>What Critics Are Saying</h3>
+                    <div class="review-quote">
+                        <p>"Paul finds his musical wings without the Beatles but with wife Linda riding shotgun and teaching him about hard to reach places in the heart."</p>
+                        <div class="review-attribution"><strong>Peter Travers</strong> &mdash; The Travers Take</div>
+                    </div>
+                    <div class="review-quote">
+                        <p>"An honest and open depiction of the period &mdash; as great as the many peaks are, Neville does not airbrush out the flops."</p>
+                        <div class="review-attribution"><strong>Michael Bonner</strong> &mdash; Uncut Magazine</div>
+                    </div>
+                </div>
+            </div>
+            <div class="tags">
+                <span class="tag">Documentary</span>
+                <span class="tag">Music</span>
+                <span class="tag">Biography</span>
+                <span class="tag">Certified Fresh</span>
+            </div>
+            <div class="verdict-bar">
+                <span class="verdict verdict-watch">MUST WATCH</span>
+                <span class="streaming-info">Streaming now</span>
+            </div>
+        </article>
+
+        <div class="section-divider">&#8226; &#8226; &#8226;</div>
+
+        <!-- 2. Heel (The Good Boy) -->
+        <article class="movie-card">
+            <div class="card-header">
+                <h2>Heel (The Good Boy)</h2>
+                <div class="score-badge score-certified">
+                    <span class="score-icon">&#9733;</span> 97%
+                </div>
+            </div>
+            <div class="card-meta">
+                <div class="meta-item"><span class="meta-label">Released</span> Mar 6, 2026</div>
+            </div>
+            <div class="card-body">
+                <p class="synopsis">
+                    One of the year's biggest surprises so far. With a near-perfect 97% on the Tomatometer, this film has caught audiences and critics off guard with its sharp storytelling and emotional depth. Details are still emerging, but the overwhelmingly positive response signals something special &mdash; the kind of film that earns its reputation through word of mouth.
+                </p>
+                <div class="consensus">
+                    <div class="consensus-label">The Buzz</div>
+                    <p>At 97%, this is one of the highest-rated films of 2026 so far. When nearly every critic agrees, you pay attention.</p>
+                </div>
+            </div>
+            <div class="tags">
+                <span class="tag">Certified Fresh</span>
+                <span class="tag">Breakout Hit</span>
+            </div>
+            <div class="verdict-bar">
+                <span class="verdict verdict-watch">MUST WATCH</span>
+                <span class="streaming-info">Streaming Mar 6</span>
+            </div>
+        </article>
+
+        <div class="section-divider">&#8226; &#8226; &#8226;</div>
+
+        <!-- 3. Father Mother Sister Brother -->
+        <article class="movie-card">
+            <div class="card-header">
+                <h2>Father Mother Sister Brother</h2>
+                <div class="score-badge score-fresh">
+                    <span class="score-icon">&#9733;</span> 82%
+                </div>
+            </div>
+            <div class="card-meta">
+                <div class="meta-item"><span class="meta-label">Director</span> Jim Jarmusch</div>
+                <div class="meta-item"><span class="meta-label">Released</span> Feb 27, 2026</div>
+            </div>
+            <div class="card-body">
+                <p class="synopsis">
+                    Veteran indie filmmaker Jim Jarmusch delivers a warm triptych of interconnected family stories. With minimal dialogue and his signature deadpan rhythm, Jarmusch captures the awkward, beautiful, and sometimes tragic dynamics that define family life. It's the kind of quiet film that sneaks up on you.
+                </p>
+                <div class="consensus">
+                    <div class="consensus-label">Critics Consensus</div>
+                    <p>"Father Mother Sister Brother is a subtly haunting, wryly funny, and visually poised triptych that transforms the banal awkwardness of family life into a bittersweet meditation on the bonds that persist."</p>
+                </div>
+                <div class="review-section">
+                    <h3>What Critics Are Saying</h3>
+                    <div class="review-quote">
+                        <p>"Father Mother Sister Brother is a throwaway that's also a keepsake."</p>
+                        <div class="review-attribution"><strong>Adam Nayman</strong> &mdash; The New Republic</div>
+                    </div>
+                    <div class="review-quote">
+                        <p>"It's bittersweet, sometimes tragic, yet a deep warmth prevails. With minimal dialogue, Jarmusch articulates what most families never dare to."</p>
+                        <div class="review-attribution"><strong>Alex Saveliev</strong> &mdash; Film Threat (8/10)</div>
+                    </div>
+                    <div class="review-quote">
+                        <p>"Jarmusch is patiently attuned to people trying, and largely failing, to bridge the small emotional gaps that can turn into chasms."</p>
+                        <div class="review-attribution"><strong>Peter Howell</strong> &mdash; Toronto Star (3.5/4)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="tags">
+                <span class="tag">Drama</span>
+                <span class="tag">Indie</span>
+                <span class="tag">Jim Jarmusch</span>
+                <span class="tag">Fresh</span>
+            </div>
+            <div class="verdict-bar">
+                <span class="verdict verdict-watch">RECOMMENDED</span>
+                <span class="streaming-info">Streaming now</span>
+            </div>
+        </article>
+
+        <div class="section-divider">&#8226; &#8226; &#8226;</div>
+
+        <!-- 4. A Private Life -->
+        <article class="movie-card">
+            <div class="card-header">
+                <h2>A Private Life</h2>
+                <div class="score-badge score-fresh">
+                    <span class="score-icon">&#9733;</span> 81%
+                </div>
+            </div>
+            <div class="card-meta">
+                <div class="meta-item"><span class="meta-label">Director</span> Rebecca Zlotowski</div>
+                <div class="meta-item"><span class="meta-label">Rated</span> R</div>
+                <div class="meta-item"><span class="meta-label">Runtime</span> 1h 45m</div>
+                <div class="meta-item"><span class="meta-label">Released</span> Mar 3, 2026</div>
+            </div>
+            <div class="card-body">
+                <p class="synopsis">
+                    Jodie Foster stars as a renowned psychiatrist who becomes convinced that one of her deceased patients was murdered, launching her own investigation. A stylish French-American thriller that blends Hitchcockian suspense with glossy aesthetics and a playful streak of camp &mdash; all held together by Foster's magnetic screen presence.
+                </p>
+                <div class="consensus">
+                    <div class="consensus-label">Critics Consensus</div>
+                    <p>"A Private Life mixes Hitchcockian suspense, glossy aesthetics, and a playful streak of camp into an entertaining if somewhat slight mystery that's held together by Jodie Foster's captivating presence."</p>
+                </div>
+                <div class="review-section">
+                    <h3>What Critics Are Saying</h3>
+                    <div class="review-quote">
+                        <p>"Jodie Foster works magic onscreen and presents us with one of the most fully developed, certainly fascinating characters you will likely encounter this year."</p>
+                        <div class="review-attribution"><strong>Randy Myers</strong> &mdash; San Jose Mercury News</div>
+                    </div>
+                </div>
+            </div>
+            <div class="tags">
+                <span class="tag">Thriller</span>
+                <span class="tag">Mystery</span>
+                <span class="tag">Jodie Foster</span>
+                <span class="tag">Fresh</span>
+            </div>
+            <div class="verdict-bar">
+                <span class="verdict verdict-watch">RECOMMENDED</span>
+                <span class="streaming-info">Fandango at Home</span>
+            </div>
+        </article>
+
+        <div class="section-divider">&#8226; &#8226; &#8226;</div>
+
+        <!-- 5. War Machine -->
+        <article class="movie-card">
+            <div class="card-header">
+                <h2>War Machine</h2>
+                <div class="score-badge score-fresh">
+                    <span class="score-icon">&#9733;</span> &mdash;
+                </div>
+            </div>
+            <div class="card-meta">
+                <div class="meta-item"><span class="meta-label">Released</span> Mar 6, 2026</div>
+            </div>
+            <div class="card-body">
+                <p class="synopsis">
+                    The latest entry hitting streaming this month, War Machine arrives with anticipation but limited early critical coverage. As reviews trickle in, this one could go either way. If you're looking for something new and don't mind rolling the dice, it might be worth a look &mdash; but maybe wait for the dust to settle.
+                </p>
+                <div class="consensus">
+                    <div class="consensus-label">Early Word</div>
+                    <p>Too early to call. Limited reviews are in, so the Tomatometer hasn't fully developed. Check back soon.</p>
+                </div>
+            </div>
+            <div class="tags">
+                <span class="tag">New Release</span>
+                <span class="tag">Under Review</span>
+            </div>
+            <div class="verdict-bar">
+                <span class="verdict verdict-maybe">WAIT AND SEE</span>
+                <span class="streaming-info">Streaming Mar 6</span>
+            </div>
+        </article>
+
+        <div class="section-divider">&#8226; &#8226; &#8226;</div>
+
+        <!-- 6. Harry Styles: One Night in Manchester -->
+        <article class="movie-card">
+            <div class="card-header">
+                <h2>Harry Styles: One Night in Manchester</h2>
+                <div class="score-badge score-fresh">
+                    <span class="score-icon">&#9733;</span> &mdash;
+                </div>
+            </div>
+            <div class="card-meta">
+                <div class="meta-item"><span class="meta-label">Released</span> Mar 8, 2026</div>
+                <div class="meta-item"><span class="meta-label">Genre</span> Concert Film</div>
+            </div>
+            <div class="card-body">
+                <p class="synopsis">
+                    Harry Styles takes the stage in Manchester for a concert event captured for streaming audiences. Whether you're a devoted fan or just curious, concert films live and die by the energy of the performance. With Styles' reputation as a dynamic live performer, this one has potential to deliver a great couch concert experience.
+                </p>
+                <div class="consensus">
+                    <div class="consensus-label">What to Expect</div>
+                    <p>A concert film for fans and music lovers. No critical consensus yet, but if you're into Harry Styles, you already know you're watching this.</p>
+                </div>
+            </div>
+            <div class="tags">
+                <span class="tag">Concert Film</span>
+                <span class="tag">Music</span>
+                <span class="tag">Pop</span>
+            </div>
+            <div class="verdict-bar">
+                <span class="verdict verdict-maybe">FOR FANS</span>
+                <span class="streaming-info">Streaming Mar 8</span>
+            </div>
+        </article>
+
+        <div class="section-divider">&#8226; &#8226; &#8226;</div>
+
+        <!-- 7. The Strangers: Chapter 3 -->
+        <article class="movie-card">
+            <div class="card-header">
+                <h2>The Strangers: Chapter 3</h2>
+                <div class="score-badge score-rotten">
+                    <span class="score-icon">&#10005;</span> 18%
+                </div>
+            </div>
+            <div class="card-meta">
+                <div class="meta-item"><span class="meta-label">Director</span> Renny Harlin</div>
+                <div class="meta-item"><span class="meta-label">Rated</span> R</div>
+                <div class="meta-item"><span class="meta-label">Cast</span> Madelaine Petsch, Gabriel Basso</div>
+                <div class="meta-item"><span class="meta-label">Released</span> Mar 6, 2026</div>
+            </div>
+            <div class="card-body">
+                <p class="synopsis">
+                    In the final installment of The Strangers trilogy, Maya (Madelaine Petsch) confronts the masked killers in a brutal reckoning centered on survival and vengeance. Unfortunately, critics agree this franchise ran out of gas long ago. At 18%, this is one of the worst-reviewed films of the year so far.
+                </p>
+                <div class="consensus">
+                    <div class="consensus-label">Critics Consensus</div>
+                    <p>"A dismal conclusion to a trilogy that had already exhausted The Strangers' appeal from the jump, this final chapter goes to show that familiarity can breed contempt."</p>
+                </div>
+                <div class="review-section">
+                    <h3>What Critics Are Saying</h3>
+                    <div class="review-quote">
+                        <p>"Renny Harlin's bloated trilogy concludes on a chapter that shows flickers of life amid the deaths."</p>
+                        <div class="review-attribution"><strong>Jamie Graham</strong> &mdash; Empire Magazine</div>
+                    </div>
+                    <div class="review-quote">
+                        <p>"By the end, I wasn't rooting for the fictional Maya to survive the night as much as for the actress who plays her to move on to better material."</p>
+                        <div class="review-attribution"><strong>Brian Tallerico</strong> &mdash; RogerEbert.com</div>
+                    </div>
+                </div>
+            </div>
+            <div class="tags">
+                <span class="tag">Horror</span>
+                <span class="tag">Thriller</span>
+                <span class="tag">Sequel</span>
+                <span class="tag">Rotten</span>
+            </div>
+            <div class="verdict-bar">
+                <span class="verdict verdict-skip">SKIP IT</span>
+                <span class="streaming-info">Streaming Mar 6</span>
+            </div>
+        </article>
+
+    </main>
+
+    <footer class="footer">
+        <p>Reviews sourced from Rotten Tomatoes &mdash; March 2026</p>
+        <p style="margin-top: 8px;">Built with data from <a href="https://www.rottentomatoes.com" target="_blank">rottentomatoes.com</a></p>
+    </footer>
+
+</body>
+</html>
