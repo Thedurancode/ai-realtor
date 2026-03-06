@@ -42,3 +42,7 @@ node_modules/
 out/
 api_keys.csv
 videos/
+
+# MCP config (contains API keys)
+.mcp.json
+.mcp.json.backup

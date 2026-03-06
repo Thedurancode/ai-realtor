@@ -1,0 +1,186 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
+    },
+    "ElevenLabs": {
+      "command": "uvx",
+      "args": [
+        "elevenlabs-mcp"
+      ],
+      "env": {
+        "ELEVENLABS_API_KEY": "{YOUR_KEY}"
+      }
+    },
+    "realtorclaw": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "mcp_server.property_mcp"
+      ],
+      "cwd": "/Users/edduran/Documents/GitHub/ai-realtor",
+      "env": {
+        "MCP_API_BASE_URL": "http://localhost:8000",
+        "MCP_API_KEY": "{YOUR_KEY}",
+        "DATABASE_URL": "sqlite:///./ai_realtor.db"
+      }
+    },
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{YOUR_GITHUB_TOKEN}"
+      }
+    },
+    "stripe": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@stripe/mcp",
+        "--tools=all"
+      ],
+      "env": {
+        "STRIPE_SECRET_KEY": "YOUR_STRIPE_SECRET_KEY_HERE"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "YOUR_POSTGRES_CONNECTION_STRING_HERE"
+      ]
+    },
+    "docker": {
+      "command": "uvx",
+      "args": [
+        "mcp-docker"
+      ]
+    },
+    "google-sheets": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-google-sheets"
+      ],
+      "env": {
+        "GOOGLE_CLIENT_ID": "YOUR_GOOGLE_CLIENT_ID_HERE",
+        "GOOGLE_CLIENT_SECRET": "YOUR_GOOGLE_CLIENT_SECRET_HERE",
+        "GOOGLE_REDIRECT_URI": "http://localhost:3000/auth/callback"
+      }
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "meta-ads": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "meta-ads-mcp"
+      ],
+      "env": {
+        "META_ACCESS_TOKEN": "YOUR_META_ACCESS_TOKEN_HERE",
+        "META_APP_ID": "YOUR_META_APP_ID_HERE",
+        "META_APP_SECRET": "YOUR_META_APP_SECRET_HERE"
+      }
+    },
+    "resend": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-resend"
+      ],
+      "env": {
+        "RESEND_API_KEY": "YOUR_RESEND_API_KEY_HERE"
+      }
+    },
+    "social-media": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "mcp_server.social_mcp"
+      ],
+      "cwd": "/Users/edduran/Documents/GitHub/ai-realtor",
+      "env": {
+        "TWITTER_API_KEY": "YOUR_TWITTER_API_KEY",
+        "TWITTER_API_SECRET": "YOUR_TWITTER_API_SECRET",
+        "TWITTER_ACCESS_TOKEN": "YOUR_TWITTER_ACCESS_TOKEN",
+        "TWITTER_ACCESS_SECRET": "YOUR_TWITTER_ACCESS_SECRET",
+        "TWITTER_BEARER_TOKEN": "YOUR_TWITTER_BEARER_TOKEN",
+        "LINKEDIN_ACCESS_TOKEN": "YOUR_LINKEDIN_ACCESS_TOKEN",
+        "LINKEDIN_PERSON_ID": "YOUR_LINKEDIN_PERSON_ID",
+        "LINKEDIN_PAGE_ID": "YOUR_LINKEDIN_PAGE_ID",
+        "FB_PAGE_ACCESS_TOKEN": "YOUR_FB_PAGE_ACCESS_TOKEN",
+        "FB_PAGE_ID": "YOUR_FB_PAGE_ID",
+        "IG_ACCESS_TOKEN": "YOUR_IG_ACCESS_TOKEN",
+        "IG_USER_ID": "YOUR_IG_USER_ID",
+        "THREADS_USER_ID": "",
+        "TIKTOK_ACCESS_TOKEN": "YOUR_TIKTOK_ACCESS_TOKEN",
+        "YOUTUBE_ACCESS_TOKEN": "YOUR_YOUTUBE_ACCESS_TOKEN",
+        "REDDIT_CLIENT_ID": "YOUR_REDDIT_CLIENT_ID",
+        "REDDIT_CLIENT_SECRET": "YOUR_REDDIT_CLIENT_SECRET",
+        "REDDIT_USERNAME": "YOUR_REDDIT_USERNAME",
+        "REDDIT_PASSWORD": "YOUR_REDDIT_PASSWORD",
+        "PINTEREST_ACCESS_TOKEN": "YOUR_PINTEREST_ACCESS_TOKEN",
+        "DISCORD_WEBHOOK_URL": "YOUR_DISCORD_WEBHOOK_URL",
+        "SLACK_WEBHOOK_URL": "YOUR_SLACK_WEBHOOK_URL",
+        "TELEGRAM_BOT_TOKEN": "YOUR_TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID": "YOUR_TELEGRAM_CHAT_ID",
+        "BLUESKY_HANDLE": "YOUR_BLUESKY_HANDLE",
+        "BLUESKY_APP_PASSWORD": "YOUR_BLUESKY_APP_PASSWORD",
+        "MASTODON_ACCESS_TOKEN": "YOUR_MASTODON_ACCESS_TOKEN",
+        "MASTODON_INSTANCE": "https://mastodon.social",
+        "MEDIUM_ACCESS_TOKEN": "YOUR_MEDIUM_ACCESS_TOKEN",
+        "MEDIUM_AUTHOR_ID": "",
+        "DEVTO_API_KEY": "YOUR_DEVTO_API_KEY",
+        "HASHNODE_TOKEN": "YOUR_HASHNODE_TOKEN",
+        "HASHNODE_PUBLICATION_ID": "YOUR_HASHNODE_PUBLICATION_ID",
+        "WORDPRESS_URL": "YOUR_WORDPRESS_URL",
+        "WORDPRESS_USERNAME": "YOUR_WORDPRESS_USERNAME",
+        "WORDPRESS_APP_PASSWORD": "YOUR_WORDPRESS_APP_PASSWORD",
+        "GMB_ACCESS_TOKEN": "YOUR_GMB_ACCESS_TOKEN",
+        "GMB_LOCATION_ID": "YOUR_GMB_LOCATION_ID",
+        "DRIBBBLE_ACCESS_TOKEN": "YOUR_DRIBBBLE_ACCESS_TOKEN"
+      }
+    },
+    "wordpress": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@automattic/mcp-wordpress-remote@latest"
+      ],
+      "env": {
+        "WP_API_URL": "YOUR_WORDPRESS_SITE_URL/wp-json/mcp/mcp-adapter-default-server",
+        "WP_API_USERNAME": "YOUR_WP_USERNAME",
+        "WP_API_PASSWORD": "YOUR_WP_APPLICATION_PASSWORD"
+      }
+    },
+    "google-drive": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@piotr-agier/google-drive-mcp"
+      ],
+      "env": {
+        "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "/Users/edduran/.config/google-drive-mcp/gcp-oauth.keys.json"
+      }
+    }
+  }
+}
