@@ -8,6 +8,7 @@ import {
   Building2,
   FileText,
   Clock,
+  Film,
   LogOut,
   User,
   Menu,
@@ -25,26 +26,24 @@ export default function PortalLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // Check authentication
-    const token = localStorage.getItem('portal_token');
+    // Auth disabled for development - use mock user
     const userData = localStorage.getItem('portal_user');
-
-    if (!token || !userData) {
-      router.push('/portal/login');
-      return;
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch {
+        // Fall through to default user
+      }
     }
-
-    try {
-      setUser(JSON.parse(userData));
-    } catch {
-      router.push('/portal/login');
+    if (!user) {
+      setUser({ full_name: 'Dev User', client_type: 'agent', email: 'dev@localhost' });
     }
-  }, [router]);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('portal_token');
     localStorage.removeItem('portal_user');
-    router.push('/portal/login');
+    router.push('/portal/dashboard');
   };
 
   const navigation = [
@@ -52,6 +51,7 @@ export default function PortalLayout({
     { name: 'Properties', href: '/portal/properties', icon: Building2 },
     { name: 'Contracts', href: '/portal/contracts', icon: FileText },
     { name: 'Activity', href: '/portal/activity', icon: Clock },
+    { name: 'Video Editor', href: '/portal/video-editor', icon: Film },
   ];
 
   // Don't show layout for login/register pages

@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: ai_realtor_postgres
     restart: unless-stopped
     environment:
@@ -55,6 +55,10 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-ai-realtor-renders}
+
+      # MCP Server (talks to API internally)
+      MCP_API_BASE_URL: http://localhost:8000
+      MCP_API_KEY: ${REALTORCLAW_API_KEY:-}
 
     ports:
       - "8000:8000"

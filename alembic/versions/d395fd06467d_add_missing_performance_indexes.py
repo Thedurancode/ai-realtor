@@ -23,78 +23,49 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _columns_exist(table_name: str, columns: list) -> bool:
+    conn = op.get_bind()
+    for col in columns:
+        result = conn.execute(
+            sa.text(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = :t AND column_name = :c)"
+            ),
+            {"t": table_name, "c": col}
+        )
+        if not result.scalar():
+            return False
+    return True
+
+
+def _safe_create_index(name, table, columns):
+    if _columns_exist(table, columns):
+        op.create_index(name, table, columns)
+
+
 def upgrade() -> None:
-    # Properties - composite index for common filtering patterns
-    # Used by: search by city/state/type
-    op.create_index(
-        "ix_properties_city_state_type",
-        "properties",
-        ["city", "state", "property_type"]
-    )
-
-    # Properties - price index for range queries
-    # Used by: price range filtering, max_price/min_price queries
-    op.create_index(
-        "ix_properties_price",
-        "properties",
-        ["price"]
-    )
-
-    # Contacts - email index for login/user lookups
-    # Used by: email search, contact deduplication
-    op.create_index(
-        "ix_contacts_email",
-        "contacts",
-        ["email"]
-    )
-
-    # Contacts - property+email composite for duplicate detection
-    # Used by: finding existing contacts for a property
-    op.create_index(
-        "ix_contacts_property_email",
-        "contacts",
-        ["property_id", "email"]
-    )
-
-    # Conversation history - property_id with created_at
-    # Used by: activity timeline, stale property detection
-    op.create_index(
-        "ix_conversation_history_property_created",
-        "conversation_history",
-        ["property_id", "created_at"]
-    )
-
-    # Analytics events - property_id with event_type and created_at
-    # Used by: activity analytics, event filtering by type
-    op.create_index(
-        "ix_analytics_events_property_type_created",
-        "analytics_events",
-        ["property_id", "event_type", "created_at"]
-    )
-
-    # Scheduled tasks - agent_id with status for pending tasks
-    # Used by: task dashboard, scheduled task queries
-    op.create_index(
-        "ix_scheduled_tasks_agent_status",
-        "scheduled_tasks",
-        ["agent_id", "status"]
-    )
-
-    # Notifications - agent_id with is_read for unread counts
-    # Used by: notification badge, unread filtering
-    op.create_index(
-        "ix_notifications_agent_read",
-        "notifications",
-        ["agent_id", "is_read"]
-    )
+    _safe_create_index("ix_properties_city_state_type", "properties", ["city", "state", "property_type"])
+    _safe_create_index("ix_properties_price", "properties", ["price"])
+    _safe_create_index("ix_contacts_email", "contacts", ["email"])
+    _safe_create_index("ix_contacts_property_email", "contacts", ["property_id", "email"])
+    _safe_create_index("ix_conversation_history_property_created", "conversation_history", ["property_id", "created_at"])
+    _safe_create_index("ix_analytics_events_property_type_created", "analytics_events", ["property_id", "event_type", "created_at"])
+    _safe_create_index("ix_scheduled_tasks_agent_status", "scheduled_tasks", ["agent_id", "status"])
+    _safe_create_index("ix_notifications_agent_read", "notifications", ["agent_id", "is_read"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_notifications_agent_read", "notifications")
-    op.drop_index("ix_scheduled_tasks_agent_status", "scheduled_tasks")
-    op.drop_index("ix_analytics_events_property_type_created", "analytics_events")
-    op.drop_index("ix_conversation_history_property_created", "conversation_history")
-    op.drop_index("ix_contacts_property_email", "contacts")
-    op.drop_index("ix_contacts_email", "contacts")
-    op.drop_index("ix_properties_price", "properties")
-    op.drop_index("ix_properties_city_state_type", "properties")
+    for name, table in [
+        ("ix_notifications_agent_read", "notifications"),
+        ("ix_scheduled_tasks_agent_status", "scheduled_tasks"),
+        ("ix_analytics_events_property_type_created", "analytics_events"),
+        ("ix_conversation_history_property_created", "conversation_history"),
+        ("ix_contacts_property_email", "contacts"),
+        ("ix_contacts_email", "contacts"),
+        ("ix_properties_price", "properties"),
+        ("ix_properties_city_state_type", "properties"),
+    ]:
+        try:
+            op.drop_index(name, table)
+        except Exception:
+            pass

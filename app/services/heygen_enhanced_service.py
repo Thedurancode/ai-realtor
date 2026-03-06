@@ -1,10 +1,16 @@
 """HeyGen Enhanced Service
 
-Extended HeyGen API integration for custom avatar creation and video generation.
-Builds on existing videogen_service.py with additional features.
+Photo Avatar creation and talking head video generation via HeyGen API v2.
+
+Flow:
+1. Upload headshot image → upload.heygen.com/v1/asset → image_key
+2. Create photo avatar group → /v2/photo_avatar/avatar_group/create → group_id
+3. List avatars in group → /v2/photo_avatar/avatar_group/{group_id} → talking_photo_id
+4. Generate video → /v1/video/create_avatar_video → video_id
+5. Poll status → /v1/video_status.get → video_url
 """
-import os
 import logging
+from pathlib import Path
 from typing import Dict, Optional
 from datetime import datetime, timezone
 import httpx
@@ -16,17 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 class HeyGenEnhancedService:
-    """
-    Enhanced HeyGen service with custom avatar creation and advanced features.
-
-    Extends the base VideoGenService with:
-    - Custom avatar creation from agent photos
-    - Enhanced video generation with branding
-    - Better error handling and retries
-    """
+    """HeyGen service for photo avatar creation and talking head video generation."""
 
     BASE_URL = "https://api.heygen.com"
-    API_VERSION = "v2"
+    UPLOAD_URL = "https://upload.heygen.com"
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or settings.heygen_api_key
@@ -34,154 +33,240 @@ class HeyGenEnhancedService:
             logger.warning("HeyGen API key not configured")
 
         self.client = httpx.AsyncClient(
-            base_url=f"{self.BASE_URL}",
+            base_url=self.BASE_URL,
             headers={
                 "x-api-key": self.api_key,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-            timeout=120.0  # 2 minute timeout
+            timeout=120.0,
         )
+
+    # ------------------------------------------------------------------
+    # Avatar creation (photo avatar)
+    # ------------------------------------------------------------------
+
+    async def upload_image_asset(self, image_path: str) -> str:
+        """
+        Upload a local image file to HeyGen's asset storage.
+
+        Args:
+            image_path: Local path to the image file.
+
+        Returns:
+            image_key (e.g. "image/<uuid>/original.png")
+        """
+        path = Path(image_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Image not found: {image_path}")
+
+        # Determine content type from extension
+        ext = path.suffix.lower()
+        content_types = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+        }
+        content_type = content_types.get(ext, "image/png")
+
+        async with httpx.AsyncClient(timeout=60.0) as upload_client:
+            resp = await upload_client.post(
+                f"{self.UPLOAD_URL}/v1/asset",
+                headers={
+                    "x-api-key": self.api_key,
+                    "Content-Type": content_type,
+                },
+                content=path.read_bytes(),
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        image_key = data.get("data", {}).get("image_key")
+        if not image_key:
+            raise RuntimeError(f"Upload returned no image_key: {data}")
+
+        logger.info(f"Uploaded image asset: {image_key}")
+        return image_key
+
+    async def create_photo_avatar_group(self, name: str, image_key: str) -> Dict:
+        """
+        Create a photo avatar group from an uploaded image.
+
+        Args:
+            name: Display name for the avatar.
+            image_key: Key returned from upload_image_asset.
+
+        Returns:
+            {"group_id": "...", "status": "pending", ...}
+        """
+        resp = await self.client.post(
+            "/v2/photo_avatar/avatar_group/create",
+            json={"name": name, "image_key": image_key},
+        )
+        resp.raise_for_status()
+        result = resp.json()
+
+        data = result.get("data", {})
+        group_id = data.get("group_id") or data.get("id")
+        status = data.get("status", "pending")
+
+        logger.info(f"Created photo avatar group: {group_id} (status={status})")
+        return {"group_id": group_id, "status": status, "data": data}
 
     async def create_custom_avatar(
         self,
         agent_id: int,
-        photo_url: str,
+        photo_path: str,
         name: str,
-        gender: str = "female"
     ) -> Dict:
         """
-        Create a custom avatar from agent's headshot photo.
+        Upload image → create photo avatar group → return talking_photo_id.
+
+        The group_id returned by create_photo_avatar_group IS the talking_photo_id.
+        No polling needed — the avatar is available immediately.
 
         Args:
-            agent_id: Agent ID for tracking
-            photo_url: URL to agent's headshot photo
-            name: Avatar name (e.g., "Jane_Smith_Realtor")
-            gender: "male" or "female" for voice matching
+            agent_id: Agent ID for logging.
+            photo_path: Local file path to the headshot image.
+            name: Avatar display name.
 
         Returns:
-            {
-                "avatar_id": "custom_abc123",
-                "status": "processing",
-                "preview_url": "https://..."
-            }
-
-        Raises:
-            Exception: If avatar creation fails
+            {"avatar_id": "<talking_photo_id>"}
         """
-        logger.info(f"Creating custom avatar for agent {agent_id} from {photo_url}")
+        logger.info(f"Creating photo avatar for agent {agent_id} from {photo_path}")
 
-        try:
-            response = await self.client.post(
-                f"/{self.API_VERSION}/avatars.create_instant_avatar",
-                json={
-                    "avatar_name": name,
-                    "avatar_type": "instant",
-                    "image": photo_url,
-                    "gender": gender
-                }
-            )
-            response.raise_for_status()
-            result = response.json()
+        # Step 1: Upload image
+        image_key = await self.upload_image_asset(photo_path)
 
-            avatar_id = result.get("data", {}).get("avatar_id")
-            logger.info(f"Custom avatar creation started: {avatar_id}")
+        # Step 2: Create avatar group — the group_id IS the talking_photo_id
+        result = await self.create_photo_avatar_group(name=name, image_key=image_key)
+        talking_photo_id = result["group_id"]
 
-            return {
-                "avatar_id": avatar_id,
-                "status": "processing",
-                "preview_url": result.get("data", {}).get("preview_image_url")
-            }
+        logger.info(f"Photo avatar created: talking_photo_id={talking_photo_id}")
+        return {"avatar_id": talking_photo_id}
 
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HeyGen API error: {e.response.text}")
-            raise Exception(f"Failed to create custom avatar: {e.response.text}")
-        except Exception as e:
-            logger.error(f"Avatar creation error: {str(e)}")
-            raise
+    async def verify_talking_photo(self, talking_photo_id: str) -> bool:
+        """Verify a talking photo exists in the account's avatar list."""
+        resp = await self.client.get("/v2/avatars")
+        resp.raise_for_status()
+        photos = resp.json().get("data", {}).get("talking_photos", [])
+        return any(p.get("talking_photo_id") == talking_photo_id for p in photos)
 
-    async def check_avatar_status(self, avatar_id: str) -> Dict:
+    # ------------------------------------------------------------------
+    # Audio asset upload
+    # ------------------------------------------------------------------
+
+    async def upload_audio_asset(self, audio_path: str) -> str:
         """
-        Check custom avatar creation status.
+        Upload a local audio file to HeyGen's asset storage.
 
         Args:
-            avatar_id: Custom avatar ID
+            audio_path: Local path to the audio file (.mp3, .wav, .m4a).
 
         Returns:
-            {
-                "avatar_id": "custom_abc123",
-                "status": "completed" | "processing" | "failed",
-                "preview_url": "https://..."
-            }
+            audio_asset_id (UUID string)
         """
-        try:
-            response = await self.client.get(
-                f"/{self.API_VERSION}/avatars.status",
-                params={"avatar_id": avatar_id}
-            )
-            response.raise_for_status()
-            return response.json().get("data", {})
+        path = Path(audio_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Audio not found: {audio_path}")
 
-        except Exception as e:
-            logger.error(f"Failed to check avatar status: {str(e)}")
-            raise
+        ext = path.suffix.lower()
+        content_types = {
+            ".mp3": "audio/mpeg",
+            ".wav": "audio/wav",
+            ".m4a": "audio/mp4",
+            ".ogg": "audio/ogg",
+            ".flac": "audio/flac",
+        }
+        content_type = content_types.get(ext, "audio/mpeg")
+
+        async with httpx.AsyncClient(timeout=60.0) as upload_client:
+            resp = await upload_client.post(
+                f"{self.UPLOAD_URL}/v1/asset",
+                headers={
+                    "x-api-key": self.api_key,
+                    "Content-Type": content_type,
+                },
+                content=path.read_bytes(),
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        asset_id = data.get("data", {}).get("id")
+        if not asset_id:
+            raise RuntimeError(f"Upload returned no asset id: {data}")
+
+        logger.info(f"Uploaded audio asset: {asset_id}")
+        return asset_id
+
+    # ------------------------------------------------------------------
+    # Video generation
+    # ------------------------------------------------------------------
 
     async def generate_talking_head(
         self,
         avatar_id: str,
         script: str,
         voice_id: Optional[str] = None,
+        audio_asset_id: Optional[str] = None,
         background_color: str = "#f8fafc",
-        aspect_ratio: str = "16:9",
-        resolution: str = "1080p"
     ) -> Dict:
         """
-        Generate talking head video from avatar and script.
+        Generate a talking head video using a photo avatar.
+
+        Supports two voice modes:
+        - **Audio mode** (preferred): pass audio_asset_id from a pre-generated
+          ElevenLabs TTS file uploaded to HeyGen.
+        - **TTS mode** (fallback): pass voice_id for HeyGen's built-in TTS.
 
         Args:
-            avatar_id: HeyGen avatar ID (custom or pre-made)
-            script: Text for avatar to speak
-            voice_id: Optional ElevenLabs voice ID
-            background_color: Background hex color
-            aspect_ratio: "16:9" (landscape) or "9:16" (portrait)
-            resolution: "720p", "1080p", or "4k"
+            avatar_id: The talking_photo_id.
+            script: Text for the avatar to speak (used for TTS mode).
+            voice_id: HeyGen voice ID (TTS mode).
+            audio_asset_id: HeyGen audio asset ID (audio mode, takes priority).
+            background_color: Background hex color.
 
         Returns:
-            {
-                "video_id": "abc123",
-                "status": "processing",
-                "estimated_time": 120
-            }
+            {"video_id": "...", "status": "processing"}
         """
         logger.info(f"Generating talking head video with avatar {avatar_id}")
 
-        payload = {
-            "avatar": {
-                "type": "custom" if avatar_id.startswith("custom_") else "public",
-                "avatar_id": avatar_id
-            },
-            "voice": {
+        # Build voice config — audio mode takes priority
+        if audio_asset_id:
+            voice_config = {
+                "type": "audio",
+                "audio_asset_id": audio_asset_id,
+            }
+            logger.info(f"Using audio asset: {audio_asset_id}")
+        else:
+            voice_config = {
                 "type": "text",
-                "input_text": script
-            },
-            "background": {
-                "type": "color",
-                "value": background_color
-            },
-            "aspect_ratio": aspect_ratio,
-            "resolution": resolution
+                "input_text": script,
+            }
+            if voice_id:
+                voice_config["voice_id"] = voice_id
+
+        payload = {
+            "video_inputs": [
+                {
+                    "character": {
+                        "type": "talking_photo",
+                        "talking_photo_id": avatar_id,
+                    },
+                    "voice": voice_config,
+                    "background": {
+                        "type": "color",
+                        "value": background_color,
+                    },
+                }
+            ],
+            "dimension": {"width": 1920, "height": 1080},
         }
 
-        # Add custom voice if provided
-        if voice_id:
-            payload["voice"]["voice_id"] = voice_id
-
         try:
-            response = await self.client.post(
-                f"/{self.API_VERSION}/video.generate",
-                json=payload
-            )
-            response.raise_for_status()
-            result = response.json()
+            resp = await self.client.post("/v2/video/generate", json=payload)
+            resp.raise_for_status()
+            result = resp.json()
 
             video_id = result.get("data", {}).get("video_id")
             logger.info(f"Video generation started: {video_id}")
@@ -189,178 +274,55 @@ class HeyGenEnhancedService:
             return {
                 "video_id": video_id,
                 "status": "processing",
-                "estimated_time": result.get("data", {}).get("estimated_time", 120)
             }
-
         except httpx.HTTPStatusError as e:
-            logger.error(f"HeyGen API error: {e.response.text}")
-            raise Exception(f"Video generation failed: {e.response.text}")
-        except Exception as e:
-            logger.error(f"Video generation error: {str(e)}")
-            raise
+            logger.error(f"HeyGen video generate error: {e.response.text}")
+            raise RuntimeError(f"Video generation failed: {e.response.text}")
 
     async def get_video_status(self, video_id: str) -> Dict:
-        """
-        Check video generation status.
-
-        Args:
-            video_id: Video ID from generate_talking_head
-
-        Returns:
-            {
-                "video_id": "abc123",
-                "status": "completed" | "processing" | "failed",
-                "video_url": "https://...",
-                "duration": 45.2,
-                "error": "..."  # if failed
-            }
-        """
+        """Check video generation status."""
         try:
-            response = await self.client.get(
-                f"/{self.API_VERSION}/video.status",
-                params={"video_id": video_id}
+            resp = await self.client.get(
+                "/v1/video_status.get",
+                params={"video_id": video_id},
             )
-            response.raise_for_status()
-            return response.json().get("data", {})
-
+            resp.raise_for_status()
+            return resp.json().get("data", {})
         except Exception as e:
-            logger.error(f"Failed to check video status: {str(e)}")
+            logger.error(f"Failed to check video status: {e}")
             raise
 
     async def wait_for_video(
         self,
         video_id: str,
         timeout: int = 600,
-        check_interval: int = 10
+        check_interval: int = 10,
     ) -> Dict:
         """
-        Wait for video to complete processing.
-
-        Args:
-            video_id: Video ID to wait for
-            timeout: Maximum seconds to wait (default 10 min)
-            check_interval: Seconds between status checks
+        Poll until video is complete.
 
         Returns:
-            Video data with video_url when complete
-
-        Raises:
-            TimeoutError: If video doesn't complete in time
-            Exception: If video generation fails
+            Video data dict with video_url when done.
         """
-        start_time = datetime.now(timezone.utc)
-
+        start = datetime.now(timezone.utc)
         while True:
-            elapsed = (datetime.now(timezone.utc) - start_time).seconds
-
+            elapsed = (datetime.now(timezone.utc) - start).total_seconds()
             if elapsed > timeout:
                 raise TimeoutError(f"Video processing timeout after {timeout}s")
 
             status_data = await self.get_video_status(video_id)
             status = status_data.get("status")
-
-            logger.info(f"Video {video_id} status: {status} ({elapsed}s elapsed)")
+            logger.info(f"Video {video_id}: {status} ({int(elapsed)}s)")
 
             if status == "completed":
-                logger.info(f"Video {video_id} completed successfully")
                 return status_data
 
             if status == "failed":
                 error_msg = status_data.get("error", "Unknown error")
-                raise Exception(f"Video generation failed: {error_msg}")
+                raise RuntimeError(f"Video generation failed: {error_msg}")
 
             await asyncio.sleep(check_interval)
-
-    async def download_video(self, video_url: str) -> bytes:
-        """
-        Download video from URL.
-
-        Args:
-            video_url: URL to download from
-
-        Returns:
-            Video content as bytes
-        """
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.get(video_url)
-            response.raise_for_status()
-            return response.content
-
-    async def list_available_voices(self) -> list:
-        """
-        List available text-to-speech voices.
-
-        Returns:
-            List of voice dictionaries with id, name, language, gender
-        """
-        try:
-            response = await self.client.get(f"/{self.API_VERSION}/voices")
-            response.raise_for_status()
-            return response.json().get("data", {}).get("voices", [])
-
-        except Exception as e:
-            logger.error(f"Failed to list voices: {str(e)}")
-            # Return default voices if API fails
-            return [
-                {"voice_id": "en-US-Jenny", "name": "Jenny", "language": "en-US", "gender": "female"},
-                {"voice_id": "en-US-Joe", "name": "Joe", "language": "en-US", "gender": "male"},
-            ]
 
     async def close(self):
         """Close HTTP client."""
         await self.client.aclose()
-
-
-# ============================================================================
-# Helper Functions
-# ============================================================================
-
-async def create_agent_avatar(
-    agent_id: int,
-    photo_url: str,
-    agent_name: str,
-    gender: str = "female"
-) -> str:
-    """
-    Create a custom avatar for an agent.
-
-    Returns avatar_id when creation completes.
-    """
-    service = HeyGenEnhancedService()
-
-    try:
-        # Create avatar
-        name = f"{agent_name.replace(' ', '_')}_Realtor"
-        result = await service.create_custom_avatar(
-            agent_id=agent_id,
-            photo_url=photo_url,
-            name=name,
-            gender=gender
-        )
-
-        avatar_id = result["avatar_id"]
-
-        # Wait for processing (usually 1-2 minutes)
-        max_wait = 180  # 3 minutes
-        start_time = datetime.now(timezone.utc)
-
-        while True:
-            elapsed = (datetime.now(timezone.utc) - start_time).seconds
-
-            if elapsed > max_wait:
-                raise TimeoutError(f"Avatar creation timeout after {max_wait}s")
-
-            status_data = await service.check_avatar_status(avatar_id)
-            status = status_data.get("status")
-
-            if status == "completed":
-                logger.info(f"Avatar {avatar_id} created successfully")
-                return avatar_id
-
-            if status == "failed":
-                raise Exception(f"Avatar creation failed: {status_data.get('error')}")
-
-            await asyncio.sleep(10)
-
-    finally:
-        await service.close()

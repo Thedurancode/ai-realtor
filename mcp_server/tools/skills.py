@@ -3,8 +3,8 @@ Skills System MCP Tools - Voice Commands for Agent Skill Management
 """
 import httpx
 from mcp.types import Tool, TextContent
-from mcp_server.server import register_tool
-from mcp_server.tools.base import API_BASE_URL
+from ..server import register_tool
+from ..utils.http_client import API_BASE_URL
 from typing import Dict, Any, List
 
 

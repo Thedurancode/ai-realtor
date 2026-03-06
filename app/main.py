@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,7 +8,9 @@ from slowapi import _rate_limit_exceeded_handler
 from typing import List, Dict
 import asyncio
 import json
+import logging
 import os
+import traceback
 from functools import lru_cache
 
 from app.database import engine, Base, SessionLocal
@@ -16,11 +18,13 @@ from app.config import settings
 from app.rate_limit import limiter, RateLimitToggleMiddleware, RATE_LIMIT_ENABLED, RATE_LIMIT_DEFAULT, RATE_LIMIT_TIERS
 from app.auth import verify_api_key
 
+logger = logging.getLogger(__name__)
+
 # Import phone models FIRST to avoid circular dependency
 from app.models.phone_number import PhoneNumber
 from app.models.phone_call import PhoneCall
 
-from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router, web_scraper, approval_router, credential_scrubbing_router, observer_router, agent_brand_router, postiz_router, videogen_router, sqlite_tuning_router, skills_router, setup_router, campaigns_router, document_analysis_router, zuckerbot_router, facebook_targeting_router, composio_router, renders_router, telnyx, photo_orders, direct_mail_router, contact_lists_router, property_websites, enhanced_property_videos, pvc_router, products_router
+from app.routers import agents_router, properties_router, address_router, skip_trace_router, contacts_router, todos_router, contracts_router, contract_templates_router, agent_preferences_router, context_router, notifications_router, compliance_knowledge_router, compliance_router, activities_router, property_recap_router, webhooks_router, deal_types_router, research_router, research_templates_router, ai_agents_router, elevenlabs_router, agentic_research_router, exa_research_router, voice_campaigns_router, offers_router, search_router, deal_calculator_router, workflows_router, property_notes_router, insights_router, scheduled_tasks_router, analytics_router, pipeline_router, daily_digest_router, follow_ups_router, comps_router, bulk_router, activity_timeline_router, property_scoring_router, market_watchlist_router, web_scraper, approval_router, credential_scrubbing_router, observer_router, agent_brand_router, postiz_router, videogen_router, sqlite_tuning_router, skills_router, setup_router, campaigns_router, document_analysis_router, zuckerbot_router, facebook_targeting_router, composio_router, renders_router, telnyx, photo_orders, direct_mail_router, contact_lists_router, property_websites, enhanced_property_videos, pvc_router, products_router, video_chat_router, knowledge_base_router, webhook_listeners_router, voice_agent_router, email_triage_router, follow_up_sequences_router, deal_journal_router, listing_presentation_router, cma_report_router, morning_brief_router, voice_memo_router
 # Temporarily disabled facebook_ads_router due to table conflict
 # from app.routers import facebook_ads_router
 # NEW: Customer Portal and Document Extraction
@@ -44,7 +48,7 @@ import app.models  # noqa: F401 - ensure all models are registered for Alembic
 
 # Paths that don't require API key authentication
 PUBLIC_PATHS = frozenset(("/", "/docs", "/redoc", "/openapi.json", "/health", "/setup", "/rate-limit"))
-PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register", "/api/setup", "/composio/", "/portal/", "/videos/")
+PUBLIC_PREFIXES = ("/webhooks/", "/ws", "/cache/", "/agents/register", "/api/setup", "/portal/")
 
 
 # Background task initialization state
@@ -153,6 +157,26 @@ def custom_openapi():
 
 
 app.openapi = custom_openapi
+
+# --- Global Exception Handler ---
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all unhandled exceptions and return a consistent error response."""
+    logger.error(
+        "Unhandled exception on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "internal_server_error",
+            "message": "An unexpected error occurred. Please try again later.",
+        },
+    )
+
 
 # Rate limiter
 app.state.limiter = limiter
@@ -292,6 +316,20 @@ app.include_router(document_extraction.router)
 app.include_router(calendar.router)
 # NEW: Telnyx Voice Integration
 app.include_router(telnyx.router)
+# AI Video Chat (Vibe-editing)
+app.include_router(video_chat_router)
+app.include_router(knowledge_base_router)
+app.include_router(webhook_listeners_router)
+app.include_router(voice_agent_router)
+app.include_router(email_triage_router)
+app.include_router(follow_up_sequences_router)
+app.include_router(deal_journal_router)
+app.include_router(listing_presentation_router)
+app.include_router(cma_report_router)
+# Morning Brief (Telegram daily summary)
+app.include_router(morning_brief_router)
+# Voice Memo (Transcribe + RAG Ingest)
+app.include_router(voice_memo_router)
 
 # Mount static files for timeline editor
 if os.path.exists("static"):
@@ -382,16 +420,29 @@ def invalidate_api_key_cache(api_key_hash: str | None = None) -> None:
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, api_key: str = Query(default=None)):
+    """WebSocket endpoint — requires api_key query parameter for authentication."""
+    if not api_key:
+        await websocket.close(code=4001, reason="Missing api_key query parameter")
+        return
+
+    db = SessionLocal()
+    try:
+        agent = verify_api_key(db, api_key)
+        if not agent:
+            await websocket.close(code=4003, reason="Invalid API key")
+            return
+    finally:
+        db.close()
+
     await manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive and receive any messages
             data = await websocket.receive_text()
-            print(f"Received from client: {data}")
+            logger.debug("WS message from agent %s: %s", agent.id, data)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        print("Client disconnected")
+        logger.debug("WS client disconnected (agent %s)", agent.id)
 
 
 @app.post("/display/command")

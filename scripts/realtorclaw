@@ -1,0 +1,318 @@
+#!/usr/bin/env bash
+# realtorclaw — CLI wrapper for the RealtorClaw API
+# Works from Claude Code, Spacebot shell, or any terminal with access to the API.
+#
+# Usage:
+#   realtorclaw <resource> <action> [args...]
+#
+# Examples:
+#   realtorclaw properties list
+#   realtorclaw properties get 5
+#   realtorclaw properties create '{"place_id":"ChIJ...","agent_id":1}'
+#   realtorclaw contracts list --property-id 5
+#   realtorclaw analytics portfolio
+#   realtorclaw health
+#
+# Environment:
+#   REALTORCLAW_API_URL   (default: http://localhost:8000)
+#   REALTORCLAW_API_KEY   (required for authenticated endpoints)
+
+set -euo pipefail
+
+API_URL="${REALTORCLAW_API_URL:-http://localhost:8000}"
+API_KEY="${REALTORCLAW_API_KEY:-}"
+
+# --- helpers ---
+
+_curl() {
+    local method="$1" path="$2"
+    shift 2
+    local -a args=(-s -S -w '\n' -H "Content-Type: application/json")
+    [[ -n "$API_KEY" ]] && args+=(-H "X-API-Key: $API_KEY")
+    curl "${args[@]}" -X "$method" "${API_URL}${path}" "$@" | python3 -m json.tool 2>/dev/null || cat
+}
+
+_get()    { _curl GET    "$1"; }
+_post()   { _curl POST   "$1" ${2:+-d "$2"}; }
+_put()    { _curl PUT    "$1" ${2:+-d "$2"}; }
+_delete() { _curl DELETE "$1"; }
+
+_require_arg() {
+    if [[ -z "${1:-}" ]]; then
+        echo "Error: missing required argument: $2" >&2
+        exit 1
+    fi
+}
+
+# --- commands ---
+
+cmd_help() {
+    cat <<'EOF'
+realtorclaw — CLI for the RealtorClaw API
+
+USAGE:
+    realtorclaw <resource> <action> [args...]
+
+RESOURCES:
+    properties      Property CRUD, enrichment, skip tracing
+    contracts       Contract management, e-signatures
+    contacts        Contact/lead management
+    analytics       Portfolio analytics, pipeline stats
+    alerts          Alert rules and triggers
+    deals           Deal calculator, MAO, offers
+    offers          Offer management
+    calendar        Calendar events, scheduling
+    marketing       Agent brand, social media
+    mail            Direct mail (Lob.com)
+    videos          Property video generation
+    scrape          Web scraping
+    agents          Agent management
+    search          Hybrid search
+    watchlists      Market watchlists
+    tasks           Scheduled tasks
+    health          API health check
+    docs            Open API docs URL
+
+FLAGS:
+    --property-id N     Filter by property ID
+    --agent-id N        Filter by agent ID
+    --limit N           Limit results (default: 50)
+    --offset N          Offset results (default: 0)
+    --raw               Output raw JSON (no pretty-print)
+
+EXAMPLES:
+    realtorclaw properties list --limit 10
+    realtorclaw properties get 5
+    realtorclaw properties create '{"place_id":"ChIJ...","agent_id":1}'
+    realtorclaw properties enrich 5
+    realtorclaw contracts list --property-id 5
+    realtorclaw contracts check-readiness 5
+    realtorclaw analytics portfolio
+    realtorclaw deals calculate 5
+    realtorclaw health
+EOF
+}
+
+# --- parse trailing flags ---
+PROP_ID="" AGENT_ID="" LIMIT="50" OFFSET="0"
+_parse_flags() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --property-id) PROP_ID="$2"; shift 2 ;;
+            --agent-id)    AGENT_ID="$2"; shift 2 ;;
+            --limit)       LIMIT="$2"; shift 2 ;;
+            --offset)      OFFSET="$2"; shift 2 ;;
+            *)             shift ;;
+        esac
+    done
+}
+
+# --- resource handlers ---
+
+handle_properties() {
+    local action="${1:-list}"; shift || true
+    _parse_flags "$@"
+    case "$action" in
+        list)             _get "/properties/?limit=${LIMIT}&offset=${OFFSET}" ;;
+        get)              _require_arg "${1:-}" "property_id"; _get "/properties/$1" ;;
+        create)           _require_arg "${1:-}" "json_body"; _post "/properties/" "$1" ;;
+        update)           _require_arg "${1:-}" "property_id"; _require_arg "${2:-}" "json_body"; _put "/properties/$1" "$2" ;;
+        delete)           _require_arg "${1:-}" "property_id"; _delete "/properties/$1" ;;
+        enrich)           _require_arg "${1:-}" "property_id"; _post "/properties/$1/enrich" ;;
+        skip-trace)       _require_arg "${1:-}" "property_id"; _post "/properties/$1/skip-trace" ;;
+        score)            _require_arg "${1:-}" "property_id"; _get "/scoring/property/$1" ;;
+        notes)            _require_arg "${1:-}" "property_id"; _get "/property-notes/?property_id=$1" ;;
+        recap)            _require_arg "${1:-}" "property_id"; _get "/property-recap/$1" ;;
+        websites)         _require_arg "${1:-}" "property_id"; _get "/properties/$1/websites/" ;;
+        create-website)   _require_arg "${1:-}" "property_id"; _post "/properties/$1/websites/" ;;
+        *)                echo "Unknown properties action: $action (try: list, get, create, update, delete, enrich, skip-trace, score, notes, recap)" >&2; exit 1 ;;
+    esac
+}
+
+handle_contracts() {
+    local action="${1:-list}"; shift || true
+    _parse_flags "$@"
+    case "$action" in
+        list)              _get "/contracts/?limit=${LIMIT}&offset=${OFFSET}${PROP_ID:+&property_id=$PROP_ID}" ;;
+        get)               _require_arg "${1:-}" "contract_id"; _get "/contracts/$1" ;;
+        create)            _require_arg "${1:-}" "json_body"; _post "/contracts/" "$1" ;;
+        check-readiness)   _require_arg "${1:-}" "property_id"; _get "/contracts/check-readiness/$1" ;;
+        attach-required)   _require_arg "${1:-}" "property_id"; _post "/contracts/attach-required/$1" ;;
+        ai-suggest)        _require_arg "${1:-}" "property_id"; _post "/contracts/ai-suggest/$1" ;;
+        send)              _require_arg "${1:-}" "contract_id"; _post "/contracts/$1/send" ;;
+        templates)         _get "/contract-templates/?limit=${LIMIT}" ;;
+        *)                 echo "Unknown contracts action: $action (try: list, get, create, check-readiness, attach-required, ai-suggest, send, templates)" >&2; exit 1 ;;
+    esac
+}
+
+handle_contacts() {
+    local action="${1:-list}"; shift || true
+    _parse_flags "$@"
+    case "$action" in
+        list)    _get "/contacts/?limit=${LIMIT}&offset=${OFFSET}" ;;
+        get)     _require_arg "${1:-}" "contact_id"; _get "/contacts/$1" ;;
+        create)  _require_arg "${1:-}" "json_body"; _post "/contacts/" "$1" ;;
+        update)  _require_arg "${1:-}" "contact_id"; _require_arg "${2:-}" "json_body"; _put "/contacts/$1" "$2" ;;
+        delete)  _require_arg "${1:-}" "contact_id"; _delete "/contacts/$1" ;;
+        *)       echo "Unknown contacts action: $action (try: list, get, create, update, delete)" >&2; exit 1 ;;
+    esac
+}
+
+handle_analytics() {
+    local action="${1:-portfolio}"; shift || true
+    case "$action" in
+        portfolio)   _get "/analytics/portfolio" ;;
+        pipeline)    _get "/analytics/pipeline" ;;
+        dashboard)   _get "/analytics/dashboard/overview${AGENT_ID:+?agent_id=$AGENT_ID}" ;;
+        *)           echo "Unknown analytics action: $action (try: portfolio, pipeline, dashboard)" >&2; exit 1 ;;
+    esac
+}
+
+handle_alerts() {
+    local action="${1:-list}"; shift || true
+    case "$action" in
+        list)    _get "/analytics/alerts/rules" ;;
+        create)  _require_arg "${1:-}" "json_body"; _post "/analytics/alerts/rules" "$1" ;;
+        check)   _post "/analytics/alerts/check" ;;
+        *)       echo "Unknown alerts action: $action (try: list, create, check)" >&2; exit 1 ;;
+    esac
+}
+
+handle_deals() {
+    local action="${1:-}"; shift || true
+    _require_arg "$action" "action"
+    case "$action" in
+        calculate)  _require_arg "${1:-}" "property_id"; _post "/deal-calculator/calculate/$1" ;;
+        mao)        _require_arg "${1:-}" "property_id"; _post "/deal-calculator/mao/$1" ;;
+        *)          echo "Unknown deals action: $action (try: calculate, mao)" >&2; exit 1 ;;
+    esac
+}
+
+handle_offers() {
+    local action="${1:-list}"; shift || true
+    _parse_flags "$@"
+    case "$action" in
+        list)    _get "/offers/?limit=${LIMIT}${PROP_ID:+&property_id=$PROP_ID}" ;;
+        get)     _require_arg "${1:-}" "offer_id"; _get "/offers/$1" ;;
+        create)  _require_arg "${1:-}" "json_body"; _post "/offers/" "$1" ;;
+        *)       echo "Unknown offers action: $action (try: list, get, create)" >&2; exit 1 ;;
+    esac
+}
+
+handle_calendar() {
+    local action="${1:-events}"; shift || true
+    case "$action" in
+        events)           _get "/calendar/events" ;;
+        create)           _require_arg "${1:-}" "json_body"; _post "/calendar/events" "$1" ;;
+        check-conflicts)  _post "/calendar/check-conflicts" "${1:-}" ;;
+        *)                echo "Unknown calendar action: $action (try: events, create, check-conflicts)" >&2; exit 1 ;;
+    esac
+}
+
+handle_marketing() {
+    local action="${1:-}"; shift || true
+    _require_arg "$action" "action"
+    case "$action" in
+        brand)        _require_arg "${1:-}" "agent_id"; _get "/agent-brand/$1" ;;
+        brand-update) _require_arg "${1:-}" "agent_id"; _require_arg "${2:-}" "json_body"; _put "/agent-brand/$1" "$2" ;;
+        social-post)  _require_arg "${1:-}" "json_body"; _post "/social/posts/create" "$1" ;;
+        *)            echo "Unknown marketing action: $action (try: brand, brand-update, social-post)" >&2; exit 1 ;;
+    esac
+}
+
+handle_mail() {
+    local action="${1:-}"; shift || true
+    _require_arg "$action" "action"
+    case "$action" in
+        postcard)       _require_arg "${1:-}" "json_body"; _post "/direct-mail/postcards" "$1" ;;
+        letter)         _require_arg "${1:-}" "json_body"; _post "/direct-mail/letters" "$1" ;;
+        campaign)       _require_arg "${1:-}" "json_body"; _post "/direct-mail/campaigns" "$1" ;;
+        verify-address) _require_arg "${1:-}" "json_body"; _post "/direct-mail/verify-address" "$1" ;;
+        *)              echo "Unknown mail action: $action (try: postcard, letter, campaign, verify-address)" >&2; exit 1 ;;
+    esac
+}
+
+handle_videos() {
+    local action="${1:-}"; shift || true
+    _require_arg "$action" "action"
+    case "$action" in
+        generate)  _require_arg "${1:-}" "json_body"; _post "/v1/property-videos/generate" "$1" ;;
+        status)    _require_arg "${1:-}" "job_id"; _get "/v1/property-videos/status/$1" ;;
+        list)      _get "/v1/property-videos/?limit=${LIMIT}" ;;
+        *)         echo "Unknown videos action: $action (try: generate, status, list)" >&2; exit 1 ;;
+    esac
+}
+
+handle_scrape() {
+    local action="${1:-}"; shift || true
+    _require_arg "$action" "action"
+    case "$action" in
+        url)    _require_arg "${1:-}" "json_body"; _post "/scrape/" "$1" ;;
+        batch)  _require_arg "${1:-}" "json_body"; _post "/scrape/batch" "$1" ;;
+        *)      echo "Unknown scrape action: $action (try: url, batch)" >&2; exit 1 ;;
+    esac
+}
+
+handle_agents() {
+    local action="${1:-list}"; shift || true
+    _parse_flags "$@"
+    case "$action" in
+        list)      _get "/agents/?limit=${LIMIT}&offset=${OFFSET}" ;;
+        get)       _require_arg "${1:-}" "agent_id"; _get "/agents/$1" ;;
+        register)  _require_arg "${1:-}" "json_body"; _post "/agents/register" "$1" ;;
+        *)         echo "Unknown agents action: $action (try: list, get, register)" >&2; exit 1 ;;
+    esac
+}
+
+handle_search() {
+    _require_arg "${1:-}" "query"
+    _get "/search/?q=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$1'))")&limit=${LIMIT}"
+}
+
+handle_watchlists() {
+    local action="${1:-list}"; shift || true
+    case "$action" in
+        list)    _get "/watchlists/?limit=${LIMIT}" ;;
+        create)  _require_arg "${1:-}" "json_body"; _post "/watchlists/" "$1" ;;
+        delete)  _require_arg "${1:-}" "watchlist_id"; _delete "/watchlists/$1" ;;
+        *)       echo "Unknown watchlists action: $action (try: list, create, delete)" >&2; exit 1 ;;
+    esac
+}
+
+handle_tasks() {
+    local action="${1:-list}"; shift || true
+    case "$action" in
+        list)    _get "/scheduled-tasks/?limit=${LIMIT}" ;;
+        get)     _require_arg "${1:-}" "task_id"; _get "/scheduled-tasks/$1" ;;
+        create)  _require_arg "${1:-}" "json_body"; _post "/scheduled-tasks/" "$1" ;;
+        *)       echo "Unknown tasks action: $action (try: list, get, create)" >&2; exit 1 ;;
+    esac
+}
+
+# --- main dispatch ---
+
+resource="${1:-help}"
+shift || true
+
+case "$resource" in
+    properties)   handle_properties "$@" ;;
+    contracts)    handle_contracts "$@" ;;
+    contacts)     handle_contacts "$@" ;;
+    analytics)    handle_analytics "$@" ;;
+    alerts)       handle_alerts "$@" ;;
+    deals)        handle_deals "$@" ;;
+    offers)       handle_offers "$@" ;;
+    calendar)     handle_calendar "$@" ;;
+    marketing)    handle_marketing "$@" ;;
+    mail)         handle_mail "$@" ;;
+    videos)       handle_videos "$@" ;;
+    scrape)       handle_scrape "$@" ;;
+    agents)       handle_agents "$@" ;;
+    search)       handle_search "$@" ;;
+    watchlists)   handle_watchlists "$@" ;;
+    tasks)        handle_tasks "$@" ;;
+    health)       _get "/health" ;;
+    docs)         echo "${API_URL}/docs" ;;
+    help|--help|-h) cmd_help ;;
+    *)            echo "Unknown resource: $resource" >&2; cmd_help; exit 1 ;;
+esac

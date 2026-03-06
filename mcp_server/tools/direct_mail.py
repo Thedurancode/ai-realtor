@@ -8,7 +8,7 @@ Integrates with AI Realtor's direct mail system
 import os
 import httpx
 from typing import Any, Dict, List
-from mcp_server.types import TextContent
+from mcp.types import TextContent
 
 from app.database import SessionLocal
 from app.models.direct_mail import DirectMail, DirectMailTemplate, MailType, MailStatus
@@ -68,7 +68,7 @@ def find_property_by_address(db: SessionLocal, address_query: str) -> Property:
 
     # Try ZIP code
     if len(query) >= 5 and query.replace(" ", "").replace("-", "").isdigit():
-        zip_code = query.replace(" ", "").replace("- "")[:5]
+        zip_code = query.replace(" ", "").replace("-", "")[:5]
         property = db.query(Property).filter(
             Property.zip_code == zip_code
         ).first()

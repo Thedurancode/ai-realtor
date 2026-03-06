@@ -66,3 +66,12 @@ fly.toml
 # Temp files
 *.tmp
 tmp/
+
+# Heavy directories (not needed for lean build)
+remotion/
+node_modules/
+nanobot/
+spacebot/
+frontend/
+uploads/
+.claude/

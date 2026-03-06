@@ -7,6 +7,7 @@ import {
   FileText,
   TrendingUp,
   Calendar,
+  Clock,
   ArrowRight,
 } from 'lucide-react';
 

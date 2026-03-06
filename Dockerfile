@@ -42,6 +42,7 @@ RUN cd remotion && npm install
 
 # Copy application code
 COPY app ./app
+COPY mcp_server ./mcp_server
 COPY alembic ./alembic
 COPY alembic.ini .
 COPY scripts ./scripts
@@ -54,8 +55,9 @@ COPY static ./static
 # Create directories
 RUN mkdir -p /app/alembic/versions /app/tmp /app/log
 
-# Make scripts executable
-RUN chmod +x start.sh worker.py scripts/*.sh 2>/dev/null || true
+# Make scripts executable and install CLI to PATH
+RUN chmod +x start.sh worker.py scripts/* 2>/dev/null || true
+RUN ln -sf /app/scripts/realtorclaw /usr/local/bin/realtorclaw
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
@@ -63,8 +65,8 @@ ENV PYTHONPATH=/app
 ENV REMOTION_RENDER=/app/remotion
 ENV TMPDIR=/app/tmp
 
-# Expose port
-EXPOSE 8000
+# Expose ports (API + MCP SSE)
+EXPOSE 8000 8001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

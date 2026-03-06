@@ -340,6 +340,122 @@ Generate the script:"""
             logger.error(f"Market update script generation failed: {str(e)}")
             raise
 
+    async def enhance_voiceover_script(
+        self,
+        raw_script: str,
+        style: str = "professional",
+        target_duration: Optional[int] = None,
+        agent_name: Optional[str] = None,
+        company_name: Optional[str] = None,
+    ) -> Dict:
+        """
+        AI-enhance a rough script for voiceover delivery.
+
+        Takes the user's draft script and rewrites it to:
+        - Sound natural when spoken aloud (TTS-friendly)
+        - Match the requested style (luxury/friendly/professional)
+        - Hit the target duration (~2.5 words per second)
+        - Add pauses (commas, periods) for pacing
+        - Remove visual/written-only language
+        - Keep the core message and facts intact
+
+        Args:
+            raw_script: User's draft script text
+            style: luxury, friendly, or professional
+            target_duration: Target seconds (auto-estimated if None)
+            agent_name: Agent name to weave in naturally
+            company_name: Company name to weave in naturally
+
+        Returns:
+            {
+                "enhanced_script": "The polished voiceover script...",
+                "original_word_count": 150,
+                "enhanced_word_count": 160,
+                "estimated_duration": 64,
+                "changes_summary": "Added natural pauses, softened language..."
+            }
+        """
+        original_word_count = len(raw_script.split())
+
+        if target_duration:
+            target_words = int(target_duration * 2.5)
+        else:
+            target_words = original_word_count  # keep similar length
+
+        style_guidance = self._get_style_guidance(style)
+
+        agent_context = ""
+        if agent_name:
+            agent_context += f"\nAgent Name: {agent_name}"
+        if company_name:
+            agent_context += f"\nCompany: {company_name}"
+
+        prompt = f"""You are an expert voiceover script editor for real estate videos. Enhance this script for text-to-speech delivery.
+
+ORIGINAL SCRIPT:
+{raw_script}
+{agent_context}
+
+STYLE: {style_guidance}
+
+TARGET: ~{target_words} words (~{target_words // 2.5 if target_words else original_word_count // 2.5:.0f} seconds when spoken)
+
+ENHANCEMENT RULES:
+1. **Sound natural when spoken aloud** — write for the ear, not the eye
+2. **Add natural pauses** — use commas, periods, and ellipses for pacing. TTS engines need punctuation for rhythm
+3. **Remove written-only language** — no "as you can see", "click below", "in the image above"
+4. **Keep all facts and key details** — don't remove specific numbers, addresses, or features
+5. **Match the {style} tone** — adjust word choice and energy level
+6. **Smooth transitions** — connect ideas with natural bridges ("Now, let's talk about...", "What really sets this apart...")
+7. **Strong open and close** — hook the listener in the first sentence, end with a clear call to action
+8. **Avoid tongue twisters** — replace awkward consonant clusters
+9. **Short sentences for emphasis** — break up long sentences. Let key points breathe
+10. **If agent/company name provided**, weave them in naturally at the intro and CTA
+
+Return ONLY valid JSON:
+{{
+    "enhanced_script": "The full enhanced voiceover script...",
+    "original_word_count": {original_word_count},
+    "enhanced_word_count": <actual word count>,
+    "estimated_duration": <seconds at 2.5 words/sec>,
+    "changes_summary": "Brief summary of what was changed and why"
+}}"""
+
+        try:
+            response = await self.client.post(
+                self.OPENROUTER_API_URL,
+                json={
+                    "model": "anthropic/claude-sonnet-4",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 3000,
+                    "temperature": 0.6,
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            script_text = data["choices"][0]["message"]["content"]
+
+            if "```json" in script_text:
+                script_text = script_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in script_text:
+                script_text = script_text.split("```")[1].split("```")[0].strip()
+
+            result = json.loads(script_text)
+            logger.info(
+                f"Script enhanced: {result.get('original_word_count')} → "
+                f"{result.get('enhanced_word_count')} words, "
+                f"~{result.get('estimated_duration')}s"
+            )
+            return result
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse enhance response: {e}")
+            raise Exception(f"Invalid JSON in script enhancement: {e}")
+        except Exception as e:
+            logger.error(f"Script enhancement failed: {e}")
+            raise
+
     def _get_style_guidance(self, style: str) -> str:
         """Get style-specific guidance for script generation."""
 

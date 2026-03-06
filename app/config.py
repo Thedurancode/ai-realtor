@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     coolify_api_base: str = "https://api.coolify.com/v1"
     coolify_api_key: str = ""
 
+    # Shotstack (Property Showcase Videos)
+    shotstack_api_key: str = ""
+    shotstack_stage: bool = True
+
+    # Pexels (Stock Footage for Property Videos)
+    pexels_api_key: str = ""
+
     # Enhanced Video Generation
     heygen_api_key: str = ""  # HeyGen API for avatar videos
     did_api_key: str = ""  # D-ID API for talking head videos
@@ -76,3 +83,14 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Fail loudly if the default JWT secret is used outside local development
+import os as _os
+if (
+    settings.portal_jwt_secret == "change-this-in-production-use-a-strong-random-secret"
+    and _os.getenv("APP_ENV", "development") != "development"
+):
+    raise RuntimeError(
+        "PORTAL_JWT_SECRET is still the default value. "
+        "Set a strong random secret via the PORTAL_JWT_SECRET environment variable."
+    )

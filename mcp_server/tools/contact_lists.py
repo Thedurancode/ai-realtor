@@ -3,8 +3,8 @@ Contact Lists MCP Tools - Voice Commands for Smart Contact Lists
 """
 import httpx
 from mcp.types import Tool, TextContent
-from mcp_server.server import register_tool
-from mcp_server.tools.base import API_BASE_URL, SessionLocal
+from ..server import register_tool
+from ..utils.http_client import API_BASE_URL
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 
@@ -478,7 +478,7 @@ register_tool(
                 "name": {"type": "string", "description": "List name (auto-generates if omitted)"},
                 "smart_rule": {"type": "string", "description": "Rule: last_24_hours, last_2_days, last_7_days, this_week, this_month, no_property, has_property, no_phone, has_email, uncontacted"},
                 "filters": {"type": "object", "description": "Additional filters (city, state, etc.)"},
-                "auto_refresh": {"type": "boolean", "description": "Auto-refresh daily", "default": true}
+                "auto_refresh": {"type": "boolean", "description": "Auto-refresh daily", "default": True}
             }
         }
     ),
@@ -509,7 +509,7 @@ register_tool(
             "type": "object",
             "properties": {
                 "list_id": {"type": "number", "description": "List ID"},
-                "include_contacts": {"type": "boolean", "description": "Include contacts in response", "default": true},
+                "include_contacts": {"type": "boolean", "description": "Include contacts in response", "default": True},
                 "limit": {"type": "number", "description": "Max contacts to return", "default": 20}
             },
             "required": ["list_id"]
@@ -574,7 +574,7 @@ register_tool(
                 "list_id": {"type": "number", "description": "List ID"},
                 "template": {"type": "string", "description": "Template to use", "default": "interested_in_selling"},
                 "campaign_name": {"type": "string", "description": "Custom campaign name"},
-                "send_immediately": {"type": "boolean", "description": "Send immediately", "default": false}
+                "send_immediately": {"type": "boolean", "description": "Send immediately", "default": False}
             },
             "required": ["list_id"]
         }

@@ -1,0 +1,68 @@
+# RealtorClaw — Pull-and-run install (no source code needed)
+# Usage: curl -O <url>/docker-compose-install.yml && docker compose -f docker-compose-install.yml up -d
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: realtorclaw-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ai_realtor}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    image: thedurancode/realtorclaw:latest
+    container_name: realtorclaw-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Database (auto-configured)
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-ai_realtor}
+
+      # MCP Server
+      MCP_API_BASE_URL: http://localhost:8000
+      MCP_API_KEY: ${REALTORCLAW_API_KEY:-}
+
+      # Environment
+      APP_ENV: ${APP_ENV:-development}
+      API_WORKERS: ${API_WORKERS:-2}
+
+      # --- Add your API keys below ---
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      VAPI_API_KEY: ${VAPI_API_KEY:-}
+      DOCUSEAL_API_KEY: ${DOCUSEAL_API_KEY:-}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      BRAVE_API_KEY: ${BRAVE_API_KEY:-}
+      SHOTSTACK_API_KEY: ${SHOTSTACK_API_KEY:-}
+      PEXELS_API_KEY: ${PEXELS_API_KEY:-}
+      HEYGEN_API_KEY: ${HEYGEN_API_KEY:-}
+      LOB_API_KEY: ${LOB_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET:-change-this-in-production-use-a-strong-random-secret}
+    ports:
+      - "${API_PORT:-8000}:8000"
+      - "${MCP_PORT:-8001}:8001"
+    volumes:
+      - ./log:/app/log
+      - ./uploads:/app/uploads
+
+volumes:
+  pgdata:

@@ -55,6 +55,11 @@ class AgentBrand(Base):
     headshot_url = Column(String(500), nullable=True)
     banner_url = Column(String(500), nullable=True)
     company_badge_url = Column(String(500), nullable=True)
+    voice_sample_url = Column(String(500), nullable=True)
+    voice_clone_id = Column(String(100), nullable=True)  # ElevenLabs cloned voice ID
+    voice_clone_status = Column(String(50), nullable=True)  # pending, processing, ready, failed
+    heygen_avatar_id = Column(String(100), nullable=True)  # Cached HeyGen avatar ID
+    creatomate_template_id = Column(String(255), nullable=True)  # Creatomate video template
 
     # Design Templates
     email_template_style = Column(String(50), default="modern")  # modern, classic, minimal

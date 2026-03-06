@@ -28,7 +28,7 @@ from . import activity_timeline  # noqa: F401
 from . import property_scoring  # noqa: F401
 from . import market_watchlist  # noqa: F401
 from . import heartbeat  # noqa: F401
-from . import facebook_targeting  # noqa: F401
+# facebook_targeting uses legacy import pattern — skipped
 # New intelligence tools
 from . import intelligence  # noqa: F401
 # Postiz social media integration
@@ -53,13 +53,33 @@ from . import photo_orders  # noqa: F401
 from . import direct_mail  # noqa: F401
 # Contact lists tools
 from . import contact_lists  # noqa: F401
-# Property Website Builder
-from . import property_websites  # noqa: F401
+# property_websites uses legacy import pattern — skipped
 # Zuckerbot AI Facebook Ads
 from . import zuckerbot  # noqa: F401
 # Skills System
 from . import skills  # noqa: F401
-# Enhanced Property Videos
-from . import enhanced_property_videos  # noqa: F401
+# Shotstack video pipeline (property + brand videos)
+from . import shotstack_videos  # noqa: F401
+# enhanced_property_videos uses legacy import pattern — skipped
+# Knowledge Base RAG
+from . import knowledge_base  # noqa: F401
+# Webhook Listeners
+from . import webhook_listeners  # noqa: F401
+# Voice Agent
+from . import voice_agent  # noqa: F401
+# Email Triage
+from . import email_triage  # noqa: F401
+# Follow-Up Sequences
+from . import follow_up_sequences  # noqa: F401
+# Deal Journal
+from . import deal_journal  # noqa: F401
+# Listing Presentation Builder
+from . import listing_presentation  # noqa: F401
+# CMA Report Generator
+from . import cma_report  # noqa: F401
+# Morning Brief (Telegram daily summary)
+from . import morning_brief  # noqa: F401
+# Voice Memo (Transcribe + RAG Ingest)
+from . import voice_memo  # noqa: F401
 # Web scraper tools - TODO: Fix import issues
 # from . import web_scraper  # noqa: F401

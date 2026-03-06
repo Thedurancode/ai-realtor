@@ -1,5 +1,6 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
+jinja2>=3.1.0
 sqlalchemy>=2.0.36
 pydantic[email]>=2.10.0
 pydantic-settings>=2.7.0
@@ -40,3 +41,9 @@ pdf2image>=1.16.0
 # NEW: Advanced Analytics Dashboard
 reportlab>=4.0.7
 plotly>=5.18.0
+shotstack-sdk>=0.2.8
+# Knowledge Base RAG (PDF parsing)
+pdfplumber>=0.11.0
+google-auth>=2.27.0
+google-auth-oauthlib>=1.2.0
+google-api-python-client>=2.114.0

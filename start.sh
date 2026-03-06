@@ -26,6 +26,13 @@ if [ -n "$WORKER_ENABLED" ] || [ "$WORKER_ENABLED" = "1" ]; then
   echo ""
 fi
 
+# Start MCP SSE server in background (port 8001)
+echo "🔧 Starting MCP SSE server on port 8001..."
+python -m mcp_server.property_mcp --transport sse --port 8001 > /app/log/mcp.log 2>&1 &
+MCP_PID=$!
+echo "✅ MCP server started (PID: $MCP_PID)"
+echo ""
+
 # Start the API server
 echo "🌐 Starting API server..."
 echo ""

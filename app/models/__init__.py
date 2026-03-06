@@ -65,5 +65,21 @@ from app.models.property_website import PropertyWebsite, WebsiteAnalytics
 # Enhanced Video Generation
 from app.models.agent_video_profile import AgentVideoProfile
 from app.models.property_video import PropertyVideo, VideoTypeEnum, VideoGenerationStatus
+# Talking Head Videos
+from app.models.talking_head_video import TalkingHeadVideo
+# Property Video Jobs (Shotstack pipeline)
+from app.models.property_video_job import PropertyVideoJob
+# Knowledge Base RAG
+from app.models.knowledge_base import KnowledgeDocument, KnowledgeChunk, DocumentType
+# Webhook Listeners
+from app.models.webhook_registration import WebhookRegistration
+# Voice Agent Calls
+from app.models.voice_agent_call import VoiceAgentCall
+# Email Triage
+from app.models.email_triage import TriagedEmail
+# Follow-Up Sequences
+from app.models.follow_up_sequence import FollowUpSequence, SequenceTouch
+# Deal Journal
+from app.models.deal_journal import DealJournalEntry
 
-__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge", "VoiceCampaign", "VoiceCampaignTarget", "Offer", "OfferStatus", "FinancingType", "ConversationHistory", "PropertyNote", "NoteSource", "ScheduledTask", "TaskType", "TaskStatus", "MarketWatchlist", "DealOutcome", "OutcomeStatus", "AgentPerformanceMetrics", "PredictionLog", "PhoneNumber", "PhoneCall", "Workspace", "WorkspaceAPIKey", "CommandPermission", "API_SCOPES", "Skill", "AgentSkill", "SkillReview", "VideoGenVideo", "VideoGenAvatar", "VideoGenScriptTemplate", "VideoGenSettings", "PostizAccount", "PostizPost", "PostizCalendar", "PostizTemplate", "PostizAnalytics", "PostizCampaign", "RenderJob", "TimelineProject", "PortalUser", "PropertyAccess", "PortalActivity", "AgentBrand", "CalendarConnection", "SyncedCalendarEvent", "CalendarEvent", "PhotoOrder", "PhotoOrderItem", "PhotoOrderDeliverable", "PhotoOrderTemplate", "PhotoProvider", "PhotoOrderStatus", "PhotoServiceType", "PropertyWebsite", "WebsiteAnalytics", "AgentVideoProfile", "PropertyVideo", "VideoTypeEnum", "VideoGenerationStatus"]
+__all__ = ["Agent", "Property", "SkipTrace", "Contact", "Todo", "Contract", "ContractTemplate", "AgentPreference", "ContractSubmitter", "ZillowEnrichment", "ActivityEvent", "PropertyRecap", "DealTypeConfig", "Research", "ResearchTemplate", "AgentConversation", "ComplianceRule", "ComplianceCheck", "ComplianceViolation", "ComplianceRuleTemplate", "Notification", "ResearchProperty", "AgenticJob", "AgenticJobStatus", "EvidenceItem", "CompSale", "CompRental", "Underwriting", "RiskScore", "Dossier", "PortalCache", "WorkerRun", "VoiceMemoryNode", "VoiceMemoryEdge", "VoiceCampaign", "VoiceCampaignTarget", "Offer", "OfferStatus", "FinancingType", "ConversationHistory", "PropertyNote", "NoteSource", "ScheduledTask", "TaskType", "TaskStatus", "MarketWatchlist", "DealOutcome", "OutcomeStatus", "AgentPerformanceMetrics", "PredictionLog", "PhoneNumber", "PhoneCall", "Workspace", "WorkspaceAPIKey", "CommandPermission", "API_SCOPES", "Skill", "AgentSkill", "SkillReview", "VideoGenVideo", "VideoGenAvatar", "VideoGenScriptTemplate", "VideoGenSettings", "PostizAccount", "PostizPost", "PostizCalendar", "PostizTemplate", "PostizAnalytics", "PostizCampaign", "RenderJob", "TimelineProject", "PortalUser", "PropertyAccess", "PortalActivity", "AgentBrand", "CalendarConnection", "SyncedCalendarEvent", "CalendarEvent", "PhotoOrder", "PhotoOrderItem", "PhotoOrderDeliverable", "PhotoOrderTemplate", "PhotoProvider", "PhotoOrderStatus", "PhotoServiceType", "PropertyWebsite", "WebsiteAnalytics", "AgentVideoProfile", "PropertyVideo", "VideoTypeEnum", "VideoGenerationStatus", "TalkingHeadVideo", "PropertyVideoJob", "KnowledgeDocument", "KnowledgeChunk", "DocumentType", "WebhookRegistration", "VoiceAgentCall", "TriagedEmail", "FollowUpSequence", "SequenceTouch", "DealJournalEntry"]

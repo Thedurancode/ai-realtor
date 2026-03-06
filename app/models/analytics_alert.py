@@ -145,10 +145,6 @@ class AlertSubscription(Base):
     """Users subscribed to receive alerts"""
 
     __tablename__ = "alert_subscriptions"
-    __table_args__ = (
-        Index("ix_alert_subscriptions_agent_id", "agent_id"),
-        Index("ix_alert_subscriptions_channel", "channel"),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False, index=True)

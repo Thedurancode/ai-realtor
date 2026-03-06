@@ -3,6 +3,7 @@
 Handles automatic Coolify instance creation for product purchases.
 """
 
+import logging
 import httpx
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone

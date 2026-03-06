@@ -97,5 +97,27 @@ from app.routers.products import router as products_router
 from app.routers.pvc import router as pvc_router
 # Timeline Video Editor (temporarily disabled due to import errors)
 # from app.routers.timeline import router as timeline_router
+# AI Video Chat (Vibe-editing)
+from app.routers.video_chat import router as video_chat_router
+# Knowledge Base RAG
+from app.routers.knowledge_base import router as knowledge_base_router
+# Webhook Listeners
+from app.routers.webhook_listeners import router as webhook_listeners_router
+# Voice Agent
+from app.routers.voice_agent import router as voice_agent_router
+# Email Triage
+from app.routers.email_triage import router as email_triage_router
+# Follow-Up Sequences
+from app.routers.follow_up_sequences import router as follow_up_sequences_router
+# Deal Journal
+from app.routers.deal_journal import router as deal_journal_router
+# Listing Presentation Builder
+from app.routers.listing_presentation import router as listing_presentation_router
+# CMA Report Generator
+from app.routers.cma_report import router as cma_report_router
+# Morning Brief (Telegram daily summary)
+from app.routers.morning_brief import router as morning_brief_router
+# Voice Memo (Transcribe + RAG Ingest)
+from app.routers.voice_memo import router as voice_memo_router
 
-__all__ = ["agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router", "deal_types_router", "research_router", "research_templates_router", "ai_agents_router", "elevenlabs_router", "agentic_research_router", "exa_research_router", "voice_campaigns_router", "offers_router", "search_router", "deal_calculator_router", "workflows_router", "property_notes_router", "insights_router", "scheduled_tasks_router", "analytics_router", "pipeline_router", "daily_digest_router", "follow_ups_router", "comps_router", "bulk_router", "activity_timeline_router", "property_scoring_router", "market_watchlist_router", "predictive_intelligence_router", "market_opportunities_router", "relationship_intelligence_router", "intelligence_router", "web_scraper", "workspace_router", "cron_scheduler_router", "hybrid_search_router", "onboarding_router", "approval_router", "credential_scrubbing_router", "observer_router", "agent_brand_router", "facebook_ads_router", "postiz_router", "videogen_router", "zuckerbot_router", "facebook_targeting_router", "composio_router", "campaigns_router", "document_analysis_router", "sqlite_tuning_router", "skills_router", "setup_router", "renders_router", "property_videos_router", "photo_orders_router", "direct_mail_router", "contact_lists_router", "products_router", "pvc_router"]
+__all__ = ["agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router", "deal_types_router", "research_router", "research_templates_router", "ai_agents_router", "elevenlabs_router", "agentic_research_router", "exa_research_router", "voice_campaigns_router", "offers_router", "search_router", "deal_calculator_router", "workflows_router", "property_notes_router", "insights_router", "scheduled_tasks_router", "analytics_router", "pipeline_router", "daily_digest_router", "follow_ups_router", "comps_router", "bulk_router", "activity_timeline_router", "property_scoring_router", "market_watchlist_router", "predictive_intelligence_router", "market_opportunities_router", "relationship_intelligence_router", "intelligence_router", "web_scraper", "workspace_router", "cron_scheduler_router", "hybrid_search_router", "onboarding_router", "approval_router", "credential_scrubbing_router", "observer_router", "agent_brand_router", "facebook_ads_router", "postiz_router", "videogen_router", "zuckerbot_router", "facebook_targeting_router", "composio_router", "campaigns_router", "document_analysis_router", "sqlite_tuning_router", "skills_router", "setup_router", "renders_router", "property_videos_router", "photo_orders_router", "direct_mail_router", "contact_lists_router", "products_router", "pvc_router", "video_chat_router", "knowledge_base_router", "webhook_listeners_router", "voice_agent_router", "email_triage_router", "follow_up_sequences_router", "deal_journal_router", "listing_presentation_router", "cma_report_router", "morning_brief_router", "voice_memo_router"]

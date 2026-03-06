@@ -85,8 +85,8 @@ class UserProduct(Base):
     notes = Column(Text, nullable=True)
 
     # Relationships
-    product = relationship("Product", back_populates="name")
-    user = relationship("User", back_populates="name")
+    product = relationship("Product")
+    user = relationship("User")
 
     def __repr__(self):
         return f"<UserProduct(user_id={self.user_id}, product={self.product_id}, status={self.status})>"
