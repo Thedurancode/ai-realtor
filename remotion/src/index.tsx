@@ -3,6 +3,7 @@ import { CaptionedReel } from "./CaptionedReel";
 import { Slideshow } from "./Slideshow";
 import { TimelineEditor } from "./TimelineEditor";
 import { PropertyShowcase } from "./PropertyShowcase";
+import { CinematicEventRecap } from "./CinematicEventRecap";
 
 export const RemotionVideo: React.FC = () => {
   return (
@@ -78,6 +79,31 @@ export const RemotionVideo: React.FC = () => {
           audioUrl: "",
           logoDuration: 90,
           photoDuration: 120
+        }}
+      />
+      <Composition
+        id="CinematicEventRecap"
+        component={CinematicEventRecap}
+        durationInFrames={900} // will be calculated based on photo count
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          eventName: "Open House Mixer",
+          eventDate: "March 15, 2026",
+          eventLocation: "Miami Beach, FL",
+          eventDescription: "",
+          logoUrl: "",
+          hostName: "Ed Duran",
+          primaryColor: "#0F172A",
+          accentColor: "#F59E0B",
+          photos: [],
+          musicUrl: "", // empty = uses default-music.mp3
+          musicVolume: 0.8,
+          introDuration: 120,
+          photoDuration: 90,
+          outroDuration: 120,
+          photoCaptions: [],
         }}
       />
     </>
