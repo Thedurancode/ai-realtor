@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.models.property import Property
 from app.models.zillow_enrichment import ZillowEnrichment
-from app.models.offer import Offer
+from app.models.offer import Offer, OfferStatus
+from app.models.deal_outcome import DealOutcome, OutcomeStatus
 from app.services.deal_calculator_service import deal_calculator_service
 from app.services.comps_dashboard_service import comps_dashboard_service
 from app.services.llm_service import llm_service
@@ -68,7 +69,7 @@ class NegotiationAgentService:
 
         # Calculate acceptance probability
         analysis = await self._calculate_offer_analysis(
-            prop, offer_amount, deal_metrics, market_analysis, enrichment
+            db, prop, offer_amount, deal_metrics, market_analysis, enrichment
         )
 
         # Generate talking points
@@ -229,15 +230,16 @@ Return ONLY the letter text, no JSON or explanations."""
             .first()
         )
 
-        # Calculate suggested offer
+        # Learn from historical accepted offers
+        learned = self._get_learned_negotiation_params(db)
+        base_discount = learned["avg_accepted_discount"]
+
         if aggressiveness == "conservative":
-            # Start 10% below list, but not below MAO
-            discount = 0.10
+            discount = max(0.03, base_discount * 0.7)
         elif aggressiveness == "aggressive":
-            # Start 15% below list
-            discount = 0.15
+            discount = min(0.25, base_discount * 1.5)
         else:  # moderate
-            discount = 0.12
+            discount = base_discount
 
         suggested_offer = prop.price * (1 - discount)
 
@@ -283,8 +285,94 @@ Return ONLY the letter text, no JSON or explanations."""
 
     # ── Private Methods ──
 
+    def _get_learned_negotiation_params(self, db: Session) -> dict[str, Any]:
+        """Learn negotiation parameters from historical offer outcomes.
+
+        Analyzes accepted vs rejected offers to learn:
+        - What discount-to-list actually gets accepted
+        - Average negotiation rounds before acceptance
+        - Best counter-offer strategies
+
+        Returns defaults when insufficient data (<3 completed offers).
+        """
+        defaults = {
+            "avg_accepted_discount": 0.05,  # 5% below list
+            "avg_rejected_discount": 0.15,  # 15% below list
+            "accept_threshold": 0.05,  # offers within 5% get accepted
+            "counter_threshold": 0.10,  # 5-10% triggers counter
+            "reject_threshold": 0.15,  # >15% gets rejected
+            "avg_rounds_to_close": 2,
+            "source": "defaults",
+            "offers_analyzed": 0,
+        }
+
+        try:
+            # Get offers that reached a final state
+            accepted = (
+                db.query(Offer)
+                .filter(Offer.status == OfferStatus.ACCEPTED)
+                .all()
+            )
+            rejected = (
+                db.query(Offer)
+                .filter(Offer.status == OfferStatus.REJECTED)
+                .all()
+            )
+
+            if len(accepted) + len(rejected) < 3:
+                return defaults
+
+            # Calculate discount-to-list for accepted offers
+            accepted_discounts = []
+            for offer in accepted:
+                prop = db.query(Property).filter(Property.id == offer.property_id).first()
+                if prop and prop.price and prop.price > 0:
+                    discount = (prop.price - offer.offer_price) / prop.price
+                    accepted_discounts.append(max(0, discount))
+
+            rejected_discounts = []
+            for offer in rejected:
+                prop = db.query(Property).filter(Property.id == offer.property_id).first()
+                if prop and prop.price and prop.price > 0:
+                    discount = (prop.price - offer.offer_price) / prop.price
+                    rejected_discounts.append(max(0, discount))
+
+            learned = dict(defaults)
+            learned["source"] = "learned"
+            learned["offers_analyzed"] = len(accepted) + len(rejected)
+
+            if accepted_discounts:
+                avg_accepted = sum(accepted_discounts) / len(accepted_discounts)
+                learned["avg_accepted_discount"] = round(avg_accepted, 3)
+                # Accept threshold = average accepted discount + small buffer
+                learned["accept_threshold"] = round(avg_accepted + 0.02, 3)
+
+            if rejected_discounts:
+                avg_rejected = sum(rejected_discounts) / len(rejected_discounts)
+                learned["avg_rejected_discount"] = round(avg_rejected, 3)
+                # Reject threshold = average rejected discount - small buffer
+                learned["reject_threshold"] = round(avg_rejected - 0.02, 3)
+
+            # Counter threshold = midpoint between accept and reject
+            learned["counter_threshold"] = round(
+                (learned["accept_threshold"] + learned["reject_threshold"]) / 2, 3
+            )
+
+            # Count average negotiation rounds (offers with parent_offer_id)
+            countered = db.query(Offer).filter(Offer.parent_offer_id.isnot(None)).count()
+            total_chains = db.query(Offer).filter(Offer.parent_offer_id.is_(None)).count()
+            if total_chains > 0:
+                learned["avg_rounds_to_close"] = round(countered / total_chains + 1, 1)
+
+            return learned
+
+        except Exception as e:
+            logger.debug("Failed to learn negotiation params: %s", e)
+            return defaults
+
     async def _calculate_offer_analysis(
         self,
+        db: Session,
         prop: Property,
         offer_amount: float,
         deal_metrics: dict,
@@ -292,23 +380,30 @@ Return ONLY the letter text, no JSON or explanations."""
         enrichment: ZillowEnrichment | None,
     ) -> dict[str, Any]:
         """Calculate acceptance probability and recommendation."""
+        # Learn from historical offer outcomes
+        learned = self._get_learned_negotiation_params(db)
+
         # Calculate discount from list
         discount_from_list = (prop.price - offer_amount) / prop.price if prop.price > 0 else 0
 
-        # Score the offer (0-100)
+        # Score the offer (0-100) using learned thresholds
         offer_score = 50  # Base score
 
         # Above list price = very good
         if offer_amount >= prop.price:
             offer_score += 30
 
-        # Within 5% of list = good
-        elif discount_from_list <= 0.05:
+        # Within learned accept threshold = good
+        elif discount_from_list <= learned["accept_threshold"]:
             offer_score += 20
 
-        # Within 10% = acceptable
-        elif discount_from_list <= 0.10:
+        # Within learned counter threshold = acceptable
+        elif discount_from_list <= learned["counter_threshold"]:
             offer_score += 10
+
+        # Beyond learned reject threshold = too low
+        elif discount_from_list >= learned["reject_threshold"]:
+            offer_score -= 10
 
         # Below MAO = bad
         mao = deal_metrics.get("max_allowable_offer")
@@ -349,6 +444,13 @@ Return ONLY the letter text, no JSON or explanations."""
             "reasoning": reasoning,
             "walkaway_price": round(walkaway, 2),
             "offer_score": offer_score,
+            "learned_thresholds": {
+                "accept": learned["accept_threshold"],
+                "counter": learned["counter_threshold"],
+                "reject": learned["reject_threshold"],
+                "source": learned["source"],
+                "offers_analyzed": learned["offers_analyzed"],
+            },
         }
 
     async def _generate_talking_points(

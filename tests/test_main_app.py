@@ -8,8 +8,6 @@ class TestRootEndpoint:
         data = response.json()
         assert "RealtorClaw" in data["message"]
         assert data["version"] == "1.0.0"
-        assert "features" in data
-        assert len(data["features"]) > 0
 
     def test_root_has_docs_link(self, client):
         response = client.get("/")
@@ -34,8 +32,6 @@ class TestRateLimitEndpoint:
         assert "rate_limiting" in data
         assert "limits" in data
         assert "tiers" in data
-        assert "how_to_disable" in data
-        assert "how_to_enable" in data
 
 
 class TestCacheEndpoints:

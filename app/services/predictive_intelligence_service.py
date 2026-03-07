@@ -18,7 +18,6 @@ from app.models.property_note import PropertyNote
 from app.models.offer import Offer, OfferStatus
 from app.services.property_scoring_service import property_scoring_service
 from app.services.llm_service import llm_service
-
 logger = logging.getLogger(__name__)
 
 
@@ -46,6 +45,20 @@ class PredictiveIntelligenceService:
 
         signals = await self._collect_prediction_signals(db, prop)
         prediction = self._calculate_closing_probability(signals)
+
+        # Log prediction for feedback loop
+        try:
+            from app.services.learning_system_service import learning_system_service
+            await learning_system_service.log_prediction(
+                db,
+                property_id=prop.id,
+                predicted_probability=prediction["probability"],
+                predicted_days=prediction["estimated_days"],
+                confidence=prediction["confidence"],
+                feature_snapshot=signals,
+            )
+        except Exception as e:
+            logger.debug("Failed to log prediction: %s", e)
 
         # Generate recommended actions based on weak signals
         recommendations = self._generate_recommendations(prop, signals, prediction)
@@ -339,72 +352,80 @@ class PredictiveIntelligenceService:
         return signals
 
     def _calculate_closing_probability(self, signals: dict[str, Any]) -> dict[str, Any]:
-        """Calculate closing probability from signals using weighted scoring."""
-        score = 50.0  # Base score
+        """Calculate closing probability from signals using adaptive weighted scoring."""
+        learned = self._get_learned_calibration(signals)
+
+        score = learned["base_score"]
         factors = []
         risk_factors = []
         strengths = []
 
-        # Deal score (35% weight) - strongest signal
+        ds_weight = learned["deal_score_weight"]
+        ct_weight = learned["contract_weight"]
+        co_weight = learned["contact_weight"]
+        st_weight = learned["skip_trace_weight"]
+        ac_weight = learned["activity_weight"]
+        en_weight = learned["enrichment_weight"]
+
+        # Deal score (strongest signal)
         deal_score = signals.get("deal_score", {}).get("score")
         if deal_score is not None:
-            # Scale deal score to 0-35 contribution
-            contribution = (deal_score / 100) * 35
-            score += contribution - 17.5  # Centered around 50
-            factors.append(f"Deal score: {deal_score}/100")
+            contribution = (deal_score / 100) * ds_weight
+            score += contribution - ds_weight / 2
+            factors.append(f"Deal score: {deal_score}/100 (weight: {ds_weight:.0f}%)")
             if deal_score >= 80:
                 strengths.append("Excellent deal score")
             elif deal_score < 50:
                 risk_factors.append("Low deal score indicates weak opportunity")
 
-        # Contract completion (25%)
+        # Contract completion
         contracts = signals.get("contracts", {})
         completion_rate = contracts.get("completion_rate", 0)
         if contracts.get("required_total", 0) > 0:
-            contribution = (completion_rate / 100) * 25
-            score += contribution - 12.5
+            contribution = (completion_rate / 100) * ct_weight
+            score += contribution - ct_weight / 2
             factors.append(f"Contract completion: {completion_rate:.0f}%")
             if completion_rate >= 80:
                 strengths.append("Most contracts completed")
             elif completion_rate < 50 and contracts.get("required_total", 0) > 0:
                 risk_factors.append("Many required contracts outstanding")
 
-        # Contact coverage (15%)
+        # Contact coverage
         contacts = signals.get("contacts", {})
         if contacts.get("has_key_roles"):
-            score += 7.5
+            score += co_weight / 2
             strengths.append("Key stakeholders identified")
         else:
-            score -= 7.5
+            score -= co_weight / 2
             risk_factors.append("Missing key contacts (buyer/seller)")
 
-        # Skip trace reachability (10%)
+        # Skip trace reachability
         skip_trace = signals.get("skip_trace", {})
         if skip_trace.get("has_phone") and skip_trace.get("has_email"):
-            score += 5.0
+            score += st_weight / 2
             strengths.append("Owner contact info available")
         elif not skip_trace:
-            score -= 5.0
+            score -= st_weight / 2
             risk_factors.append("No skip trace data - can't reach owner")
 
-        # Activity acceleration (10%)
+        # Activity acceleration
         activity = signals.get("activity", {})
         if activity.get("accelerating"):
-            score += 5.0
+            score += ac_weight / 2
             strengths.append("Activity accelerating")
         elif activity.get("stagnant"):
-            score -= 5.0
+            score -= ac_weight / 2
             risk_factors.append("No recent activity - deal may be stalled")
 
-        # Zillow enrichment (5%)
+        # Zillow enrichment
         enrichment = signals.get("enrichment", {})
         if enrichment.get("has_zestimate"):
             spread = enrichment.get("zestimate_spread_pct")
             if spread and spread > 10:
-                score += 2.5
+                score += en_weight / 2
                 strengths.append(f"Strong Zestimate spread ({spread:.0f}%)")
         else:
-            score -= 2.5
+            score -= en_weight / 2
             risk_factors.append("Missing market data")
 
         # Offer activity (bonus)
@@ -448,10 +469,9 @@ class PredictiveIntelligenceService:
         elif status == PropertyStatus.RESEARCHED.value:
             estimated_days = 25
         elif status == PropertyStatus.WAITING_FOR_CONTRACTS.value:
-            # Estimate based on completion
             remaining = max(0, 100 - completion_rate) / 100
             estimated_days = int(remaining * 20)
-        else:  # COMPLETE
+        else:
             estimated_days = 0
 
         return {
@@ -461,7 +481,106 @@ class PredictiveIntelligenceService:
             "risk_factors": risk_factors,
             "strengths": strengths,
             "scoring_factors": factors,
+            "calibration_source": learned["source"],
+            "outcomes_analyzed": learned["outcomes_analyzed"],
         }
+
+    def _get_learned_calibration(self, signals: dict[str, Any]) -> dict[str, Any]:
+        """Query historical outcomes to adjust scoring weights.
+
+        Returns learned adjustments based on what actually predicted wins/losses.
+        Falls back to defaults when insufficient data.
+        """
+        from app.database import SessionLocal
+        from app.models.deal_outcome import DealOutcome, OutcomeStatus, PredictionLog
+
+        defaults = {
+            "base_score": 50.0,
+            "deal_score_weight": 35.0,
+            "contract_weight": 25.0,
+            "contact_weight": 15.0,
+            "skip_trace_weight": 10.0,
+            "activity_weight": 10.0,
+            "enrichment_weight": 5.0,
+            "source": "defaults",
+            "outcomes_analyzed": 0,
+        }
+
+        db = SessionLocal()
+        try:
+            # Need at least 5 completed outcomes to learn from
+            completed = (
+                db.query(DealOutcome)
+                .filter(DealOutcome.status.in_([
+                    OutcomeStatus.CLOSED_WON,
+                    OutcomeStatus.CLOSED_LOST,
+                ]))
+                .count()
+            )
+            if completed < 5:
+                return defaults
+
+            # Get prediction logs WITH outcomes to see what actually mattered
+            logs_with_outcomes = (
+                db.query(PredictionLog)
+                .filter(PredictionLog.actual_outcome.isnot(None))
+                .all()
+            )
+            if len(logs_with_outcomes) < 5:
+                return defaults
+
+            # Split into won/lost
+            won_logs = [l for l in logs_with_outcomes if l.actual_outcome == OutcomeStatus.CLOSED_WON]
+            lost_logs = [l for l in logs_with_outcomes if l.actual_outcome != OutcomeStatus.CLOSED_WON]
+
+            if not won_logs or not lost_logs:
+                return defaults
+
+            # Calculate which features best discriminated wins from losses
+            def avg_feature(logs, attr):
+                vals = [getattr(l, attr) for l in logs if getattr(l, attr) is not None]
+                return sum(vals) / len(vals) if vals else None
+
+            won_deal_score = avg_feature(won_logs, "deal_score")
+            lost_deal_score = avg_feature(lost_logs, "deal_score")
+            won_completion = avg_feature(won_logs, "completion_rate")
+            lost_completion = avg_feature(lost_logs, "completion_rate")
+            won_activity = avg_feature(won_logs, "activity_velocity")
+            lost_activity = avg_feature(lost_logs, "activity_velocity")
+
+            # Adjust weights based on discriminative power
+            # If a feature shows big gap between wins/losses, increase its weight
+            calibrated = dict(defaults)
+            calibrated["source"] = "learned"
+            calibrated["outcomes_analyzed"] = completed
+
+            if won_deal_score is not None and lost_deal_score is not None:
+                gap = abs(won_deal_score - lost_deal_score)
+                if gap > 20:
+                    calibrated["deal_score_weight"] = min(45.0, 35.0 + gap / 5)
+                elif gap < 5:
+                    calibrated["deal_score_weight"] = max(20.0, 35.0 - 10)
+
+            if won_completion is not None and lost_completion is not None:
+                gap = abs(won_completion - lost_completion)
+                if gap > 30:
+                    calibrated["contract_weight"] = min(35.0, 25.0 + gap / 5)
+
+            if won_activity is not None and lost_activity is not None:
+                gap = abs(won_activity - lost_activity)
+                if gap > 3:
+                    calibrated["activity_weight"] = min(20.0, 10.0 + gap)
+
+            # Compute calibrated base score from historical win rate
+            win_rate = len(won_logs) / len(logs_with_outcomes)
+            calibrated["base_score"] = round(win_rate * 100, 1)
+
+            return calibrated
+        except Exception as e:
+            logger.debug("Learned calibration failed, using defaults: %s", e)
+            return defaults
+        finally:
+            db.close()
 
     def _generate_recommendations(
         self, prop: Property, signals: dict, prediction: dict

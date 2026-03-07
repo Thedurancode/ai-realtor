@@ -17,15 +17,92 @@ from app.models.conversation_history import ConversationHistory
 from app.models.property_note import PropertyNote
 from app.models.scheduled_task import ScheduledTask, TaskStatus
 from app.models.notification import Notification
+from app.models.deal_outcome import DealOutcome, OutcomeStatus
 
 
-# Dimension weights (must sum to 1.0)
-DIMENSION_WEIGHTS = {
+# Default dimension weights (fallback when no outcome data)
+DEFAULT_DIMENSION_WEIGHTS = {
     "market": 0.30,
     "financial": 0.25,
     "readiness": 0.25,
     "engagement": 0.20,
 }
+
+
+def _learn_dimension_weights(db: Session) -> dict[str, float]:
+    """Adjust dimension weights based on which dimensions best predicted winning deals.
+
+    Analyzes properties with recorded outcomes (closed_won vs closed_lost) and
+    checks which scoring dimensions had the biggest gap between wins and losses.
+    Dimensions that better discriminate winners get more weight.
+
+    Returns DEFAULT_DIMENSION_WEIGHTS if insufficient data (<5 outcomes).
+    """
+    try:
+        from app.models.property import Property
+
+        outcomes = (
+            db.query(DealOutcome)
+            .filter(DealOutcome.status.in_([OutcomeStatus.CLOSED_WON, OutcomeStatus.CLOSED_LOST]))
+            .all()
+        )
+        if len(outcomes) < 5:
+            return dict(DEFAULT_DIMENSION_WEIGHTS)
+
+        won_ids = {o.property_id for o in outcomes if o.status == OutcomeStatus.CLOSED_WON}
+        lost_ids = {o.property_id for o in outcomes if o.status == OutcomeStatus.CLOSED_LOST}
+
+        if not won_ids or not lost_ids:
+            return dict(DEFAULT_DIMENSION_WEIGHTS)
+
+        # Get stored score breakdowns
+        won_props = db.query(Property).filter(Property.id.in_(won_ids), Property.score_breakdown.isnot(None)).all()
+        lost_props = db.query(Property).filter(Property.id.in_(lost_ids), Property.score_breakdown.isnot(None)).all()
+
+        if len(won_props) < 2 or len(lost_props) < 2:
+            return dict(DEFAULT_DIMENSION_WEIGHTS)
+
+        # Calculate average dimension scores for wins vs losses
+        def avg_dim_score(props, dim_name):
+            scores = []
+            for p in props:
+                dims = (p.score_breakdown or {}).get("dimensions", {})
+                if dim_name in dims and "score" in dims[dim_name]:
+                    scores.append(dims[dim_name]["score"])
+            return sum(scores) / len(scores) if scores else None
+
+        gaps = {}
+        for dim in DEFAULT_DIMENSION_WEIGHTS:
+            won_avg = avg_dim_score(won_props, dim)
+            lost_avg = avg_dim_score(lost_props, dim)
+            if won_avg is not None and lost_avg is not None:
+                gaps[dim] = abs(won_avg - lost_avg)
+            else:
+                gaps[dim] = 0.0
+
+        total_gap = sum(gaps.values())
+        if total_gap < 1.0:
+            return dict(DEFAULT_DIMENSION_WEIGHTS)
+
+        # Redistribute weights proportional to discriminative power
+        # Blend 50% default + 50% learned to avoid wild swings
+        learned = {dim: gap / total_gap for dim, gap in gaps.items()}
+        blended = {}
+        for dim in DEFAULT_DIMENSION_WEIGHTS:
+            blended[dim] = round(
+                0.5 * DEFAULT_DIMENSION_WEIGHTS[dim] + 0.5 * learned.get(dim, DEFAULT_DIMENSION_WEIGHTS[dim]),
+                3,
+            )
+
+        # Normalize to sum to 1.0
+        total = sum(blended.values())
+        if total > 0:
+            blended = {k: round(v / total, 3) for k, v in blended.items()}
+
+        return blended
+
+    except Exception:
+        return dict(DEFAULT_DIMENSION_WEIGHTS)
 
 
 class PropertyScoringService:
@@ -36,6 +113,9 @@ class PropertyScoringService:
         prop = db.query(Property).filter(Property.id == property_id).first()
         if not prop:
             return {"error": f"Property {property_id} not found"}
+
+        # Use adaptive weights learned from historical outcomes
+        weights = _learn_dimension_weights(db)
 
         enrichment = (
             db.query(ZillowEnrichment)
@@ -49,23 +129,23 @@ class PropertyScoringService:
 
         market_score, market_detail = self._market_score(prop, enrichment)
         if market_score is not None:
-            dimensions["market"] = {"score": market_score, "weight": DIMENSION_WEIGHTS["market"], **market_detail}
-            available_dimensions.append(("market", DIMENSION_WEIGHTS["market"], market_score))
+            dimensions["market"] = {"score": market_score, "weight": weights["market"], **market_detail}
+            available_dimensions.append(("market", weights["market"], market_score))
 
         financial_score, financial_detail = self._financial_score(prop, enrichment)
         if financial_score is not None:
-            dimensions["financial"] = {"score": financial_score, "weight": DIMENSION_WEIGHTS["financial"], **financial_detail}
-            available_dimensions.append(("financial", DIMENSION_WEIGHTS["financial"], financial_score))
+            dimensions["financial"] = {"score": financial_score, "weight": weights["financial"], **financial_detail}
+            available_dimensions.append(("financial", weights["financial"], financial_score))
 
         readiness_score, readiness_detail = self._readiness_score(db, prop)
         if readiness_score is not None:
-            dimensions["readiness"] = {"score": readiness_score, "weight": DIMENSION_WEIGHTS["readiness"], **readiness_detail}
-            available_dimensions.append(("readiness", DIMENSION_WEIGHTS["readiness"], readiness_score))
+            dimensions["readiness"] = {"score": readiness_score, "weight": weights["readiness"], **readiness_detail}
+            available_dimensions.append(("readiness", weights["readiness"], readiness_score))
 
         engagement_score, engagement_detail = self._engagement_score(db, prop)
         if engagement_score is not None:
-            dimensions["engagement"] = {"score": engagement_score, "weight": DIMENSION_WEIGHTS["engagement"], **engagement_detail}
-            available_dimensions.append(("engagement", DIMENSION_WEIGHTS["engagement"], engagement_score))
+            dimensions["engagement"] = {"score": engagement_score, "weight": weights["engagement"], **engagement_detail}
+            available_dimensions.append(("engagement", weights["engagement"], engagement_score))
 
         # Compute weighted score (re-normalize when dimensions are missing)
         if not available_dimensions:
@@ -89,6 +169,7 @@ class PropertyScoringService:
             prop.score_breakdown = {
                 "dimensions": {k: {"score": v["score"], "weight": v["weight"]} for k, v in dimensions.items()},
                 "components": breakdown,
+                "weights_source": "learned" if weights != DEFAULT_DIMENSION_WEIGHTS else "defaults",
             }
             db.commit()
 
@@ -102,6 +183,8 @@ class PropertyScoringService:
             "dimensions": dimensions,
             "breakdown": breakdown,
             "voice_summary": voice_summary,
+            "weights": weights,
+            "weights_source": "learned" if weights != DEFAULT_DIMENSION_WEIGHTS else "defaults",
         }
 
     def bulk_score(
