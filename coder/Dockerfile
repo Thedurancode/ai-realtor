@@ -32,9 +32,12 @@ RUN npm install -g @anthropic-ai/claude-code
 # uv (fast Python package manager)
 RUN curl -LsSf https://astral.sh/uv/install.sh | CARGO_HOME=/usr/local sh
 
-# Install Python deps globally (will be updated on workspace start)
-COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install --break-system-packages -r /tmp/requirements.txt && \
+# Bake the repo into the image (no git clone needed at startup)
+RUN git clone https://github.com/Thedurancode/ai-realtor.git /opt/ai-realtor && \
+    chown -R coder:coder /opt/ai-realtor
+
+# Install Python deps from baked repo
+RUN pip3 install --break-system-packages -r /opt/ai-realtor/requirements.txt && \
     pip3 install --break-system-packages python-telegram-bot "discord.py"
 
 # Switch to coder user
@@ -70,7 +73,8 @@ SETTINGS
 RUN git config --global init.defaultBranch main && \
     git config --global pull.rebase false && \
     git config --global user.name "Ed Duran" && \
-    git config --global user.email "emprezarioinc@gmail.com"
+    git config --global user.email "emprezarioinc@gmail.com" && \
+    git config --global credential.helper ""
 
 # Shell config
 RUN cat >> /home/coder/.bashrc << 'BASHRC'
@@ -80,6 +84,7 @@ alias claude="claude --dangerously-skip-permissions"
 alias codelive="claude --dangerously-skip-permissions"
 alias api="cd ~/ai-realtor && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 alias worker="cd ~/ai-realtor && python3 -m arq app.worker.WorkerSettings"
+alias agent-worker="cd ~/ai-realtor && python3 -m app.services.agent_worker"
 alias api-log="tail -f /tmp/api.log"
 alias worker-log="tail -f /tmp/worker.log"
 alias dbshell="psql postgresql://realtorclaw:realtorclaw@postgres:5432/realtorclaw"
@@ -92,7 +97,7 @@ echo "  RealtorClaw Dev Workspace"
 echo "  ========================="
 echo "  API:     http://localhost:8000/docs"
 echo "  VS Code: http://localhost:13337"
-echo "  Aliases: api, worker, dbshell, migrate, test, claude"
+echo "  Aliases: api, worker, agent-worker, dbshell, migrate, test, claude"
 echo ""
 BASHRC
 

@@ -31,6 +31,7 @@ from app.routers import (
     market_opportunities, relationship_intelligence, intelligence,
     workspace, cron_scheduler, hybrid_search, onboarding,
     enhanced_property_videos, property_websites, telnyx,
+    orchestration_router,
 )
 
 
@@ -151,3 +152,6 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(portal.router)
     app.include_router(document_extraction.router)
     app.include_router(calendar.router)
+
+    # Orchestration
+    app.include_router(orchestration_router.router)

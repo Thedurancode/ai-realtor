@@ -19,35 +19,40 @@ data "coder_workspace" "me" {}
 data "coder_workspace_owner" "me" {}
 
 # ---------------------------------------------------------------------------
-# Parameters (shown in Coder UI when creating workspace)
+# Parameters
 # ---------------------------------------------------------------------------
 
-data "coder_parameter" "repo_url" {
-  name         = "repo_url"
-  display_name = "Git Repo URL"
-  description  = "Repository to clone"
-  default      = "https://github.com/edduran/ai-realtor.git"
+data "coder_parameter" "role" {
+  name         = "role"
+  display_name = "Workspace Role"
+  description  = "What this workspace does"
+  type         = "string"
+  default      = "dev"
   mutable      = true
-  icon         = "/icon/git.svg"
-}
-
-data "coder_parameter" "repo_branch" {
-  name         = "repo_branch"
-  display_name = "Branch"
-  description  = "Git branch to clone"
-  default      = "main"
-  mutable      = true
-  icon         = "/icon/git.svg"
+  icon         = "/emojis/1f916.png"
+  option {
+    name  = "Development"
+    value = "dev"
+    description = "Full dev environment — API + code-server + Claude Code"
+  }
+  option {
+    name  = "Boss Agent"
+    value = "boss"
+    description = "Orchestrator — dispatches tasks to workers"
+  }
+  option {
+    name  = "Worker Agent"
+    value = "worker"
+    description = "Picks up and executes tasks from the boss"
+  }
 }
 
 data "coder_parameter" "cpu" {
   name         = "cpu"
   display_name = "CPU Cores"
-  description  = "CPU cores for workspace container"
   type         = "number"
   default      = "4"
   mutable      = true
-  icon         = "/emojis/1f5a5.png"
   validation {
     min = 1
     max = 8
@@ -57,11 +62,9 @@ data "coder_parameter" "cpu" {
 data "coder_parameter" "memory" {
   name         = "memory"
   display_name = "Memory (GB)"
-  description  = "RAM for workspace container"
   type         = "number"
   default      = "8"
   mutable      = true
-  icon         = "/emojis/1f4be.png"
   validation {
     min = 2
     max = 32
@@ -71,34 +74,23 @@ data "coder_parameter" "memory" {
 data "coder_parameter" "enable_postgres" {
   name         = "enable_postgres"
   display_name = "PostgreSQL"
-  description  = "Run PostgreSQL sidecar (otherwise uses SQLite)"
+  description  = "Run PostgreSQL sidecar"
   type         = "bool"
   default      = "true"
   mutable      = true
-  icon         = "/icon/database.svg"
 }
 
 data "coder_parameter" "enable_redis" {
   name         = "enable_redis"
   display_name = "Redis"
-  description  = "Run Redis sidecar for job queue + caching"
+  description  = "Run Redis sidecar"
   type         = "bool"
   default      = "true"
   mutable      = true
-  icon         = "/icon/database.svg"
-}
-
-data "coder_parameter" "dotfiles_uri" {
-  name         = "dotfiles_uri"
-  display_name = "Dotfiles Repo (optional)"
-  description  = "Git repo with your dotfiles (e.g. shell config, aliases)"
-  default      = ""
-  mutable      = true
-  icon         = "/icon/widgets.svg"
 }
 
 # ---------------------------------------------------------------------------
-# Docker Network (so containers can talk to each other)
+# Docker Network
 # ---------------------------------------------------------------------------
 
 resource "docker_network" "workspace" {
@@ -116,9 +108,7 @@ resource "docker_network" "workspace" {
 resource "docker_volume" "postgres_data" {
   count = data.coder_parameter.enable_postgres.value == "true" ? 1 : 0
   name  = "coder-${data.coder_workspace.me.id}-pgdata"
-  lifecycle {
-    ignore_changes = all
-  }
+  lifecycle { ignore_changes = all }
   labels {
     label = "coder.workspace_id"
     value = data.coder_workspace.me.id
@@ -127,26 +117,18 @@ resource "docker_volume" "postgres_data" {
 
 resource "docker_container" "postgres" {
   count = data.coder_workspace.me.start_count * (data.coder_parameter.enable_postgres.value == "true" ? 1 : 0)
-  name  = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}-postgres"
+  name  = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}-pg"
   image = "pgvector/pgvector:pg16"
-
-  env = [
-    "POSTGRES_USER=realtorclaw",
-    "POSTGRES_PASSWORD=realtorclaw",
-    "POSTGRES_DB=realtorclaw",
-  ]
-
+  env   = ["POSTGRES_USER=realtorclaw", "POSTGRES_PASSWORD=realtorclaw", "POSTGRES_DB=realtorclaw"]
   networks_advanced {
-    name = docker_network.workspace.name
+    name    = docker_network.workspace.name
     aliases = ["postgres"]
   }
-
   volumes {
     container_path = "/var/lib/postgresql/data"
     volume_name    = docker_volume.postgres_data[0].name
     read_only      = false
   }
-
   labels {
     label = "coder.workspace_id"
     value = data.coder_workspace.me.id
@@ -160,9 +142,7 @@ resource "docker_container" "postgres" {
 resource "docker_volume" "redis_data" {
   count = data.coder_parameter.enable_redis.value == "true" ? 1 : 0
   name  = "coder-${data.coder_workspace.me.id}-redis"
-  lifecycle {
-    ignore_changes = all
-  }
+  lifecycle { ignore_changes = all }
   labels {
     label = "coder.workspace_id"
     value = data.coder_workspace.me.id
@@ -170,23 +150,19 @@ resource "docker_volume" "redis_data" {
 }
 
 resource "docker_container" "redis" {
-  count = data.coder_workspace.me.start_count * (data.coder_parameter.enable_redis.value == "true" ? 1 : 0)
-  name  = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}-redis"
-  image = "redis:7-alpine"
-
+  count   = data.coder_workspace.me.start_count * (data.coder_parameter.enable_redis.value == "true" ? 1 : 0)
+  name    = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}-redis"
+  image   = "redis:7-alpine"
   command = ["redis-server", "--appendonly", "yes"]
-
   networks_advanced {
-    name = docker_network.workspace.name
+    name    = docker_network.workspace.name
     aliases = ["redis"]
   }
-
   volumes {
     container_path = "/data"
     volume_name    = docker_volume.redis_data[0].name
     read_only      = false
   }
-
   labels {
     label = "coder.workspace_id"
     value = data.coder_workspace.me.id
@@ -203,27 +179,19 @@ resource "coder_agent" "main" {
 
   startup_script_behavior = "non-blocking"
   startup_script = <<-EOT
-    set -e
+    # --- Fix permissions on persistent volume ---
+    sudo chown -R coder:coder /home/coder 2>/dev/null || true
+    mkdir -p /home/coder/.config /home/coder/.claude
 
-    # --- Dotfiles ---
-    if [ -n "${data.coder_parameter.dotfiles_uri.value}" ]; then
-      coder dotfiles -y "${data.coder_parameter.dotfiles_uri.value}" 2>&1 | tee /tmp/dotfiles.log &
-    fi
-
-    # --- Clone / update repo ---
+    # --- Copy repo from baked image (first run only) ---
     REPO_DIR="/home/coder/ai-realtor"
     if [ ! -d "$REPO_DIR/.git" ]; then
-      git clone --branch "${data.coder_parameter.repo_branch.value}" "${data.coder_parameter.repo_url.value}" "$REPO_DIR" 2>&1 || true
+      cp -r /opt/ai-realtor "$REPO_DIR"
+      echo "Repo copied from image"
     else
       cd "$REPO_DIR"
-      git fetch origin
-      git checkout "${data.coder_parameter.repo_branch.value}" 2>/dev/null || true
-      git pull origin "${data.coder_parameter.repo_branch.value}" 2>/dev/null || true
+      git pull origin main 2>/dev/null || echo "Git pull skipped"
     fi
-
-    # --- Install/update Python deps ---
-    cd "$REPO_DIR"
-    pip3 install --break-system-packages -q -r requirements.txt 2>&1 | tail -1 &
 
     # --- Load env ---
     if [ -f "$REPO_DIR/.env" ]; then
@@ -231,49 +199,49 @@ resource "coder_agent" "main" {
     fi
 
     # --- code-server ---
-    if command -v code-server &>/dev/null; then
-      code-server --auth none --port 13337 --host 0.0.0.0 \
-        --user-data-dir /home/coder/.code-server &
-    fi
+    code-server --auth none --port 13337 --host 0.0.0.0 &
 
-    # --- Wait for Postgres if enabled ---
+    # --- Wait for Postgres ---
     if [ "${data.coder_parameter.enable_postgres.value}" = "true" ]; then
       echo "Waiting for PostgreSQL..."
       for i in $(seq 1 30); do
-        if pg_isready -h postgres -U realtorclaw -q 2>/dev/null; then
-          echo "PostgreSQL ready"
-          break
-        fi
+        pg_isready -h postgres -U realtorclaw -q 2>/dev/null && echo "PostgreSQL ready" && break
         sleep 1
       done
-
-      # Run Alembic migrations
-      cd "$REPO_DIR"
-      alembic upgrade head 2>&1 || echo "Alembic migration skipped"
+      cd "$REPO_DIR" && alembic upgrade head 2>&1 || echo "Migration skipped"
     fi
 
-    # --- FastAPI server ---
-    cd "$REPO_DIR"
-    python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload \
-      > /tmp/api.log 2>&1 &
-    echo "FastAPI started on :8000"
-
-    # --- arq worker (if Redis enabled) ---
+    # --- Wait for Redis ---
     if [ "${data.coder_parameter.enable_redis.value}" = "true" ]; then
       echo "Waiting for Redis..."
       for i in $(seq 1 15); do
-        if redis-cli -h redis ping 2>/dev/null | grep -q PONG; then
-          echo "Redis ready"
-          break
-        fi
+        redis-cli -h redis ping 2>/dev/null | grep -q PONG && echo "Redis ready" && break
         sleep 1
       done
-      cd "$REPO_DIR"
+    fi
+
+    # --- Start services based on role ---
+    ROLE="${data.coder_parameter.role.value}"
+    cd "$REPO_DIR"
+
+    if [ "$ROLE" = "dev" ] || [ "$ROLE" = "boss" ]; then
+      python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > /tmp/api.log 2>&1 &
+      echo "FastAPI started on :8000"
+    fi
+
+    if [ "$ROLE" = "boss" ]; then
       python3 -m arq app.worker.WorkerSettings > /tmp/worker.log 2>&1 &
       echo "arq worker started"
     fi
 
-    echo "RealtorClaw workspace ready"
+    if [ "$ROLE" = "worker" ]; then
+      WORKER_ID="${lower(data.coder_workspace.me.name)}"
+      python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+      python3 -m app.services.agent_worker --worker-id "$WORKER_ID" > /tmp/agent-worker.log 2>&1 &
+      echo "Agent worker $WORKER_ID started"
+    fi
+
+    echo "RealtorClaw workspace ready (role: $ROLE)"
   EOT
 
   env = {
@@ -284,9 +252,16 @@ resource "coder_agent" "main" {
     DATABASE_URL       = data.coder_parameter.enable_postgres.value == "true" ? "postgresql://realtorclaw:realtorclaw@postgres:5432/realtorclaw" : "sqlite:///./ai_realtor.db"
     REDIS_HOST         = data.coder_parameter.enable_redis.value == "true" ? "redis" : ""
     REDIS_PORT         = "6379"
+    WORKSPACE_ROLE     = data.coder_parameter.role.value
   }
 
-  # --- Dashboard Metadata ---
+  metadata {
+    display_name = "Role"
+    key          = "role"
+    script       = "echo ${data.coder_parameter.role.value}"
+    interval     = 600
+    timeout      = 1
+  }
   metadata {
     display_name = "CPU Usage"
     key          = "cpu_usage"
@@ -302,13 +277,6 @@ resource "coder_agent" "main" {
     timeout      = 1
   }
   metadata {
-    display_name = "Disk Usage"
-    key          = "disk_usage"
-    script       = "coder stat disk --path /home/coder"
-    interval     = 600
-    timeout      = 1
-  }
-  metadata {
     display_name = "API Status"
     key          = "api_status"
     script       = "curl -sf http://localhost:8000/health | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d['status'])\" 2>/dev/null || echo 'offline'"
@@ -318,7 +286,7 @@ resource "coder_agent" "main" {
   metadata {
     display_name = "Worker Status"
     key          = "worker_status"
-    script       = "pgrep -f 'arq app.worker' >/dev/null && echo 'running' || echo 'stopped'"
+    script       = "pgrep -f 'agent_worker' >/dev/null && echo 'running' || (pgrep -f 'arq app.worker' >/dev/null && echo 'arq running' || echo 'stopped')"
     interval     = 30
     timeout      = 1
   }
@@ -339,7 +307,7 @@ resource "coder_agent" "main" {
 }
 
 # ---------------------------------------------------------------------------
-# Apps (buttons in workspace dashboard)
+# Apps
 # ---------------------------------------------------------------------------
 
 resource "coder_app" "code-server" {
@@ -358,16 +326,6 @@ resource "coder_app" "realtorclaw-api" {
   display_name = "RealtorClaw API"
   url          = "http://localhost:8000/docs"
   icon         = "/icon/swagger.svg"
-  subdomain    = false
-  share        = "owner"
-}
-
-resource "coder_app" "api-health" {
-  agent_id     = coder_agent.main.id
-  slug         = "api-health"
-  display_name = "API Health"
-  url          = "http://localhost:8000/health"
-  icon         = "/icon/heart.svg"
   subdomain    = false
   share        = "owner"
 }
@@ -401,11 +359,11 @@ resource "coder_app" "logs-worker" {
   slug         = "logs-worker"
   display_name = "Worker Logs"
   icon         = "/icon/widgets.svg"
-  command      = "tail -f /tmp/worker.log"
+  command      = "tail -f /tmp/agent-worker.log 2>/dev/null || tail -f /tmp/worker.log 2>/dev/null || echo 'No worker logs yet'"
 }
 
 # ---------------------------------------------------------------------------
-# Docker Image
+# Docker Image (repo baked in — no git clone at startup)
 # ---------------------------------------------------------------------------
 
 resource "docker_image" "realtorclaw" {
@@ -421,14 +379,12 @@ resource "docker_image" "realtorclaw" {
 }
 
 # ---------------------------------------------------------------------------
-# Persistent Volume (survives rebuilds)
+# Persistent Volume
 # ---------------------------------------------------------------------------
 
 resource "docker_volume" "home" {
   name = "coder-${data.coder_workspace.me.id}-home"
-  lifecycle {
-    ignore_changes = all
-  }
+  lifecycle { ignore_changes = all }
   labels {
     label = "coder.owner"
     value = data.coder_workspace_owner.me.name
@@ -454,8 +410,7 @@ resource "docker_container" "workspace" {
 
   hostname = data.coder_workspace.me.name
   dns      = ["1.1.1.1"]
-
-  command = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
+  command  = ["sh", "-c", coder_agent.main.init_script]
 
   env = [
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
@@ -466,6 +421,7 @@ resource "docker_container" "workspace" {
     "DATABASE_URL=${data.coder_parameter.enable_postgres.value == "true" ? "postgresql://realtorclaw:realtorclaw@postgres:5432/realtorclaw" : "sqlite:///./ai_realtor.db"}",
     "REDIS_HOST=${data.coder_parameter.enable_redis.value == "true" ? "redis" : ""}",
     "REDIS_PORT=6379",
+    "WORKSPACE_ROLE=${data.coder_parameter.role.value}",
   ]
 
   host {
@@ -483,10 +439,8 @@ resource "docker_container" "workspace" {
     read_only      = false
   }
 
-  resources {
-    cpu_shares = data.coder_parameter.cpu.value * 1024
-    memory     = data.coder_parameter.memory.value * 1024
-  }
+  cpu_shares = data.coder_parameter.cpu.value * 1024
+  memory     = data.coder_parameter.memory.value * 1024
 
   labels {
     label = "coder.owner"
@@ -507,7 +461,7 @@ resource "docker_container" "workspace" {
 }
 
 # ---------------------------------------------------------------------------
-# Variables (secrets — set in Coder template settings)
+# Variables (secrets)
 # ---------------------------------------------------------------------------
 
 variable "anthropic_api_key" {
