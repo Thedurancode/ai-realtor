@@ -5,10 +5,21 @@
   "scripts": {
     "start": "remotion studio",
     "build": "remotion bundle",
-    "remotion:render": "remotion render"
+    "remotion:render": "remotion render",
+    "test:render": "node tests/render-test.mjs",
+    "lambda:deploy-site": "npx tsx src/lambda.ts deploy-site",
+    "lambda:deploy-function": "npx tsx src/lambda.ts deploy-function",
+    "lambda:deploy": "npx tsx src/lambda.ts deploy-all"
   },
   "dependencies": {
+    "@remotion/bundler": "^4.0.136",
     "@remotion/cli": "^4.0.136",
+    "@remotion/cloudrun": "4.0.429",
+    "@remotion/enable-scss": "4.0.429",
+    "@remotion/fonts": "4.0.429",
+    "@remotion/google-fonts": "^4.0.429",
+    "@remotion/lambda": "^4.0.429",
+    "@remotion/renderer": "^4.0.136",
     "remotion": "^4.0.136"
   },
   "devDependencies": {

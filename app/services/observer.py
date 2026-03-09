@@ -29,11 +29,14 @@ Usage:
     ))
 """
 
+import logging
 from datetime import datetime
 from typing import Dict, List, Callable, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
 import json
+
+logger = logging.getLogger(__name__)
 
 
 class EventType(str, Enum):
@@ -280,7 +283,7 @@ class EventBus:
                     await subscriber.handle(event)
                 except Exception as e:
                     # Log error but don't stop other subscribers
-                    print(f"Error in subscriber {subscriber.name}: {e}")
+                    logger.error(f"Error in subscriber {subscriber.name}: {e}")
 
     def _add_to_history(self, event_type: EventType, event: Any) -> None:
         """Add event to history.

@@ -475,7 +475,7 @@ class VideoAssemblerService:
 
         try:
             return float(stdout.decode().strip())
-        except:
+        except (ValueError, UnicodeDecodeError, AttributeError):
             return 60.0
 
     async def _save_to_local_filesystem(self, file_path: Path, filename: str) -> str:

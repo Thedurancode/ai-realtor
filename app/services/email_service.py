@@ -1,11 +1,14 @@
 """Email Service using Resend API."""
 
 import os
+import logging
 from typing import List, Optional
 import resend
 from datetime import datetime, timezone
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class EmailService:
@@ -15,12 +18,12 @@ class EmailService:
         """Initialize Resend client with API key from settings."""
         api_key = getattr(settings, 'resend_api_key', None) or os.getenv("RESEND_API_KEY")
         if not api_key:
-            print("⚠️ RESEND_API_KEY not set - emails will be disabled")
+            logger.warning("⚠️ RESEND_API_KEY not set - emails will be disabled")
             self.enabled = False
         else:
             resend.api_key = api_key
             self.enabled = True
-            print(f"✓ Resend email service initialized")
+            logger.info("✓ Resend email service initialized")
 
     def send_email(
         self,
@@ -48,7 +51,7 @@ class EmailService:
             True if sent successfully, False otherwise
         """
         if not self.enabled:
-            print(f"📧 Email disabled: {subject}")
+            logger.info("📧 Email disabled: %s", subject)
             return False
 
         try:
@@ -85,14 +88,14 @@ class EmailService:
             response = resend.Emails.send(params)
 
             if response.get("id"):
-                print(f"✓ Email sent: {subject} -> {', '.join(to)} (ID: {response['id']})")
+                logger.info("✓ Email sent: %s -> %s (ID: %s)", subject, ', '.join(to), response['id'])
                 return True
             else:
-                print(f"❌ Email failed: {response}")
+                logger.error("❌ Email failed: %s", response)
                 return False
 
         except Exception as e:
-            print(f"❌ Email error: {e}")
+            logger.error("❌ Email error: %s", e)
             return False
 
     def send_alert_notification(

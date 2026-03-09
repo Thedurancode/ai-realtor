@@ -105,7 +105,7 @@ class DocumentAnalysisService:
             try:
                 with open(file_path, 'rb') as f:
                     return f.read().decode('utf-8', errors='ignore')
-            except:
+            except Exception:
                 return None
         except Exception as e:
             logger.error(f"Error reading PDF: {e}")
@@ -199,7 +199,7 @@ Inspection Report:
                     result["property_id"] = property_id
                     result["document_type"] = "inspection_report"
                     return result
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 pass
 
             # Fallback: return raw analysis
@@ -283,7 +283,7 @@ Contract:
                     result["property_id"] = property_id
                     result["document_type"] = "contract"
                     return result
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 pass
 
             # Fallback
@@ -364,7 +364,7 @@ Appraisal:
                     result["property_id"] = property_id
                     result["document_type"] = "appraisal"
                     return result
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 pass
 
             return {

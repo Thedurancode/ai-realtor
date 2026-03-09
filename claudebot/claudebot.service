@@ -1,0 +1,19 @@
+[Unit]
+Description=ClaudeBot - AI Real Estate Assistant
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/Documents/GitHub/ai-realtor/claudebot
+ExecStart=/usr/bin/python3 /root/Documents/GitHub/ai-realtor/claudebot/main.py
+Restart=always
+RestartSec=10
+EnvironmentFile=/root/Documents/GitHub/ai-realtor/claudebot/.env
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=claudebot
+
+[Install]
+WantedBy=multi-user.target

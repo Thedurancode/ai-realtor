@@ -5,7 +5,10 @@ if the automatic startup event isn't working.
 """
 
 import asyncio
+import logging
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 _task_runner_started = False
 _task_runner_task: Optional[asyncio.Task] = None
@@ -29,10 +32,10 @@ def ensure_task_runner_started():
         _task_runner_task = asyncio.create_task(run_task_loop())
         add_background_task(_task_runner_task)
         _task_runner_started = True
-        print("✓ Task runner started manually")
+        logger.info("✓ Task runner started manually")
         return True
     except Exception as e:
-        print(f"❌ Failed to start task runner: {e}")
+        logger.error("❌ Failed to start task runner: %s", e)
         return False
 
 

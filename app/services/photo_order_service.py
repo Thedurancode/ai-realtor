@@ -620,8 +620,9 @@ class PhotoOrderService:
                 return order
 
             elif order.provider == PhotoProvider.BOXBROWNIE:
-                # TODO: Implement BoxBrownie status sync
-                pass
+                # BoxBrownie uses webhook-based status updates
+                # Manual sync logs a warning since status comes via webhooks
+                logger.info(f"BoxBrownie order {order.provider_order_id} — status updates arrive via webhook")
 
             return order
 

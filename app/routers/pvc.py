@@ -10,9 +10,12 @@ Endpoints:
 - DELETE /v1/pvc/voices/{id}           - Delete PVC voice
 """
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends, UploadFile
 from pydantic import BaseModel, Field
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
 
 from app.services.pvc_service import PVCService
@@ -172,7 +175,7 @@ async def get_pvc_voice_status(
                 )
 
                 # Log the notification
-                print(f"✅ PVC voice ready notification sent to {settings.admin_email}: {email_result}")
+                logger.info(f"✅ PVC voice ready notification sent to {settings.admin_email}: {email_result}")
 
         return result
     except Exception as e:

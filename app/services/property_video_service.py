@@ -9,12 +9,15 @@ Creates professional property showcase videos with:
 """
 import os
 import json
+import logging
 import tempfile
 import asyncio
 import subprocess
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy.orm import Session
 from elevenlabs import ElevenLabs, Voice
@@ -113,7 +116,7 @@ class PropertyVideoService:
             "-y", final_video_path
         ]
 
-        print(f"🎵 Adding audio track to video...")
+        logger.info("🎵 Adding audio track to video...")
         process = await asyncio.create_subprocess_exec(
             *ffmpeg_cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -122,7 +125,7 @@ class PropertyVideoService:
         await process.communicate()
 
         if process.returncode != 0:
-            print(f"⚠️  Warning: Failed to add audio track, returning video without audio")
+            logger.warning("⚠️  Warning: Failed to add audio track, returning video without audio")
             final_video_path = video_path
         else:
             # Replace original with audio-enabled version
@@ -264,8 +267,8 @@ class PropertyVideoService:
             ]
 
             # Run render
-            print(f"🎬 Rendering video with {len(props.get('propertyPhotos', []))} photos...")
-            print(f"   Duration: {duration_frames / 30:.1f} seconds")
+            logger.info(f"🎬 Rendering video with {len(props.get('propertyPhotos', []))} photos...")
+            logger.info(f"   Duration: {duration_frames / 30:.1f} seconds")
 
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -325,5 +328,5 @@ class PropertyVideoService:
                 for voice in voices.voices
             ]
         except Exception as e:
-            print(f"Failed to fetch voices: {e}")
+            logger.error(f"Failed to fetch voices: {e}")
             return []

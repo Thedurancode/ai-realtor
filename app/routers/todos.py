@@ -145,7 +145,7 @@ def parse_natural_date(date_input: str) -> date | None:
         if parsed_date.year == today.year and parsed_date.date() < today:
             parsed_date = parsed_date.replace(year=today.year + 1)
         return parsed_date.date()
-    except:
+    except (ValueError, TypeError, AttributeError):
         pass
 
     return None

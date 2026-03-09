@@ -29,7 +29,7 @@ def get_ws_manager():
         import sys
         if 'app.main' in sys.modules:
             return sys.modules['app.main'].manager
-    except:
+    except Exception:
         pass
     return None
 

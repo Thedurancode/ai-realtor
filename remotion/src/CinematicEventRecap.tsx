@@ -9,8 +9,10 @@ import {
   Img,
   staticFile,
 } from "remotion";
+import { FONTS } from "./fonts";
 
 export interface EventRecapProps {
+  [key: string]: unknown;
   // Event info
   eventName: string;
   eventDate: string;
@@ -173,7 +175,7 @@ export const CinematicEventRecap: React.FC<EventRecapProps> = ({
               fontWeight: 800,
               color: "#fff",
               textAlign: "center",
-              fontFamily: "Arial, sans-serif",
+              fontFamily: FONTS.heading,
               letterSpacing: -1,
               margin: 0,
               padding: "0 60px",
@@ -190,7 +192,7 @@ export const CinematicEventRecap: React.FC<EventRecapProps> = ({
               style={{
                 fontSize: 36,
                 color: accentColor,
-                fontFamily: "Arial, sans-serif",
+                fontFamily: FONTS.body,
                 fontWeight: 600,
                 marginTop: 24,
                 opacity: introDateOpacity,
@@ -206,7 +208,7 @@ export const CinematicEventRecap: React.FC<EventRecapProps> = ({
               style={{
                 fontSize: 30,
                 color: "rgba(255,255,255,0.7)",
-                fontFamily: "Arial, sans-serif",
+                fontFamily: FONTS.body,
                 marginTop: 12,
                 opacity: introLocationOpacity,
               }}
@@ -281,7 +283,7 @@ export const CinematicEventRecap: React.FC<EventRecapProps> = ({
               fontWeight: 800,
               color: "#fff",
               textAlign: "center",
-              fontFamily: "Arial, sans-serif",
+              fontFamily: FONTS.heading,
               margin: 0,
               padding: "0 60px",
               opacity: outroFadeIn,
@@ -296,7 +298,7 @@ export const CinematicEventRecap: React.FC<EventRecapProps> = ({
               style={{
                 fontSize: 32,
                 color: accentColor,
-                fontFamily: "Arial, sans-serif",
+                fontFamily: FONTS.body,
                 fontWeight: 600,
                 marginTop: 20,
                 opacity: interpolate(outroLocalFrame, [20, 50], [0, 1], {
@@ -314,7 +316,7 @@ export const CinematicEventRecap: React.FC<EventRecapProps> = ({
               style={{
                 fontSize: 26,
                 color: "rgba(255,255,255,0.6)",
-                fontFamily: "Arial, sans-serif",
+                fontFamily: FONTS.body,
                 marginTop: 16,
                 textAlign: "center",
                 padding: "0 80px",
@@ -458,7 +460,7 @@ const PhotoSlide: React.FC<{
               style={{
                 fontSize: 32,
                 color: "#fff",
-                fontFamily: "Arial, sans-serif",
+                fontFamily: FONTS.body,
                 fontWeight: 600,
                 margin: 0,
               }}

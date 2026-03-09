@@ -1,31 +1,19 @@
 # YOLO Plan
-Goal: Build ClaudeBot system, memory layer, and project organization
+Goal: Get to 100% production-ready — fix all bugs found in audit
+
+## Tasks
+- [x] 1. Fix SQL injection in sqlite_tuning.py — whitelist table names + quote identifiers
+- [x] 2. Fix 12 bare except clauses — replaced with specific exceptions across 9 files
+- [x] 3. Fix == None patterns — verified these are SQLAlchemy ORM (correct, generates IS NULL)
+- [x] 4. Fix hybrid_search.py dummy embeddings — wired up OpenAI text-embedding-3-small
+- [x] 5. Fix command_guard.py — persist audit logs to ActivityEvent table
+- [x] 6. Fix approval.py — persist approval logs to ActivityEvent table
+- [x] 7. Fix compliance_engine.py — wired up Contract model for document verification
+- [x] 8. Fix photo_order_service.py — BoxBrownie uses webhooks, added proper logging
+- [x] 9. Clean up ~50 print() statements → proper logger calls across 15 files
 
 ## Completed
-- [x] Fix YOLO alias (recursive alias → full path to claude binary)
-- [x] Build persistent memory system (8 topic files + MEMORY.md index)
-- [x] Create CLAUDE.md with session-start learning + end-of-session saving
-- [x] Build ClaudeBot — Telegram + Discord bridge to Claude API
-  - [x] claude_agent.py — Claude API with tool-calling loop
-  - [x] tools.py — 15 tools mapped to AI Realtor REST API
-  - [x] telegram_bot.py — Telegram bot
-  - [x] discord_bot.py — Discord bot
-  - [x] main.py — runs both bots + cron together
-- [x] Add cron jobs (morning digest, market scan, evening recap)
-- [x] Add heartbeat system (reads HEARTBEAT.md every 30 min, acts on tasks)
-- [x] Add HEARTBEAT.md check to CLAUDE.md (Claude Code checks on session start)
-- [x] Add project tracking (projects.md in memory)
-- [x] Add install.sh + launchd plist for Mac auto-start
-- [x] Add Dockerfile for server deployment
-- [x] Update codebase_map.md with claudebot/ files
-- [x] Update decisions.md with today's architectural choices
-- [x] Full verification — all 13 files, 15 tools, 5 crons, 8 memory files passing
-
-## Blocked (needs Ed's API keys)
-- [ ] Get Anthropic API key and add to claudebot/.env
-- [ ] Create Telegram bot via @BotFather, add token to .env
-- [ ] Create Discord bot via Developer Portal, add token to .env
-- [ ] Get Telegram chat ID via @userinfobot for cron notifications
-- [ ] Start backend + ClaudeBot and test end-to-end
-
-## Status: YOLO COMPLETE — waiting on user input
+- [x] This round: Production audit — SQL injection, bare excepts, dummy embeddings, DB logging, print→logger
+- [x] Previous: 5 Remotion improvements, TypeScript fixes, MCP tools
+- [x] Before: Transaction Coordinator Agent + Milestone Reminders
+- [x] Before: PropertyShowcase outro, custom fonts, TimelineEditor polish

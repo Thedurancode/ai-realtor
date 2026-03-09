@@ -239,7 +239,7 @@ class ComplianceEngine:
         try:
             operator, threshold = rule.condition.split()
             threshold = float(threshold)
-        except:
+        except (ValueError, TypeError):
             return None  # Invalid condition format
 
         operators = {
@@ -325,10 +325,23 @@ class ComplianceEngine:
         property: Property,
         rule: ComplianceRule
     ) -> Optional[ComplianceViolation]:
-        """Check if document uploaded (placeholder - extend with document storage)"""
+        """Check if required document/contract exists for the property."""
+        from app.models.contract import Contract, ContractStatus
 
-        # TODO: Integrate with document storage system
-        # For now, we'll create a warning that document needs verification
+        # Check if a matching contract exists for this property
+        matching_contract = db.query(Contract).filter(
+            Contract.property_id == property.id,
+            Contract.name.ilike(f"%{rule.document_type}%"),
+            Contract.status.in_([
+                ContractStatus.COMPLETED,
+                ContractStatus.PENDING_SIGNATURE,
+                ContractStatus.IN_PROGRESS,
+            ])
+        ).first()
+
+        if matching_contract:
+            # Document found — no violation
+            return None
 
         return ComplianceViolation(
             rule_id=rule.id,
@@ -338,7 +351,7 @@ class ComplianceEngine:
             ai_explanation=f"Document required: {rule.document_type}. {rule.description}",
             recommendation=rule.how_to_fix or f"Upload {rule.document_type} document",
             expected_value=f"{rule.document_type} document",
-            actual_value="Not verified"
+            actual_value="Not found" if not matching_contract else "Not verified"
         )
 
     async def _check_with_ai(

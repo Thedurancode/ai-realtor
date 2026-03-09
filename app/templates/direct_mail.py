@@ -5,6 +5,10 @@ Collection of professional HTML templates for postcards and letters.
 Designed for Lob.com specifications.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 # =========================================================================
 # JUST SOLD POSTCARD TEMPLATES
 # =========================================================================
@@ -629,9 +633,9 @@ def seed_direct_mail_templates(db, agent_id: int = 1) -> int:
 
     try:
         db.commit()
-        print(f"✓ Seeded {created_count} direct mail templates for agent {agent_id}")
+        logger.info(f"✓ Seeded {created_count} direct mail templates for agent {agent_id}")
     except Exception as e:
         db.rollback()
-        print(f"✗ Failed to seed templates: {e}")
+        logger.error(f"✗ Failed to seed templates: {e}")
 
     return created_count

@@ -7,8 +7,11 @@ Endpoints for:
 - Calendar event management
 - Sync operations
 """
+import logging
 import os
 from fastapi import APIRouter, Depends, HTTPException, Request
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, HttpUrl
 from datetime import datetime, timedelta
@@ -421,7 +424,7 @@ async def create_calendar_event(
                 db_event.external_event_id = result.get("external_event_id")
         except Exception as e:
             # Log but don't fail the event creation
-            print(f"Failed to sync event to calendar: {e}")
+            logger.error(f"Failed to sync event to calendar: {e}")
 
     db.commit()
 

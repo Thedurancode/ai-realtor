@@ -4,9 +4,12 @@ Analytics Alert Service
 Monitors analytics metrics and triggers alerts based on configured rules.
 Supports email, Slack, and webhook notifications.
 """
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 import httpx
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import Session
 
@@ -285,12 +288,12 @@ class AnalyticsAlertService:
 
         # Get email recipients from notification_recipients
         if not rule.notification_recipients:
-            print("⚠️ No email recipients configured")
+            logger.warning("⚠️ No email recipients configured")
             return False
 
         recipients = rule.notification_recipients.get("email")
         if not recipients:
-            print("⚠️ No email recipients in notification_recipients.email")
+            logger.warning("⚠️ No email recipients in notification_recipients.email")
             return False
 
         # Normalize to list
@@ -340,7 +343,7 @@ class AnalyticsAlertService:
             response = httpx.post(webhook_url, json=message, timeout=10)
             return response.status_code == 200
         except Exception as e:
-            print(f"❌ Slack notification failed: {e}")
+            logger.error(f"❌ Slack notification failed: {e}")
             return False
 
     def _send_webhook_notification(self, rule: AnalyticsAlertRule, trigger: AnalyticsAlertTrigger) -> bool:
@@ -370,7 +373,7 @@ class AnalyticsAlertService:
             response = httpx.post(webhook_url, json=payload, headers=headers, timeout=10)
             return response.status_code == 200
         except Exception as e:
-            print(f"❌ Webhook notification failed: {e}")
+            logger.error(f"❌ Webhook notification failed: {e}")
             return False
 
     def generate_daily_summary(self, agent_id: int) -> Dict[str, Any]:

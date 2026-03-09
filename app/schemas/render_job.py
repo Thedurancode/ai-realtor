@@ -14,7 +14,10 @@ class RenderJobCreate(BaseModel):
     @validator('template_id')
     def validate_template_id(cls, v):
         """Ensure template_id is from allowed list."""
-        allowed_templates = {'captioned-reel', 'slideshow'}
+        allowed_templates = {
+            'captioned-reel', 'slideshow', 'property-showcase',
+            'cinematic-event-recap', 'timeline-editor',
+        }
         if v not in allowed_templates:
             raise ValueError(f'template_id must be one of {allowed_templates}')
         return v

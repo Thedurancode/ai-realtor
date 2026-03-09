@@ -68,7 +68,7 @@ fly.toml
 tmp/
 
 # Heavy directories (not needed for lean build)
-remotion/
+remotion/node_modules/
 node_modules/
 nanobot/
 spacebot/

@@ -1,98 +1,81 @@
 """
-Claude agent — handles conversation + tool calling loop.
+Claude agent — routes messages through Claude Code CLI for full MCP tool access.
 Shared between Telegram and Discord bots.
 """
 
+import asyncio
 import os
-from anthropic import AsyncAnthropic
-from tools import TOOLS, execute_tool
+import json
+import logging
 
-MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
-MAX_TOKENS = 4096
-MAX_ITERATIONS = 10
+logger = logging.getLogger("claudebot.agent")
 
-SYSTEM_PROMPT = """You are ClaudeBot, Ed Duran's AI real estate assistant powered by Claude.
-You help manage properties, analyze deals, run research, send contracts, make calls, and more.
-
-You have access to the full AI Realtor platform via tools. Use them to answer questions and take actions.
-
-Guidelines:
-- Be concise and direct. Ed knows his stuff.
-- When asked about properties, deals, or pipeline — use the tools, don't guess.
-- For anything the specific tools don't cover, use api_request to hit any endpoint.
-- Format responses for chat (short paragraphs, bullet points).
-- Always confirm before destructive actions (deleting, sending contracts, making calls).
-"""
-
-# Support custom API base (e.g. Z.AI proxy)
-_base_url = os.getenv("ANTHROPIC_BASE_URL")
-_api_key = os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_API_KEY")
-client = AsyncAnthropic(
-    api_key=_api_key,
-    **{"base_url": _base_url} if _base_url else {},
-)
+PROJECT_DIR = os.getenv("PROJECT_DIR", "/root/Documents/GitHub/ai-realtor")
+CLAUDE_BIN = os.getenv("CLAUDE_BIN", "claude")
 
 # Per-user conversation history (chat_id -> messages)
-conversations: dict[str, list[dict]] = {}
-MAX_HISTORY = 40
+conversations: dict[str, list[str]] = {}
+MAX_HISTORY = 20
 
 
 async def chat(user_id: str, message: str) -> str:
-    """Process a user message through Claude with tool use. Returns the final text response."""
+    """Process a user message through Claude Code CLI with full MCP tools."""
 
-    # Get or create conversation history
+    # Build context from recent history
     if user_id not in conversations:
         conversations[user_id] = []
 
     history = conversations[user_id]
-    history.append({"role": "user", "content": message})
+    history.append(f"User: {message}")
 
-    # Trim old messages
     if len(history) > MAX_HISTORY:
         history[:] = history[-MAX_HISTORY:]
 
-    messages = list(history)
+    # Build the prompt with recent context
+    context_lines = history[-10:]  # Last 10 exchanges for context
+    prompt = "\n".join(context_lines)
 
-    # Agent loop — Claude may call tools multiple times
-    for _ in range(MAX_ITERATIONS):
-        response = await client.messages.create(
-            model=MODEL,
-            max_tokens=MAX_TOKENS,
-            system=SYSTEM_PROMPT,
-            tools=TOOLS,
-            messages=messages,
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            CLAUDE_BIN, "-p", "--dangerously-skip-permissions",
+            "--output-format", "text",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=PROJECT_DIR,
+            env={
+                **os.environ,
+                "CLAUDE_CODE_ENTRYPOINT": "cli",
+            },
         )
 
-        # Collect text and tool_use blocks
-        text_parts = []
-        tool_calls = []
-        for block in response.content:
-            if block.type == "text":
-                text_parts.append(block.text)
-            elif block.type == "tool_use":
-                tool_calls.append(block)
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(input=prompt.encode()),
+            timeout=120,
+        )
 
-        if response.stop_reason == "tool_use" and tool_calls:
-            # Add assistant message with all content blocks
-            messages.append({"role": "assistant", "content": response.content})
+        response = stdout.decode().strip()
 
-            # Execute each tool and add results
-            tool_results = []
-            for tc in tool_calls:
-                result = await execute_tool(tc.name, tc.input)
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": tc.id,
-                    "content": result,
-                })
-            messages.append({"role": "user", "content": tool_results})
-        else:
-            # Final response — save to history and return
-            final_text = "\n".join(text_parts) if text_parts else "Done."
-            history.append({"role": "assistant", "content": final_text})
-            return final_text
+        if not response and stderr:
+            err = stderr.decode().strip()
+            logger.error("Claude CLI stderr: %s", err[:500])
+            response = f"Error running Claude: {err[:200]}"
 
-    return "I hit the tool call limit. Try breaking your request into smaller steps."
+        if not response:
+            response = "No response from Claude."
+
+    except asyncio.TimeoutError:
+        response = "Request timed out (120s). Try a simpler question."
+        logger.error("Claude CLI timed out for user %s", user_id)
+    except FileNotFoundError:
+        response = "Claude CLI not found. Make sure it's installed (npm install -g @anthropic-ai/claude-code)."
+        logger.error("Claude CLI binary not found at: %s", CLAUDE_BIN)
+    except Exception as e:
+        response = f"Error: {e}"
+        logger.error("Claude CLI error: %s", e)
+
+    history.append(f"Assistant: {response[:500]}")
+    return response
 
 
 def clear_history(user_id: str) -> None:

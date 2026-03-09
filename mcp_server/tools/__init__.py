@@ -81,5 +81,9 @@ from . import cma_report  # noqa: F401
 from . import morning_brief  # noqa: F401
 # Voice Memo (Transcribe + RAG Ingest)
 from . import voice_memo  # noqa: F401
+# Transaction Coordinator
+from . import transaction_coordinator  # noqa: F401
+# Remotion video rendering
+from . import remotion_renders  # noqa: F401
 # Web scraper tools - TODO: Fix import issues
 # from . import web_scraper  # noqa: F401

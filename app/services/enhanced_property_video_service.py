@@ -42,7 +42,7 @@ class EnhancedPropertyVideoService:
         # PixVerse for AI footage (optional - may not be configured)
         try:
             self.pixverse = PixVerseService()
-        except:
+        except Exception:
             self.pixverse = None
         self.script_generator = ScriptGeneratorService()
         self.video_assembler = VideoAssemblerService()

@@ -5,15 +5,23 @@ import {
   useVideoConfig,
   interpolate,
   Sequence,
+  Audio,
+  staticFile,
 } from "remotion";
+import { FONTS } from "./fonts";
+
+const DEFAULT_MUSIC = staticFile("default-music.mp3");
 
 export interface SlideshowProps {
+  [key: string]: unknown;
   images: string[];
   durationPerImage: number;
   transitionDuration: number;
   showTitle: boolean;
   title: string;
   showMusic: boolean;
+  musicUrl?: string;
+  musicVolume?: number;
 }
 
 export const Slideshow: React.FC<SlideshowProps> = ({
@@ -23,6 +31,8 @@ export const Slideshow: React.FC<SlideshowProps> = ({
   showTitle,
   title,
   showMusic,
+  musicUrl,
+  musicVolume = 0.6,
 }) => {
   const frame = useCurrentFrame();
 
@@ -36,6 +46,9 @@ export const Slideshow: React.FC<SlideshowProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
+      {/* Background music */}
+      {showMusic && <Audio src={musicUrl || DEFAULT_MUSIC} volume={musicVolume} />}
+
       {/* Title overlay */}
       {showTitle && (
         <AbsoluteFill
@@ -53,7 +66,7 @@ export const Slideshow: React.FC<SlideshowProps> = ({
               color: "#fff",
               margin: 0,
               textShadow: "3px 3px 10px rgba(0,0,0,0.8)",
-              fontFamily: "Arial, sans-serif",
+              fontFamily: FONTS.heading,
               backgroundColor: "rgba(0,0,0,0.5)",
               padding: "10px 30px",
               borderRadius: 10,
@@ -136,7 +149,7 @@ export const Slideshow: React.FC<SlideshowProps> = ({
             backgroundColor: "rgba(0,0,0,0.5)",
             padding: "10px 20px",
             borderRadius: 10,
-            fontFamily: "Arial, sans-serif",
+            fontFamily: FONTS.heading,
           }}
         >
           {Math.min(Math.floor(frame / durationPerImage) + 1, images.length)} / {images.length}

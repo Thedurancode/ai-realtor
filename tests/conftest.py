@@ -73,8 +73,11 @@ def _clean_tables():
     session = TestingSessionLocal()
     try:
         for table in reversed(Base.metadata.sorted_tables):
-            session.execute(table.delete())
-        session.commit()
+            try:
+                session.execute(table.delete())
+                session.commit()
+            except Exception:
+                session.rollback()
     finally:
         session.close()
 

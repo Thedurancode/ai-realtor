@@ -42,7 +42,8 @@ class CronScheduler:
             portfolio_scan_handler,
             market_intelligence_handler,
             relationship_health_handler,
-            predictive_insights_handler
+            predictive_insights_handler,
+            transaction_deadline_handler,
         )
 
         self.task_handlers = {
@@ -51,6 +52,7 @@ class CronScheduler:
             "market_intelligence": market_intelligence_handler,
             "relationship_health": relationship_health_handler,
             "predictive_insights": predictive_insights_handler,
+            "transaction_deadlines": transaction_deadline_handler,
         }
 
     def register_handler(self, name: str, handler: Callable):

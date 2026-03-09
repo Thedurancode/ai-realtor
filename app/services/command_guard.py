@@ -211,9 +211,6 @@ class CommandLogger:
             reason: Reason if denied
             result: Command result if allowed
         """
-        # In production, this would write to a command_log table
-        # For now, just log to Python logger
-
         log_level = logging.WARNING if not allowed else logging.INFO
 
         logger.log(
@@ -222,16 +219,26 @@ class CommandLogger:
             f"Allowed: {allowed} | Reason: {reason or 'N/A'}"
         )
 
-        # TODO: Store in database for audit trail
-        # from app.models.command_log import CommandLog
-        # log_entry = CommandLog(
-        #     workspace_id=workspace_id,
-        #     agent_id=agent_id,
-        #     command=command,
-        #     params=params,
-        #     allowed=allowed,
-        #     reason=reason,
-        #     result=result
-        # )
-        # db.add(log_entry)
-        # db.commit()
+        # Persist to database via ActivityEvent
+        try:
+            import json
+            from app.models.activity_event import ActivityEvent, ActivityEventType, ActivityEventStatus
+            log_entry = ActivityEvent(
+                tool_name=f"command_guard:{command}",
+                user_source=f"agent:{agent_id}",
+                event_type=ActivityEventType.SYSTEM_EVENT,
+                status=ActivityEventStatus.SUCCESS if allowed else ActivityEventStatus.ERROR,
+                data=json.dumps({
+                    "workspace_id": workspace_id,
+                    "agent_id": agent_id,
+                    "command": command,
+                    "params": params,
+                    "allowed": allowed,
+                    "reason": reason,
+                }),
+                error_message=reason if not allowed else None,
+            )
+            db.add(log_entry)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to persist command audit log: {e}")

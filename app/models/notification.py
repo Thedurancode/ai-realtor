@@ -22,6 +22,7 @@ class NotificationType(enum.Enum):
     SCHEDULED_TASK = "scheduled_task"
     PIPELINE_AUTO_ADVANCE = "pipeline_auto_advance"
     DAILY_DIGEST = "daily_digest"
+    TRANSACTION_DEADLINE = "transaction_deadline"
 
 
 class NotificationPriority(enum.Enum):

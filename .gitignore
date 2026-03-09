@@ -43,6 +43,9 @@ out/
 api_keys.csv
 videos/
 
+# Remotion test renders
+.test-renders/
+
 # MCP config (contains API keys)
 .mcp.json
 .mcp.json.backup

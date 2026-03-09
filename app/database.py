@@ -1,7 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
+import logging
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -51,8 +54,8 @@ if is_sqlite:
     try:
         from app.services.sqlite_tuning import sqlite_tuner
         sqlite_tuner.apply_optimizations(engine)
-        print("✅ SQLite optimizations applied")
+        logger.info("✅ SQLite optimizations applied")
     except ImportError:
-        print("⚠️  SQLite tuning module not available")
+        logger.warning("⚠️  SQLite tuning module not available")
     except Exception as e:
-        print(f"⚠️  Failed to apply SQLite optimizations: {e}")
+        logger.warning("⚠️  Failed to apply SQLite optimizations: %s", e)

@@ -2,11 +2,14 @@
 import os
 import json
 import asyncio
+import logging
 import subprocess
 import tempfile
 from typing import Optional, Dict, Any
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy.orm import Session
 from redis import Redis
@@ -48,6 +51,15 @@ class RemotionService:
 
     # Queue name
     QUEUE_NAME = 'render-jobs'
+
+    # Map template_id → Remotion composition ID
+    TEMPLATE_TO_COMPOSITION = {
+        'captioned-reel': 'CaptionedReel',
+        'slideshow': 'Slideshow',
+        'property-showcase': 'PropertyShowcase',
+        'cinematic-event-recap': 'CinematicEventRecap',
+        'timeline-editor': 'TimelineEditor',
+    }
 
     @staticmethod
     async def create_render_job(
@@ -112,7 +124,7 @@ class RemotionService:
     @staticmethod
     async def process_render_job(db: Session):
         """Worker process to handle render jobs from the queue."""
-        print("🎬 Worker ready to process jobs...")
+        logger.info("🎬 Worker ready to process jobs...")
 
         while True:
             try:
@@ -133,27 +145,25 @@ class RemotionService:
                 composition_id = job_data['composition_id']
                 input_props = job_data['input_props']
 
-                print(f"📼 Processing render job: {render_id}")
+                logger.info(f"📼 Processing render job: {render_id}")
 
                 # Get job from DB
                 render_job = db.query(RenderJob).filter(RenderJob.id == render_id).first()
                 if not render_job:
-                    print(f"❌ Render job {render_id} not found in DB")
+                    logger.error(f"❌ Render job {render_id} not found in DB")
                     continue
 
                 # Check if canceled
                 db.refresh(render_job)
                 if render_job.status == 'canceled':
-                    print(f"⚠️  Render job {render_id} was canceled")
+                    logger.warning(f"⚠️  Render job {render_id} was canceled")
                     continue
 
                 # Process the render
                 await RemotionService._render_video(render_job, db, composition_id, input_props)
 
             except Exception as e:
-                print(f"❌ Worker error: {e}")
-                import traceback
-                traceback.print_exc()
+                logger.error(f"❌ Worker error: {e}", exc_info=True)
                 await asyncio.sleep(1)
 
     @staticmethod
@@ -188,7 +198,7 @@ class RemotionService:
                     '--overwrite'
                 ]
 
-                print(f"🎬 Starting render: {' '.join(cmd)}")
+                logger.info(f"🎬 Starting render: {' '.join(cmd)}")
 
                 # Start render process
                 process = await asyncio.create_subprocess_exec(
@@ -205,7 +215,7 @@ class RemotionService:
                     # Check if job was canceled
                     db.refresh(render_job)
                     if render_job.status == 'canceled':
-                        print(f"⚠️  Render {render_id} canceled during rendering")
+                        logger.warning(f"⚠️  Render {render_id} canceled during rendering")
                         process.terminate()
                         try:
                             await asyncio.wait_for(process.wait(), timeout=5.0)
@@ -252,7 +262,7 @@ class RemotionService:
                     error_msg = stderr.decode()
                     raise Exception(f"Remotion render failed with code {returncode}: {error_msg}")
 
-                print(f"✅ Render {render_id} complete, uploading to S3...")
+                logger.info(f"✅ Render {render_id} complete, uploading to S3...")
 
                 # Upload to S3
                 render_job.status = 'uploading'
@@ -287,16 +297,14 @@ class RemotionService:
                 render_job.finished_at = datetime.utcnow()
                 db.commit()
 
-                print(f"✅ Render {render_id} complete!")
+                logger.info(f"✅ Render {render_id} complete!")
 
                 # Send webhook if configured
                 if render_job.webhook_url:
                     await RemotionService._send_webhook(render_job, db)
 
         except Exception as e:
-            print(f"❌ Render {render_id} failed: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"❌ Render {render_id} failed: {e}", exc_info=True)
 
             # Update job as failed
             render_job.status = 'failed'
@@ -333,22 +341,21 @@ class RemotionService:
                     render_job.webhook_sent = 'sent'
                 else:
                     render_job.webhook_sent = 'failed'
-                    print(f"⚠️  Webhook failed with status {response.status_code}")
+                    logger.warning(f"⚠️  Webhook failed with status {response.status_code}")
         except Exception as e:
             render_job.webhook_sent = 'failed'
-            print(f"❌ Webhook error: {e}")
+            logger.error(f"❌ Webhook error: {e}")
 
         db.commit()
 
 
 def start_render_worker(db_session_factory):
     """Start the render worker process."""
-    print("🎬 Starting Remotion render worker...")
-    print(f"   Redis: {os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}")
-    print(f"   Concurrency: {os.getenv('WORKER_CONCURRENCY', 1)}")
-    print(f"   S3 Bucket: {S3_BUCKET}")
-    print(f"   S3 Available: {S3_AVAILABLE}")
-    print()
+    logger.info("🎬 Starting Remotion render worker...")
+    logger.info(f"   Redis: {os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}")
+    logger.info(f"   Concurrency: {os.getenv('WORKER_CONCURRENCY', 1)}")
+    logger.info(f"   S3 Bucket: {S3_BUCKET}")
+    logger.info(f"   S3 Available: {S3_AVAILABLE}")
 
     # Create DB session
     db = db_session_factory()
@@ -357,10 +364,8 @@ def start_render_worker(db_session_factory):
         # Run the worker loop
         asyncio.run(RemotionService.process_render_job(db))
     except KeyboardInterrupt:
-        print("\n⚠️  Worker stopped by user")
+        logger.warning("⚠️  Worker stopped by user")
     except Exception as e:
-        print(f"\n❌ Worker error: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"❌ Worker error: {e}", exc_info=True)
     finally:
         db.close()

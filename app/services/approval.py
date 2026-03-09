@@ -23,11 +23,14 @@ Usage:
             pass
 """
 
+import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Set, Any
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import json
+
+logger = logging.getLogger(__name__)
 
 
 class ApprovalRequest(BaseModel):
@@ -484,20 +487,31 @@ class ApprovalManager:
 
         self.audit_log.append(entry)
 
-        # TODO: Implement persistent logging to database if db session provided
-        # if db:
-        #     log_entry = ApprovalLog(
-        #         session_id=session_id,
-        #         tool_name=tool_name,
-        #         granted=granted,
-        #         risk_level=risk_level,
-        #         timestamp=timestamp,
-        #         reason=reason,
-        #         input_summary=input_summary,
-        #         autonomy_level=self.autonomy_level
-        #     )
-        #     db.add(log_entry)
-        #     db.commit()
+        # Persist to database if session provided
+        if db:
+            try:
+                import json
+                from app.models.activity_event import ActivityEvent, ActivityEventType, ActivityEventStatus
+                log_entry = ActivityEvent(
+                    tool_name=f"approval:{tool_name}",
+                    user_source=f"session:{session_id}",
+                    event_type=ActivityEventType.SYSTEM_EVENT,
+                    status=ActivityEventStatus.SUCCESS if granted else ActivityEventStatus.ERROR,
+                    data=json.dumps({
+                        "session_id": session_id,
+                        "tool_name": tool_name,
+                        "granted": granted,
+                        "risk_level": risk_level,
+                        "reason": reason,
+                        "input_summary": input_summary,
+                        "autonomy_level": self.autonomy_level,
+                    }),
+                    error_message=reason if not granted else None,
+                )
+                db.add(log_entry)
+                db.commit()
+            except Exception as e:
+                logger.warning(f"Failed to persist approval log: {e}")
 
     def get_audit_log(
         self,

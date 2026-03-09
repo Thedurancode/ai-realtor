@@ -20,9 +20,12 @@ Usage:
     stats = sqlite_tuner.get_stats()
 """
 
+import logging
 import sqlite3
 import time
 from typing import Dict, Any, Optional, List
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
 from contextlib import contextmanager
@@ -106,7 +109,7 @@ class SQLiteTuner:
                     "result": result[0] if result else None
                 })
             except Exception as e:
-                print(f"Failed to apply optimization '{pragma}': {e}")
+                logger.error(f"Failed to apply optimization '{pragma}': {e}")
 
         conn.commit()
         conn.close()
@@ -375,10 +378,13 @@ class SQLiteIndexAnalyzer:
 
             tables = [row[0] for row in result]
 
-            # Get row count for each table
+            # Get row count for each table (table names come from sqlite_master, safe to use)
             for table in tables:
                 try:
-                    count_result = conn.execute(text(f"SELECT COUNT(*) FROM {table}"))
+                    # Validate table name contains only safe characters
+                    if not table.isidentifier():
+                        continue
+                    count_result = conn.execute(text(f'SELECT COUNT(*) FROM "{table}"'))
                     row_count = count_result.fetchone()[0]
 
                     stats.append({
@@ -386,7 +392,7 @@ class SQLiteIndexAnalyzer:
                         "row_count": row_count
                     })
                 except Exception as e:
-                    print(f"Error getting stats for {table}: {e}")
+                    logger.warning(f"Error getting stats for {table}: {e}")
 
         return stats
 

@@ -490,7 +490,7 @@ async def lob_webhook(
                 from datetime import datetime
                 try:
                     mailpiece.expected_delivery_date = datetime.fromisoformat(expected_delivery)
-                except:
+                except (ValueError, TypeError):
                     pass
 
             logger.info(f"Mailpiece {mailpiece.id} marked as mailed")

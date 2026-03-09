@@ -8,8 +8,11 @@ manually editing .env files.
 
 import os
 import json
+import logging
 import subprocess
 from typing import Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import httpx
@@ -540,7 +543,7 @@ async def save_configuration(request: SaveRequest):
                 )
                 restarted = True
             except Exception as e:
-                print(f"Failed to restart containers: {e}")
+                logger.error(f"Failed to restart containers: {e}")
 
         return SaveResponse(
             success=True,

@@ -8,8 +8,10 @@ import {
   Audio,
   staticFile,
 } from "remotion";
+import { FONTS } from "./fonts";
 
 export interface PropertyShowcaseProps {
+  [key: string]: unknown;
   // Branding
   logoUrl?: string;
   companyName?: string;
@@ -31,9 +33,16 @@ export interface PropertyShowcaseProps {
   propertyPhotos?: string[];
   audioUrl?: string;  // ElevenLabs voiceover
 
+  // Outro / CTA
+  agentName?: string;
+  agentPhone?: string;
+  agentEmail?: string;
+  ctaText?: string;
+
   // Timing (in frames)
   logoDuration?: number;
   photoDuration?: number;
+  outroDuration?: number;
 }
 
 export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
@@ -47,11 +56,21 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
   propertyDetails = {},
   propertyPhotos = [],
   audioUrl,
+  agentName = "",
+  agentPhone = "",
+  agentEmail = "",
+  ctaText = "Schedule a Showing",
   logoDuration = 90,  // 3 seconds
   photoDuration = 120,  // 4 seconds per photo
+  outroDuration = 120,  // 4 seconds
 }) => {
-  const { fps } = useVideoConfig();
+  const { fps, height } = useVideoConfig();
   const frame = useCurrentFrame();
+
+  // Layout timing
+  const photosStartFrame = logoDuration + 30;
+  const totalPhotoDuration = propertyPhotos.length * photoDuration;
+  const outroStart = photosStartFrame + totalPhotoDuration;
 
   // Logo intro animation
   const logoOpacity = interpolate(
@@ -69,7 +88,6 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
   );
 
   // Current photo index
-  const photosStartFrame = logoDuration + 30; // 1 second transition after logo
   const currentPhotoIndex = Math.floor(
     (frame - photosStartFrame) / photoDuration
   );
@@ -96,6 +114,34 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
     1,
     (frame - photosStartFrame) / 30
   );
+
+  // Outro animations
+  const outroLocalFrame = frame - outroStart;
+  const outroFadeIn = interpolate(outroLocalFrame, [0, 30], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const outroTextY = interpolate(outroLocalFrame, [0, 40], [60, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const outroLineWidth = interpolate(outroLocalFrame, [0, 50], [0, 300], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const outroLogoGlow = interpolate(outroLocalFrame, [10, 40, 60], [0, 20, 10], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const outroFadeOut = interpolate(
+    outroLocalFrame,
+    [outroDuration - 25, outroDuration],
+    [1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  // Cinematic letterbox bars
+  const barHeight = height * 0.06;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
@@ -142,7 +188,7 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
               color: "#fff",
               textAlign: "center",
               transform: `scale(${logoScale})`,
-              fontFamily: "Arial",
+              fontFamily: FONTS.heading,
               textShadow: "2px 2px 8px rgba(0,0,0,0.5)",
             }}
           >
@@ -157,7 +203,7 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
               textAlign: "center",
               marginTop: 20,
               transform: `scale(${logoScale})`,
-              fontFamily: "Arial",
+              fontFamily: FONTS.accent,
               textShadow: "1px 1px 4px rgba(0,0,0,0.5)",
             }}
           >
@@ -223,7 +269,7 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
                         fontWeight: "bold",
                         color: "#fff",
                         margin: 0,
-                        fontFamily: "Arial",
+                        fontFamily: FONTS.accent,
                         textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
                       }}
                     >
@@ -238,7 +284,7 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
                       fontWeight: "bold",
                       color: "#fff",
                       margin: "0 0 20px 0",
-                      fontFamily: "Arial",
+                      fontFamily: FONTS.heading,
                       textShadow: "2px 2px 8px rgba(0,0,0,0.8)",
                       transform: `translateY(${(1 - textReveal) * 100}px)`,
                     }}
@@ -269,7 +315,7 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
                             fontWeight: "bold",
                             color: secondaryColor,
                             margin: 0,
-                            fontFamily: "Arial",
+                            fontFamily: FONTS.accent,
                           }}
                         >
                           {propertyDetails.bedrooms} bed
@@ -291,7 +337,7 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
                             fontWeight: "bold",
                             color: secondaryColor,
                             margin: 0,
-                            fontFamily: "Arial",
+                            fontFamily: FONTS.accent,
                           }}
                         >
                           {propertyDetails.bathrooms} bath
@@ -313,7 +359,7 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
                             fontWeight: "bold",
                             color: secondaryColor,
                             margin: 0,
-                            fontFamily: "Arial",
+                            fontFamily: FONTS.accent,
                           }}
                         >
                           {propertyDetails.squareFeet.toLocaleString()} sqft
@@ -321,36 +367,228 @@ export const PropertyShowcase: React.FC<PropertyShowcaseProps> = ({
                       </div>
                     )}
                   </div>
-
-                  {/* CTA */}
-                  <div
-                    style={{
-                      marginTop: 40,
-                      backgroundColor: secondaryColor,
-                      padding: "15px 40px",
-                      borderRadius: 10,
-                      alignSelf: "flex-start",
-                      transform: `translateY(${(1 - textReveal) * 100}px)`,
-                    }}
-                  >
-                    <p
-                      style={{
-                        fontSize: 32,
-                        fontWeight: "bold",
-                        color: "#fff",
-                        margin: 0,
-                        fontFamily: "Arial",
-                      }}
-                    >
-                      Call Now!
-                    </p>
-                  </div>
                 </AbsoluteFill>
               </AbsoluteFill>
             </Sequence>
           ))}
         </Sequence>
       )}
+
+      {/* OUTRO / CLOSING SEQUENCE */}
+      <Sequence from={outroStart} durationInFrames={outroDuration}>
+        <AbsoluteFill
+          style={{
+            background: `linear-gradient(135deg, ${primaryColor} 0%, #0a1628 100%)`,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: outroFadeIn * outroFadeOut,
+          }}
+        >
+          {/* Decorative accent line */}
+          <div
+            style={{
+              width: outroLineWidth,
+              height: 3,
+              backgroundColor: secondaryColor,
+              marginBottom: 40,
+            }}
+          />
+
+          {/* Logo with glow effect */}
+          {logoUrl && (
+            <div
+              style={{
+                marginBottom: 30,
+                opacity: outroFadeIn,
+                transform: `translateY(${outroTextY}px)`,
+                filter: `drop-shadow(0 0 ${outroLogoGlow}px ${secondaryColor})`,
+              }}
+            >
+              <img
+                src={logoUrl}
+                alt="Logo"
+                style={{
+                  width: 120,
+                  height: 120,
+                  objectFit: "contain",
+                }}
+              />
+            </div>
+          )}
+
+          {/* Property recap */}
+          <h2
+            style={{
+              fontSize: 52,
+              fontWeight: 800,
+              color: "#fff",
+              textAlign: "center",
+              fontFamily: FONTS.heading,
+              margin: 0,
+              padding: "0 60px",
+              opacity: outroFadeIn,
+              transform: `translateY(${outroTextY}px)`,
+            }}
+          >
+            {propertyAddress}
+          </h2>
+
+          <p
+            style={{
+              fontSize: 44,
+              fontWeight: 700,
+              color: secondaryColor,
+              fontFamily: FONTS.accent,
+              marginTop: 16,
+              opacity: interpolate(outroLocalFrame, [15, 45], [0, 1], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              }),
+            }}
+          >
+            {propertyPrice}
+          </p>
+
+          {/* Agent contact info */}
+          {agentName && (
+            <p
+              style={{
+                fontSize: 32,
+                color: "rgba(255,255,255,0.85)",
+                fontFamily: FONTS.body,
+                fontWeight: 600,
+                marginTop: 30,
+                opacity: interpolate(outroLocalFrame, [25, 55], [0, 1], {
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "clamp",
+                }),
+              }}
+            >
+              {agentName}
+            </p>
+          )}
+
+          {agentPhone && (
+            <p
+              style={{
+                fontSize: 36,
+                color: secondaryColor,
+                fontFamily: FONTS.body,
+                fontWeight: 700,
+                marginTop: 12,
+                opacity: interpolate(outroLocalFrame, [35, 60], [0, 1], {
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "clamp",
+                }),
+              }}
+            >
+              {agentPhone}
+            </p>
+          )}
+
+          {agentEmail && (
+            <p
+              style={{
+                fontSize: 28,
+                color: "rgba(255,255,255,0.6)",
+                fontFamily: FONTS.body,
+                marginTop: 8,
+                opacity: interpolate(outroLocalFrame, [40, 65], [0, 1], {
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "clamp",
+                }),
+              }}
+            >
+              {agentEmail}
+            </p>
+          )}
+
+          {/* CTA button */}
+          <div
+            style={{
+              marginTop: 40,
+              backgroundColor: secondaryColor,
+              padding: "18px 50px",
+              borderRadius: 12,
+              opacity: interpolate(outroLocalFrame, [45, 70], [0, 1], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              }),
+              transform: `scale(${interpolate(outroLocalFrame, [45, 70], [0.9, 1], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              })})`,
+            }}
+          >
+            <p
+              style={{
+                fontSize: 34,
+                fontWeight: 700,
+                color: "#fff",
+                margin: 0,
+                fontFamily: FONTS.accent,
+              }}
+            >
+              {ctaText}
+            </p>
+          </div>
+
+          {/* Bottom accent line */}
+          <div
+            style={{
+              width: interpolate(outroLocalFrame, [20, 70], [0, 300], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              }),
+              height: 3,
+              backgroundColor: secondaryColor,
+              marginTop: 40,
+            }}
+          />
+
+          {/* Company name */}
+          <p
+            style={{
+              fontSize: 24,
+              color: "rgba(255,255,255,0.4)",
+              fontFamily: FONTS.body,
+              marginTop: 20,
+              opacity: interpolate(outroLocalFrame, [50, 75], [0, 1], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              }),
+            }}
+          >
+            {companyName}
+          </p>
+        </AbsoluteFill>
+      </Sequence>
+
+      {/* Cinematic letterbox bars */}
+      <AbsoluteFill style={{ pointerEvents: "none" }}>
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: barHeight,
+            backgroundColor: "#000",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: barHeight,
+            backgroundColor: "#000",
+          }}
+        />
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 };

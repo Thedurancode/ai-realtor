@@ -10,12 +10,14 @@ from typing import List, Tuple, Optional, Dict, Any
 from datetime import datetime, timezone
 from pathlib import Path
 
+import httpx
 import numpy as np
 from sqlalchemy.orm import Session
 from sqlalchemy import text, and_, or_, func
 
 from app.models.property import Property
 from app.models.contact import Contact
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -332,18 +334,23 @@ class HybridSearchEngine:
         return combined
 
     def _get_query_embedding(self, query: str) -> List[float]:
-        """Generate embedding for search query.
+        """Generate embedding for search query using OpenAI text-embedding-3-small."""
+        if not settings.openai_api_key:
+            logger.warning("No OpenAI API key — falling back to random embeddings")
+            return np.random.randn(1536).tolist()
 
-        In production, this would call an LLM embedding service.
-        For now, returns a dummy embedding.
-        """
-        # TODO: Integrate with LLM service for real embeddings
-        # from app.services.llm_service import llm_service
-        # return await llm_service.embed_text(query)
-
-        # Dummy embedding (would be 1536 dimensions for OpenAI)
-        # Using smaller size for demo
-        return np.random.randn(1536).tolist()
+        try:
+            with httpx.Client(timeout=10) as client:
+                resp = client.post(
+                    "https://api.openai.com/v1/embeddings",
+                    headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+                    json={"input": query, "model": "text-embedding-3-small"},
+                )
+                resp.raise_for_status()
+                return resp.json()["data"][0]["embedding"]
+        except Exception as e:
+            logger.error(f"Embedding API failed, using fallback: {e}")
+            return np.random.randn(1536).tolist()
 
     def index_property(self, property_id: int, text: str, embedding: Optional[List[float]] = None):
         """Index a property for FTS5 and vector search.

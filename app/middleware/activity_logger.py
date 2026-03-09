@@ -6,8 +6,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 import time
 import json
+import logging
 from typing import Callable
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.database import SessionLocal
 from app.models.activity_event import ActivityEvent, ActivityEventType, ActivityEventStatus
@@ -69,7 +72,7 @@ class ActivityLoggerMiddleware(BaseHTTPMiddleware):
             db.commit()
             db.close()
         except Exception as e:
-            print(f"Error logging activity: {e}")
+            logger.error("Error logging activity: %s", e)
 
         return response
 

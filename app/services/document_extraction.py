@@ -6,9 +6,12 @@ import os
 import io
 import re
 import json
+import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import tempfile
+
+logger = logging.getLogger(__name__)
 
 try:
     import pytesseract
@@ -85,7 +88,7 @@ class DocumentExtractor:
             try:
                 return await self._aws_textract(file_content)
             except Exception as e:
-                print(f"AWS Textract failed: {e}, falling back to Tesseract")
+                logger.warning("AWS Textract failed: %s, falling back to Tesseract", e)
 
         # Fall back to Tesseract
         if not TESSERACT_AVAILABLE:
@@ -112,7 +115,7 @@ class DocumentExtractor:
             # Cleanup temp file
             try:
                 os.unlink(tmp_path)
-            except:
+            except OSError:
                 pass
 
     async def _aws_textract(self, file_content: bytes) -> str:

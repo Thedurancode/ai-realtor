@@ -4,6 +4,7 @@ Property Website Builder API
 AI-powered landing page generation for properties
 Voice-activated: "Create a landing page for property 5"
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Form, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
@@ -11,6 +12,8 @@ from datetime import datetime
 import re
 import string
 import random
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.property import Property
@@ -576,7 +579,7 @@ async def submit_contact_form(
             )
     except Exception as e:
         # Don't fail the request if email fails
-        print(f"Warning: Failed to send lead notification email: {e}")
+        logger.warning(f"Warning: Failed to send lead notification email: {e}")
 
     # 5. Send confirmation email to submitter (optional - only if configured)
     try:
@@ -597,7 +600,7 @@ async def submit_contact_form(
             )
     except Exception as e:
         # Don't fail the request if confirmation email fails
-        print(f"Warning: Failed to send confirmation email: {e}")
+        logger.warning(f"Warning: Failed to send confirmation email: {e}")
 
     return {
         "success": True,

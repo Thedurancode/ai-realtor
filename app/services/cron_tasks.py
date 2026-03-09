@@ -232,6 +232,161 @@ async def predictive_insights_handler(db: Session, metadata: Dict[str, Any]) -> 
     }
 
 
+async def transaction_deadline_handler(db: Session, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """Check all active transactions for overdue or upcoming milestones.
+
+    Runs every 30 minutes to:
+    - Flag overdue milestones
+    - Alert on milestones due within 48 hours
+    - Create notifications for each alert
+    - Optionally send SMS/email to assigned parties
+    """
+    from app.services.transaction_coordinator_service import transaction_coordinator
+    from app.services.notification_service import notification_service
+    from app.models.notification import NotificationType, NotificationPriority
+
+    logger.info("Running transaction deadline check...")
+
+    alerts = transaction_coordinator.check_deadlines(db)
+
+    if not alerts:
+        logger.info("Transaction deadline check: all clear, no alerts")
+        return {"alerts": 0, "overdue": 0, "upcoming": 0, "notifications_created": 0}
+
+    overdue = [a for a in alerts if a["type"] == "overdue"]
+    upcoming = [a for a in alerts if a["type"] == "upcoming"]
+    notifications_created = 0
+
+    # Create notifications for each alert
+    for alert in alerts:
+        try:
+            priority = NotificationPriority.URGENT if alert["type"] == "overdue" else NotificationPriority.HIGH
+            notification_service.create_notification(
+                db=db,
+                notification_type=NotificationType.TRANSACTION_DEADLINE,
+                title=alert["message"],
+                message=f"Milestone: {alert['milestone']} | Transaction #{alert['transaction_id']} | Property #{alert['property_id']}",
+                priority=priority,
+                property_id=alert.get("property_id"),
+                icon="🔴" if alert["type"] == "overdue" else "🟡",
+                data=alert,
+            )
+            notifications_created += 1
+        except Exception as e:
+            logger.warning(f"Failed to create notification for alert: {e}")
+
+    # Send SMS for overdue milestones via Telnyx (best-effort)
+    sms_sent = 0
+    if overdue:
+        sms_sent = await _send_deadline_sms(overdue)
+
+    # Send email summary for all alerts via Resend (best-effort)
+    email_sent = await _send_deadline_email(alerts)
+
+    logger.info(
+        f"Transaction deadline check complete: "
+        f"{len(overdue)} overdue, {len(upcoming)} upcoming, "
+        f"{notifications_created} notifications created"
+    )
+
+    return {
+        "alerts": len(alerts),
+        "overdue": len(overdue),
+        "upcoming": len(upcoming),
+        "notifications_created": notifications_created,
+        "sms_sent": sms_sent,
+        "email_sent": email_sent,
+        "details": alerts[:10],
+    }
+
+
+async def _send_deadline_sms(overdue_alerts: list) -> int:
+    """Send SMS via Telnyx for overdue milestones."""
+    import os
+    import httpx
+
+    api_key = os.getenv("TELNYX_API_KEY", "")
+    owner_phone = os.getenv("OWNER_PHONE", "")
+    from_phone = os.getenv("TELNYX_FROM_NUMBER", "")
+
+    if not all([api_key, owner_phone, from_phone]):
+        logger.debug("SMS skipped: TELNYX_API_KEY, OWNER_PHONE, or TELNYX_FROM_NUMBER not set")
+        return 0
+
+    body = f"TC Alert: {len(overdue_alerts)} overdue milestone(s)\n"
+    for a in overdue_alerts[:5]:
+        body += f"- {a['message']}\n"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.telnyx.com/v2/messages",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={"from": from_phone, "to": owner_phone, "text": body},
+                timeout=10,
+            )
+            if resp.status_code in (200, 201, 202):
+                logger.info(f"SMS sent to {owner_phone}: {len(overdue_alerts)} overdue alerts")
+                return 1
+            else:
+                logger.warning(f"SMS failed ({resp.status_code}): {resp.text[:200]}")
+                return 0
+    except Exception as e:
+        logger.debug(f"SMS delivery failed: {e}")
+        return 0
+
+
+async def _send_deadline_email(alerts: list) -> bool:
+    """Send deadline summary email via Resend."""
+    import os
+    import httpx
+
+    api_key = os.getenv("RESEND_API_KEY", "")
+    owner_email = os.getenv("OWNER_EMAIL", "emprezarioinc@gmail.com")
+
+    if not api_key:
+        logger.debug("Email skipped: RESEND_API_KEY not set")
+        return False
+
+    overdue = [a for a in alerts if a["type"] == "overdue"]
+    upcoming = [a for a in alerts if a["type"] == "upcoming"]
+
+    html = "<h2>Transaction Deadline Alert</h2>"
+    if overdue:
+        html += "<h3 style='color:red'>Overdue</h3><ul>"
+        for a in overdue:
+            html += f"<li><strong>{a['milestone']}</strong> — {a['message']}</li>"
+        html += "</ul>"
+    if upcoming:
+        html += "<h3 style='color:orange'>Due Soon</h3><ul>"
+        for a in upcoming:
+            html += f"<li><strong>{a['milestone']}</strong> — {a['message']}</li>"
+        html += "</ul>"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "from": "RealtorClaw <notifications@emprezario.com>",
+                    "to": [owner_email],
+                    "subject": f"TC Alert: {len(overdue)} overdue, {len(upcoming)} upcoming",
+                    "html": html,
+                },
+                timeout=10,
+            )
+            if resp.status_code in (200, 201):
+                logger.info(f"Deadline email sent to {owner_email}")
+                return True
+            else:
+                logger.warning(f"Email failed ({resp.status_code}): {resp.text[:200]}")
+                return False
+    except Exception as e:
+        logger.debug(f"Email delivery failed: {e}")
+        return False
+
+
 # Task handler registry
 TASK_HANDLERS = {
     "heartbeat_cycle": heartbeat_cycle_handler,
@@ -239,4 +394,5 @@ TASK_HANDLERS = {
     "market_intelligence": market_intelligence_handler,
     "relationship_health": relationship_health_handler,
     "predictive_insights": predictive_insights_handler,
+    "transaction_deadlines": transaction_deadline_handler,
 }

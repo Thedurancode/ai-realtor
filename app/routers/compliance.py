@@ -71,7 +71,7 @@ async def run_compliance_check(
                 check_id=check.id,
                 agent_id=property.agent_id
             )
-        except:
+        except Exception:
             pass  # Don't fail if notification fails
 
     # Reload check with violations

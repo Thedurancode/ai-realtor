@@ -5,17 +5,21 @@ import {
   useVideoConfig,
   interpolate,
   Sequence,
+  Img,
+  Audio,
 } from "remotion";
+import { FONTS } from "./fonts";
 
 export interface TimelineClip {
   id: string;
   start: number; // frame number
   duration: number; // frames
-  type: "video" | "image" | "text";
-  src?: string; // for video/image
+  type: "video" | "image" | "text" | "audio";
+  src?: string; // for video/image/audio
   text?: string; // for text clips
   style?: React.CSSProperties;
-  transition?: "none" | "fade" | "slide" | "zoom";
+  transition?: "none" | "fade" | "slide" | "slideRight" | "slideUp" | "zoom" | "kenBurns";
+  volume?: number; // for audio clips
 }
 
 export interface TimelineTrack {
@@ -25,11 +29,15 @@ export interface TimelineTrack {
 }
 
 export interface TimelineProps {
+  [key: string]: unknown;
   tracks: TimelineTrack[];
   duration: number; // total frames
   fps?: number;
   width?: number;
   height?: number;
+  backgroundColor?: string;
+  showProgress?: boolean;
+  progressColor?: string;
 }
 
 export const TimelineEditor: React.FC<TimelineProps> = ({
@@ -38,122 +46,216 @@ export const TimelineEditor: React.FC<TimelineProps> = ({
   fps = 30,
   width = 1080,
   height = 1920,
+  backgroundColor = "#000",
+  showProgress = false,
+  progressColor = "#3B82F6",
 }) => {
   const frame = useCurrentFrame();
+  const config = useVideoConfig();
+
+  // Progress bar width
+  const progressWidth = showProgress
+    ? interpolate(frame, [0, duration], [0, width], { extrapolateRight: "clamp" })
+    : 0;
+
+  // Render a single clip with transitions
+  const renderClip = (clip: TimelineClip, trackType: string) => {
+    const relativeFrame = frame - clip.start;
+
+    // Standard transition durations
+    const fadeIn = 15;
+    const fadeOut = 15;
+
+    // Calculate opacity based on transition type
+    let opacity = 1;
+    let transform = "";
+    let scale = 1;
+
+    switch (clip.transition) {
+      case "fade":
+        if (relativeFrame < fadeIn) {
+          opacity = interpolate(relativeFrame, [0, fadeIn], [0, 1]);
+        } else if (relativeFrame > clip.duration - fadeOut) {
+          opacity = interpolate(relativeFrame, [clip.duration - fadeOut, clip.duration], [1, 0]);
+        }
+        break;
+
+      case "slide":
+        if (relativeFrame < fadeIn) {
+          const x = interpolate(relativeFrame, [0, fadeIn], [-width, 0]);
+          transform = `translateX(${x}px)`;
+        }
+        if (relativeFrame > clip.duration - fadeOut) {
+          opacity = interpolate(relativeFrame, [clip.duration - fadeOut, clip.duration], [1, 0]);
+        }
+        break;
+
+      case "slideRight":
+        if (relativeFrame < fadeIn) {
+          const x = interpolate(relativeFrame, [0, fadeIn], [width, 0]);
+          transform = `translateX(${x}px)`;
+        }
+        if (relativeFrame > clip.duration - fadeOut) {
+          opacity = interpolate(relativeFrame, [clip.duration - fadeOut, clip.duration], [1, 0]);
+        }
+        break;
+
+      case "slideUp":
+        if (relativeFrame < fadeIn) {
+          const y = interpolate(relativeFrame, [0, fadeIn], [height, 0]);
+          transform = `translateY(${y}px)`;
+        }
+        if (relativeFrame > clip.duration - fadeOut) {
+          opacity = interpolate(relativeFrame, [clip.duration - fadeOut, clip.duration], [1, 0]);
+        }
+        break;
+
+      case "zoom":
+        if (relativeFrame < fadeIn) {
+          scale = interpolate(relativeFrame, [0, fadeIn], [0.8, 1]);
+        } else if (relativeFrame > clip.duration - fadeOut) {
+          scale = interpolate(relativeFrame, [clip.duration - fadeOut, clip.duration], [1, 1.2]);
+        }
+        opacity = interpolate(
+          relativeFrame,
+          [0, fadeIn, clip.duration - fadeOut, clip.duration],
+          [0, 1, 1, 0],
+          { extrapolateRight: "clamp" }
+        );
+        break;
+
+      case "kenBurns":
+        // Slow zoom + subtle pan for cinematic photo effect
+        scale = interpolate(relativeFrame, [0, clip.duration], [1, 1.15], {
+          extrapolateRight: "clamp",
+        });
+        const panX = interpolate(relativeFrame, [0, clip.duration], [0, -30], {
+          extrapolateRight: "clamp",
+        });
+        transform = `translateX(${panX}px)`;
+        opacity = interpolate(
+          relativeFrame,
+          [0, 20, clip.duration - 20, clip.duration],
+          [0, 1, 1, 0],
+          { extrapolateRight: "clamp" }
+        );
+        break;
+
+      default: // "none"
+        break;
+    }
+
+    // Render content based on clip type
+    if (clip.type === "audio") {
+      return clip.src ? <Audio src={clip.src} volume={clip.volume ?? 1} /> : null;
+    }
+
+    if (clip.type === "image") {
+      return (
+        <AbsoluteFill>
+          <Img
+            src={clip.src || ""}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              transform: `scale(${scale}) ${transform}`,
+            }}
+          />
+        </AbsoluteFill>
+      );
+    }
+
+    if (clip.type === "video") {
+      return (
+        <AbsoluteFill>
+          <video
+            src={clip.src}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              transform: `scale(${scale}) ${transform}`,
+            }}
+          />
+        </AbsoluteFill>
+      );
+    }
+
+    if (clip.type === "text") {
+      return (
+        <AbsoluteFill
+          style={{
+            display: "flex",
+            alignItems: clip.style?.alignItems || "center",
+            justifyContent: clip.style?.justifyContent || "center",
+            pointerEvents: "none",
+          }}
+        >
+          <h1
+            style={{
+              fontSize: clip.style?.fontSize || 80,
+              fontWeight: clip.style?.fontWeight || "bold",
+              color: clip.style?.color || "#fff",
+              fontFamily: clip.style?.fontFamily || FONTS.heading,
+              textAlign: (clip.style?.textAlign as any) || "center",
+              textShadow: clip.style?.textShadow || "2px 2px 8px rgba(0,0,0,0.8)",
+              padding: "0 60px",
+              margin: 0,
+              ...clip.style,
+            }}
+          >
+            {clip.text}
+          </h1>
+        </AbsoluteFill>
+      );
+    }
+
+    return null;
+  };
 
   // Render each track
   const renderTrack = (track: TimelineTrack) => {
     return track.clips.map((clip) => {
-      // Check if this clip should be visible at current frame
+      // Check if clip is visible at current frame
       if (frame < clip.start || frame >= clip.start + clip.duration) {
         return null;
       }
 
       const relativeFrame = frame - clip.start;
+      const fadeIn = 15;
+      const fadeOut = 15;
 
-      // Handle transitions
-      let opacity = 1;
-      let transform = "";
-      let scale = 1;
+      // Wrapper opacity for all clip types
+      let wrapperOpacity = 1;
+      let wrapperTransform = "";
 
-      if (clip.transition === "fade") {
-        // Fade in/out
-        const fadeInDuration = 15;
-        const fadeOutDuration = 15;
-
-        if (relativeFrame < fadeInDuration) {
-          opacity = interpolate(relativeFrame, [0, fadeInDuration], [0, 1]);
-        } else if (relativeFrame > clip.duration - fadeOutDuration) {
-          opacity = interpolate(
-            relativeFrame,
-            [clip.duration - fadeOutDuration, clip.duration],
-            [1, 0]
-          );
-        }
-      } else if (clip.transition === "slide") {
-        // Slide in from left
-        const slideDuration = 15;
-        if (relativeFrame < slideDuration) {
-          const x = interpolate(relativeFrame, [0, slideDuration], [-width, 0]);
-          transform = `translateX(${x}px)`;
-        }
-      } else if (clip.transition === "zoom") {
-        // Zoom in/out
-        const zoomDuration = 15;
-        if (relativeFrame < zoomDuration) {
-          scale = interpolate(relativeFrame, [0, zoomDuration], [0.8, 1]);
-        } else if (relativeFrame > clip.duration - zoomDuration) {
-          scale = interpolate(
-            relativeFrame,
-            [clip.duration - zoomDuration, clip.duration],
-            [1, 1.2]
-          );
-        }
+      switch (clip.transition) {
+        case "fade":
+          if (relativeFrame < fadeIn) {
+            wrapperOpacity = interpolate(relativeFrame, [0, fadeIn], [0, 1]);
+          } else if (relativeFrame > clip.duration - fadeOut) {
+            wrapperOpacity = interpolate(relativeFrame, [clip.duration - fadeOut, clip.duration], [1, 0]);
+          }
+          break;
+        case "slide":
+          if (relativeFrame < fadeIn) {
+            wrapperTransform = `translateX(${interpolate(relativeFrame, [0, fadeIn], [-width, 0])}px)`;
+          }
+          break;
+        case "slideRight":
+          if (relativeFrame < fadeIn) {
+            wrapperTransform = `translateX(${interpolate(relativeFrame, [0, fadeIn], [width, 0])}px)`;
+          }
+          break;
+        case "slideUp":
+          if (relativeFrame < fadeIn) {
+            wrapperTransform = `translateY(${interpolate(relativeFrame, [0, fadeIn], [height, 0])}px)`;
+          }
+          break;
+        default:
+          break;
       }
-
-      // Render clip content
-      const content = (() => {
-        if (clip.type === "video" || clip.type === "image") {
-          return (
-            <AbsoluteFill
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "#000",
-              }}
-            >
-              {clip.type === "image" ? (
-                <img
-                  src={clip.src}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    transform: `scale(${scale})`,
-                  }}
-                />
-              ) : (
-                <video
-                  src={clip.src}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    transform: `scale(${scale})`,
-                  }}
-                />
-              )}
-            </AbsoluteFill>
-          );
-        } else if (clip.type === "text") {
-          return (
-            <AbsoluteFill
-              style={{
-                display: "flex",
-                alignItems: clip.style?.alignItems || "center",
-                justifyContent: clip.style?.justifyContent || "center",
-                pointerEvents: "none",
-              }}
-            >
-                <h1
-                  style={{
-                    fontSize: clip.style?.fontSize || 80,
-                    fontWeight: clip.style?.fontWeight || "bold",
-                    color: clip.style?.color || "#fff",
-                    fontFamily: clip.style?.fontFamily || "Arial",
-                    textAlign: clip.style?.textAlign || "center",
-                    textShadow: clip.style?.textShadow || "2px 2px 8px rgba(0,0,0,0.8)",
-                    ...clip.style,
-                  }}
-                >
-                  {clip.text}
-                </h1>
-            </AbsoluteFill>
-          );
-        }
-        return null;
-      })();
 
       return (
         <Sequence
@@ -163,11 +265,11 @@ export const TimelineEditor: React.FC<TimelineProps> = ({
         >
           <AbsoluteFill
             style={{
-              opacity,
-              transform,
+              opacity: wrapperOpacity,
+              transform: wrapperTransform,
             }}
           >
-            {content}
+            {renderClip(clip, track.type)}
           </AbsoluteFill>
         </Sequence>
       );
@@ -175,18 +277,27 @@ export const TimelineEditor: React.FC<TimelineProps> = ({
   };
 
   return (
-    <AbsoluteFill
-      style={{
-        width,
-        height,
-        backgroundColor: "#000",
-      }}
-    >
+    <AbsoluteFill style={{ backgroundColor }}>
+      {/* Render tracks in order — later tracks overlay earlier ones */}
       {tracks.map((track) => (
         <React.Fragment key={track.id}>
           {renderTrack(track)}
         </React.Fragment>
       ))}
+
+      {/* Optional progress bar */}
+      {showProgress && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            width: progressWidth,
+            height: 4,
+            backgroundColor: progressColor,
+          }}
+        />
+      )}
     </AbsoluteFill>
   );
 };
