@@ -43,8 +43,14 @@ echo "3. Project configs"
 PROJ_DIR="$HOME/Documents/GitHub/ai-realtor"
 cp -f "$PROJ_DIR/.mcp.json" "$BACKUP_DIR/" 2>/dev/null && echo "   ✓ .mcp.json"
 cp -f "$PROJ_DIR/CLAUDE.md" "$BACKUP_DIR/" 2>/dev/null && echo "   ✓ CLAUDE.md"
-cp -f "$PROJ_DIR/.claude/settings.local.json" "$BACKUP_DIR/project-settings.local.json" 2>/dev/null && echo "   ✓ project settings.local.json"
-cp -f "$PROJ_DIR/.claude/OSA_FRAMEWORK.md" "$BACKUP_DIR/" 2>/dev/null && echo "   ✓ OSA_FRAMEWORK.md"
+mkdir -p "$BACKUP_DIR/project-claude"
+cp -rf "$PROJ_DIR/.claude/"* "$BACKUP_DIR/project-claude/" 2>/dev/null && echo "   ✓ .claude/ directory (settings, yolo-state, OSA framework)"
+
+# Global MCP config
+cp -f "$HOME/.claude/.mcp.json" "$BACKUP_DIR/global-mcp.json" 2>/dev/null && echo "   ✓ global .mcp.json"
+
+# Keybindings
+cp -f "$HOME/.claude/keybindings.json" "$BACKUP_DIR/" 2>/dev/null && echo "   ✓ keybindings.json"
 
 # 4. Memory files
 echo ""
