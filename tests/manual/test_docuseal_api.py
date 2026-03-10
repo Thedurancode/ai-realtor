@@ -2,9 +2,10 @@
 """Test DocuSeal API directly to see response format"""
 import httpx
 import json
+import os
 
-API_KEY = "jnTC1bKhVToZZFekCcr8BZjbZznC7KGjD14qhujcUMj"
-API_URL = "http://docuseal-p8oc4sw8scksocoo80occw8c.44.203.101.160.sslip.io/api"
+API_KEY = os.environ.get("DOCUSEAL_API_KEY", "")
+API_URL = os.environ.get("DOCUSEAL_API_URL", "https://api.docuseal.com")
 
 async def test_submission():
     payload = {

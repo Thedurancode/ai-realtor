@@ -1,6 +1,9 @@
 """Activity event logging for MCP tool calls."""
+import logging
 from typing import Optional
 from .http_client import api_post, api_patch
+
+logger = logging.getLogger(__name__)
 
 
 def log_activity_event(tool_name: str, metadata: dict = None) -> Optional[int]:
@@ -20,7 +23,7 @@ def log_activity_event(tool_name: str, metadata: dict = None) -> Optional[int]:
         if response.status_code == 200:
             return response.json().get("id")
     except Exception as e:
-        print(f"Warning: Failed to log activity: {e}")
+        logger.warning(f"Failed to log activity: {e}")
     return None
 
 
@@ -39,4 +42,4 @@ def update_activity_event(event_id: int, status: str, duration_ms: int, error_me
             timeout=1
         )
     except Exception as e:
-        print(f"Warning: Failed to update activity: {e}")
+        logger.warning(f"Failed to update activity: {e}")

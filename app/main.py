@@ -207,11 +207,18 @@ def cache_clear():
 _background_tasks: list[asyncio.Task] = []
 
 
+def _prune_done_tasks() -> None:
+    """Remove completed tasks from the list to prevent memory leak."""
+    _background_tasks[:] = [t for t in _background_tasks if not t.done()]
+
+
 def add_background_task(task: asyncio.Task) -> None:
+    _prune_done_tasks()
     _background_tasks.append(task)
 
 
 def get_background_tasks() -> list[asyncio.Task]:
+    _prune_done_tasks()
     return _background_tasks.copy()
 
 # ---------------------------------------------------------------------------

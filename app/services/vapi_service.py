@@ -96,7 +96,8 @@ class VAPIService:
         response = requests.post(
             f"{self.base_url}/call/phone",
             headers=self.headers,
-            json=payload
+            json=payload,
+            timeout=30
         )
 
         response.raise_for_status()
@@ -302,7 +303,8 @@ Market context:
         self._ensure_api_key()
         response = requests.get(
             f"{self.base_url}/call/{call_id}",
-            headers=self.headers
+            headers=self.headers,
+            timeout=30
         )
 
         response.raise_for_status()
@@ -314,7 +316,8 @@ Market context:
         response = requests.patch(
             f"{self.base_url}/call/{call_id}",
             headers=self.headers,
-            json={"status": "ended"}
+            json={"status": "ended"},
+            timeout=30
         )
 
         response.raise_for_status()

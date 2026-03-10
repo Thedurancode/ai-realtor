@@ -312,15 +312,16 @@ class AIAssistant:
                 if code_match:
                     command = code_match.group(1).strip()
 
-            # For safety, only allow certain operations
-            dangerous = ['import os', 'import sys', 'subprocess.', 'eval(', 'exec(',
-                          'open(', 'file.write', '__import__', 'compile']
-            if any(dangerous in command for dangerous in dangerous):
-                return "⚠️ For security, I can only execute simple print statements and calculations."
+            # Only allow safe math expressions (digits, operators, parens, dots, spaces)
+            import ast
+            if not re.match(r'^[\d\s\+\-\*\/\(\)\.]+$', command):
+                return "⚠️ For security, I can only execute simple math calculations."
 
-            # Execute in a restricted environment
             try:
-                result = eval(command, {"__builtins__": {}}, {})
+                result = ast.literal_eval(command) if command.strip().replace('.', '').isdigit() else eval(
+                    compile(ast.parse(command, mode='eval'), '<calc>', 'eval'),
+                    {"__builtins__": {}}, {}
+                )
 
                 if result is None:
                     return "✅ Code executed successfully (no output)"
@@ -771,9 +772,13 @@ class AIAssistant:
                     return "⚠️ Invalid expression. I can only do basic math (add, subtract, multiply, divide)."
 
                 try:
-                    result = eval(expression)
+                    import ast
+                    result = eval(
+                        compile(ast.parse(expression, mode='eval'), '<calc>', 'eval'),
+                        {"__builtins__": {}}, {}
+                    )
                     return f"🔢 **Result:** {expression} = {result}"
-                except:
+                except Exception:
                     return f"❌ Error calculating. Please try again."
 
             return "❌ Please provide a calculation. Example: 'calculate 25 * 4' or 'what is 100 / 5'"
@@ -822,7 +827,7 @@ class AIAssistant:
         ]
 
         import random
-        return f"💡 **Quote of the Day:**\n\n"{random.choice(quotes)}\""
+        return f"💡 **Quote of the Day:**\n\n\"{random.choice(quotes)}\""
 
     # ========================================================================
     # ADVANCED FEATURES

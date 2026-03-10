@@ -129,8 +129,12 @@ async def _list_campaigns(args: dict) -> list[TextContent]:
                metrics.conversions, metrics.ctr, metrics.average_cpc
         FROM campaign
     """
+    VALID_STATUSES = {"ENABLED", "PAUSED", "REMOVED"}
     if status_filter:
-        query += f" WHERE campaign.status = '{status_filter.upper()}'"
+        status_val = status_filter.upper()
+        if status_val not in VALID_STATUSES:
+            return _err(f"Invalid status_filter. Must be one of: {', '.join(VALID_STATUSES)}")
+        query += f" WHERE campaign.status = '{status_val}'"
     query += " ORDER BY metrics.cost_micros DESC LIMIT 50"
 
     response = ga_service.search(customer_id=cid, query=query)
@@ -290,7 +294,9 @@ async def _list_ad_groups(args: dict) -> list[TextContent]:
         FROM ad_group
     """
     if campaign_id:
-        query += f" WHERE campaign.id = {campaign_id}"
+        if not str(campaign_id).isdigit():
+            return _err("campaign_id must be numeric")
+        query += f" WHERE campaign.id = {int(campaign_id)}"
     query += " ORDER BY metrics.cost_micros DESC LIMIT 50"
 
     response = ga_service.search(customer_id=cid, query=query)
@@ -398,9 +404,13 @@ async def _list_ads(args: dict) -> list[TextContent]:
     campaign_id = args.get("campaign_id", "")
     ad_group_id = args.get("ad_group_id", "")
     if campaign_id:
-        query += f" WHERE campaign.id = {campaign_id}"
+        if not str(campaign_id).isdigit():
+            return _err("campaign_id must be numeric")
+        query += f" WHERE campaign.id = {int(campaign_id)}"
     elif ad_group_id:
-        query += f" WHERE ad_group.id = {ad_group_id}"
+        if not str(ad_group_id).isdigit():
+            return _err("ad_group_id must be numeric")
+        query += f" WHERE ad_group.id = {int(ad_group_id)}"
     query += " ORDER BY metrics.impressions DESC LIMIT 50"
 
     response = ga_service.search(customer_id=cid, query=query)
@@ -523,9 +533,13 @@ async def _list_keywords(args: dict) -> list[TextContent]:
     ad_group_id = args.get("ad_group_id", "")
     campaign_id = args.get("campaign_id", "")
     if ad_group_id:
-        query += f" WHERE ad_group.id = {ad_group_id}"
+        if not str(ad_group_id).isdigit():
+            return _err("ad_group_id must be numeric")
+        query += f" WHERE ad_group.id = {int(ad_group_id)}"
     elif campaign_id:
-        query += f" WHERE campaign.id = {campaign_id}"
+        if not str(campaign_id).isdigit():
+            return _err("campaign_id must be numeric")
+        query += f" WHERE campaign.id = {int(campaign_id)}"
     query += " ORDER BY metrics.impressions DESC LIMIT 100"
 
     response = ga_service.search(customer_id=cid, query=query)
@@ -692,7 +706,9 @@ async def _update_budget(args: dict) -> list[TextContent]:
 
     # First get the budget resource name
     ga_service = client.get_service("GoogleAdsService")
-    query = f"SELECT campaign.campaign_budget FROM campaign WHERE campaign.id = {campaign_id}"
+    if not str(campaign_id).isdigit():
+        return _err("campaign_id must be numeric")
+    query = f"SELECT campaign.campaign_budget FROM campaign WHERE campaign.id = {int(campaign_id)}"
     response = ga_service.search(customer_id=cid, query=query)
     budget_resource = None
     for row in response:

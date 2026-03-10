@@ -21,7 +21,7 @@ async def handle_qa_call(arguments: dict) -> list[TextContent]:
             contact_response.raise_for_status()
             contact_data = contact_response.json()
             phone = contact_data.get("phone")
-        except:
+        except Exception:
             pass
 
     if not phone:
@@ -73,7 +73,7 @@ async def handle_qa_call(arguments: dict) -> list[TextContent]:
                 for i, question in enumerate(questions, 1):
                     call_request["script"] += f"{i}. {question}\n"
                 call_request["script"] += "\nThank you for your time!"
-            except:
+            except Exception:
                 pass
 
     # Make the call via the selected provider
@@ -94,7 +94,7 @@ async def handle_qa_call(arguments: dict) -> list[TextContent]:
                 for i, question in enumerate(questions, 1):
                     call_request["script"] += f"{i}. {question}\n"
                 call_request["script"] += "\nThank you for your time!"
-            except:
+            except Exception:
                 pass
 
     # Make the HTTP request

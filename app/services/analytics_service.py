@@ -71,16 +71,16 @@ class AnalyticsService:
         total = db.query(func.count(Property.id)).scalar() or 0
 
         by_status = {}
-        for status in PropertyStatus:
-            count = db.query(func.count(Property.id)).filter(Property.status == status).scalar() or 0
-            if count > 0:
-                by_status[status.value] = count
+        status_rows = db.query(Property.status, func.count(Property.id)).group_by(Property.status).all()
+        for status_val, count in status_rows:
+            if count > 0 and status_val:
+                by_status[status_val.value if hasattr(status_val, 'value') else str(status_val)] = count
 
         by_type = {}
-        for ptype in PropertyType:
-            count = db.query(func.count(Property.id)).filter(Property.property_type == ptype).scalar() or 0
-            if count > 0:
-                by_type[ptype.value] = count
+        type_rows = db.query(Property.property_type, func.count(Property.id)).group_by(Property.property_type).all()
+        for ptype_val, count in type_rows:
+            if count > 0 and ptype_val:
+                by_type[ptype_val.value if hasattr(ptype_val, 'value') else str(ptype_val)] = count
 
         return {"total": total, "by_status": by_status, "by_type": by_type}
 

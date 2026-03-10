@@ -14,31 +14,39 @@ def _default_headers() -> dict:
     return headers
 
 
+DEFAULT_TIMEOUT = 30  # seconds
+
+
 def api_get(path: str, **kwargs):
     """GET request to the backend API."""
     headers = {**_default_headers(), **kwargs.pop("headers", {})}
+    kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
     return requests.get(f"{API_BASE_URL}{path}", headers=headers, **kwargs)
 
 
 def api_post(path: str, **kwargs):
     """POST request to the backend API."""
     headers = {**_default_headers(), **kwargs.pop("headers", {})}
+    kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
     return requests.post(f"{API_BASE_URL}{path}", headers=headers, **kwargs)
 
 
 def api_patch(path: str, **kwargs):
     """PATCH request to the backend API."""
     headers = {**_default_headers(), **kwargs.pop("headers", {})}
+    kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
     return requests.patch(f"{API_BASE_URL}{path}", headers=headers, **kwargs)
 
 
 def api_put(path: str, **kwargs):
     """PUT request to the backend API."""
     headers = {**_default_headers(), **kwargs.pop("headers", {})}
+    kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
     return requests.put(f"{API_BASE_URL}{path}", headers=headers, **kwargs)
 
 
 def api_delete(path: str, **kwargs):
     """DELETE request to the backend API."""
     headers = {**_default_headers(), **kwargs.pop("headers", {})}
+    kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
     return requests.delete(f"{API_BASE_URL}{path}", headers=headers, **kwargs)

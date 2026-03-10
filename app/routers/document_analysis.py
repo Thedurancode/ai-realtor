@@ -13,6 +13,20 @@ from app.services.document_analysis_service import document_analysis_service
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
 
+# Allowed directories for document file paths
+_ALLOWED_DIRS = ["/tmp", tempfile.gettempdir(), os.path.abspath("uploads")]
+
+
+def _validate_file_path(file_path: str) -> str:
+    """Validate that a file path is within allowed directories to prevent path traversal."""
+    resolved = os.path.realpath(file_path)
+    if not any(resolved.startswith(os.path.realpath(d)) for d in _ALLOWED_DIRS):
+        raise HTTPException(
+            status_code=400,
+            detail="File path must be within allowed directories (uploads or temp)."
+        )
+    return resolved
+
 
 # ── Schemas ──────────────────────────────────────────────────────────
 
@@ -50,9 +64,10 @@ class ExtractTerms(BaseModel):
 async def upload_document(file: UploadFile = File(...)):
     """Upload a document for analysis."""
     try:
-        # Save to temp file
+        # Save to temp file — use basename to prevent path traversal via filename
         temp_dir = tempfile.mkdtemp()
-        file_path = os.path.join(temp_dir, file.filename)
+        safe_filename = os.path.basename(file.filename) if file.filename else "upload"
+        file_path = os.path.join(temp_dir, safe_filename)
 
         with open(file_path, "wb") as f:
             content = await file.read()
@@ -67,7 +82,7 @@ async def upload_document(file: UploadFile = File(...)):
 
     except Exception as e:
         logger.error(f"Error uploading document: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to upload document.")
 
 
 @router.post("/analyze")
@@ -80,8 +95,9 @@ async def analyze_document(body: DocumentAnalyze, db: Session = Depends(get_db))
     - appraisal: Value, comps, adjustments
     """
     try:
+        validated_path = _validate_file_path(body.file_path)
         result = await document_analysis_service.analyze_document(
-            file_path=body.file_path,
+            file_path=validated_path,
             document_type=body.document_type,
             property_id=body.property_id
         )
@@ -91,9 +107,11 @@ async def analyze_document(body: DocumentAnalyze, db: Session = Depends(get_db))
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error analyzing document: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to analyze document.")
 
 
 @router.post("/extract-issues")
@@ -104,8 +122,9 @@ async def extract_issues(body: ExtractIssues, db: Session = Depends(get_db)):
     and provides repair cost estimates.
     """
     try:
+        validated_path = _validate_file_path(body.file_path)
         result = await document_analysis_service.analyze_document(
-            file_path=body.file_path,
+            file_path=validated_path,
             document_type="inspection_report",
             property_id=body.property_id
         )
@@ -121,9 +140,11 @@ async def extract_issues(body: ExtractIssues, db: Session = Depends(get_db)):
             "safety_hazards": result.get("safety_hazards", [])
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error extracting issues: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to extract issues.")
 
 
 @router.post("/extract-terms")
@@ -133,8 +154,9 @@ async def extract_terms(body: ExtractTerms, db: Session = Depends(get_db)):
     Extracts parties, price, contingencies, dates, and clauses.
     """
     try:
+        validated_path = _validate_file_path(body.file_path)
         result = await document_analysis_service.analyze_document(
-            file_path=body.file_path,
+            file_path=validated_path,
             document_type="contract",
             property_id=body.property_id
         )
@@ -144,9 +166,11 @@ async def extract_terms(body: ExtractTerms, db: Session = Depends(get_db)):
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error extracting terms: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to extract terms.")
 
 
 @router.post("/compare")
@@ -159,9 +183,11 @@ async def compare_documents(body: DocumentCompare):
     - Comparing inspection reports
     """
     try:
+        validated_path_1 = _validate_file_path(body.file_path_1)
+        validated_path_2 = _validate_file_path(body.file_path_2)
         result = await document_analysis_service.compare_documents(
-            file_path_1=body.file_path_1,
-            file_path_2=body.file_path_2,
+            file_path_1=validated_path_1,
+            file_path_2=validated_path_2,
             document_type=body.document_type
         )
 
@@ -170,9 +196,11 @@ async def compare_documents(body: DocumentCompare):
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error comparing documents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to compare documents.")
 
 
 @router.post("/chat")
@@ -183,8 +211,9 @@ async def chat_with_document(body: DocumentChat):
     Maintains chat history for follow-up questions.
     """
     try:
+        validated_path = _validate_file_path(body.file_path)
         result = await document_analysis_service.chat_with_document(
-            file_path=body.file_path,
+            file_path=validated_path,
             question=body.question,
             chat_history=body.chat_history
         )
@@ -194,9 +223,11 @@ async def chat_with_document(body: DocumentChat):
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in document chat: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to chat with document.")
 
 
 @router.get("/summary/{file_path:path}")
@@ -210,8 +241,9 @@ async def get_document_summary(file_path: str):
     - Any concerns or risks
     """
     try:
+        validated_path = _validate_file_path(file_path)
         result = await document_analysis_service.analyze_document(
-            file_path=file_path,
+            file_path=validated_path,
             document_type="general",
             property_id=None
         )
@@ -223,9 +255,11 @@ async def get_document_summary(file_path: str):
             "summary": result.get("summary", result.get("analysis", ""))
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting document summary: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get document summary.")
 
 
 @router.get("/types")

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Diagnose DocuSeal API connectivity and authentication"""
 import httpx
+import os
 import sys
 
-API_KEY = "21e1fa6f36ddff7350813d82fc41c5e0-96164d60-9750fbd5"
+API_KEY = os.environ.get("DOCUSEAL_API_KEY", "")
 
 def test_endpoint(url, name):
     """Test a DocuSeal API endpoint"""

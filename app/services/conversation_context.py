@@ -155,9 +155,23 @@ class ConversationContext:
 _contexts: Dict[str, ConversationContext] = {}
 
 
+MAX_CONTEXTS = 100
+STALE_MINUTES = 60
+
+
+def _evict_stale_contexts() -> None:
+    """Remove stale contexts to prevent unbounded memory growth."""
+    if len(_contexts) <= MAX_CONTEXTS:
+        return
+    stale_keys = [k for k, v in _contexts.items() if v.is_stale(STALE_MINUTES)]
+    for k in stale_keys:
+        del _contexts[k]
+
+
 def get_context(session_id: str = "default") -> ConversationContext:
     """Get or create conversation context for a session"""
     if session_id not in _contexts:
+        _evict_stale_contexts()
         _contexts[session_id] = ConversationContext(session_id)
     return _contexts[session_id]
 
