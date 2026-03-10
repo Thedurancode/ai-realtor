@@ -1,20 +1,25 @@
 """
 Voice Agent Router
 
-VAPI webhook endpoints and call management for the AI voice agent.
-Handles inbound calls, speech processing, and outbound call initiation.
+VAPI webhook endpoints, call management, and voice memo processing.
+Handles inbound calls, speech processing, outbound call initiation, and audio transcription.
 """
 import hashlib
 import hmac
 import json
 import logging
+import os
+import tempfile
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.database import get_db
 from app.services.voice_agent_service import voice_agent_service
+from app.services.voice_memo_service import voice_memo_service
 
 logger = logging.getLogger(__name__)
 
@@ -140,3 +145,62 @@ async def get_voice_call(call_id: str):
     if not record:
         raise HTTPException(status_code=404, detail=f"Call {call_id} not found")
     return record
+
+
+# ── Voice Memo (merged from voice_memo.py) ──────────────────────
+
+_memo_router = APIRouter(prefix="/voice-memo", tags=["Voice Memo"])
+
+
+def _get_file_suffix(filename: str | None) -> str:
+    """Extract file extension from filename, defaulting to .wav."""
+    if filename and "." in filename:
+        return "." + filename.rsplit(".", 1)[-1].lower()
+    return ".wav"
+
+
+@_memo_router.post("/transcribe")
+async def transcribe_audio(file: UploadFile = File(...)):
+    """Upload an audio file and get the transcript back."""
+    suffix = _get_file_suffix(file.filename)
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+    try:
+        transcript = voice_memo_service.transcribe_audio(tmp_path)
+        return {"transcript": transcript, "filename": file.filename, "message": "Audio transcribed successfully"}
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+@_memo_router.post("/process")
+async def process_voice_memo(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    property_id: Optional[int] = Form(None),
+    contact_id: Optional[int] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """Upload audio, transcribe, and ingest into Knowledge Base for RAG search."""
+    suffix = _get_file_suffix(file.filename)
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+    try:
+        result = voice_memo_service.process_voice_memo_with_db(
+            db=db, file_path=tmp_path, title=title, property_id=property_id, contact_id=contact_id,
+        )
+        return {
+            "transcript": result["transcript"],
+            "document_id": result["document_id"],
+            "chunk_count": result["chunk_count"],
+            "message": f"Voice memo transcribed and ingested — {result['chunk_count']} chunks created",
+        }
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)

@@ -5,9 +5,12 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 
+from fastapi import Query
+
 from app.database import get_db
 from app.models.follow_up_sequence import SequenceStatus, LeadTemperature
 from app.services.follow_up_sequence_service import follow_up_sequence_service
+from app.services.follow_up_queue_service import follow_up_queue_service
 
 router = APIRouter(prefix="/sequences", tags=["Follow-Up Sequences"])
 
@@ -105,3 +108,35 @@ async def record_engagement(sequence_id: int, event: EngagementEvent, db: Sessio
 async def list_templates():
     """List all available sequence templates."""
     return follow_up_sequence_service.get_templates()
+
+
+# ── Follow-Up Queue (merged from follow_ups.py) ─────────────────
+
+class CompleteBody(BaseModel):
+    note: Optional[str] = None
+
+
+class SnoozeBody(BaseModel):
+    hours: int = 72
+
+
+_queue_router = APIRouter(prefix="/follow-ups", tags=["follow-ups"])
+
+
+@_queue_router.get("/queue")
+def get_follow_up_queue(
+    limit: int = Query(10, description="Max items to return (1-25)", ge=1, le=25),
+    priority: Optional[str] = Query(None, description="Filter: urgent, high, medium, low"),
+    db: Session = Depends(get_db),
+):
+    return follow_up_queue_service.get_queue(db, limit=limit, priority=priority)
+
+
+@_queue_router.post("/{property_id}/complete")
+def complete_follow_up(property_id: int, body: CompleteBody = CompleteBody(), db: Session = Depends(get_db)):
+    return follow_up_queue_service.complete_follow_up(db, property_id, note=body.note)
+
+
+@_queue_router.post("/{property_id}/snooze")
+def snooze_follow_up(property_id: int, body: SnoozeBody = SnoozeBody(), db: Session = Depends(get_db)):
+    return follow_up_queue_service.snooze_follow_up(db, property_id, hours=body.hours)

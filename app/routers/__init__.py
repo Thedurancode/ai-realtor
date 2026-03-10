@@ -26,17 +26,17 @@ from app.routers.offers import router as offers_router
 from app.routers.search import router as search_router
 from app.routers.deal_calculator import router as deal_calculator_router
 from app.routers.workflows import router as workflows_router
-from app.routers.property_notes import router as property_notes_router
+# property_notes merged into property_recap.py
 from app.routers.insights import router as insights_router
 from app.routers.scheduled_tasks import router as scheduled_tasks_router
-from app.routers.analytics import router as analytics_router
+# analytics merged into analytics_dashboard.py
 from app.routers.pipeline import router as pipeline_router
 from app.routers.daily_digest import router as daily_digest_router
-from app.routers.follow_ups import router as follow_ups_router
+# follow_ups merged into follow_up_sequences.py
 from app.routers.comps import router as comps_router
 from app.routers.bulk import router as bulk_router
 from app.routers.activity_timeline import router as activity_timeline_router
-from app.routers.property_scoring import router as property_scoring_router
+# property_scoring merged into property_recap.py
 from app.routers.market_watchlist import router as market_watchlist_router
 # New intelligence routers
 from app.routers.predictive_intelligence import router as predictive_intelligence_router
@@ -117,9 +117,8 @@ from app.routers.listing_presentation import router as listing_presentation_rout
 from app.routers.cma_report import router as cma_report_router
 # Morning Brief (Telegram daily summary)
 from app.routers.morning_brief import router as morning_brief_router
-# Voice Memo (Transcribe + RAG Ingest)
-from app.routers.voice_memo import router as voice_memo_router
+# voice_memo merged into voice_agent.py
 # Transaction Coordinator
 from app.routers.transaction_coordinator import router as transaction_coordinator_router
 
-__all__ = ["agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router", "deal_types_router", "research_router", "research_templates_router", "ai_agents_router", "elevenlabs_router", "agentic_research_router", "exa_research_router", "voice_campaigns_router", "offers_router", "search_router", "deal_calculator_router", "workflows_router", "property_notes_router", "insights_router", "scheduled_tasks_router", "analytics_router", "pipeline_router", "daily_digest_router", "follow_ups_router", "comps_router", "bulk_router", "activity_timeline_router", "property_scoring_router", "market_watchlist_router", "predictive_intelligence_router", "market_opportunities_router", "relationship_intelligence_router", "intelligence_router", "web_scraper", "workspace_router", "cron_scheduler_router", "hybrid_search_router", "onboarding_router", "approval_router", "credential_scrubbing_router", "observer_router", "agent_brand_router", "facebook_ads_router", "postiz_router", "videogen_router", "zuckerbot_router", "facebook_targeting_router", "composio_router", "campaigns_router", "document_analysis_router", "sqlite_tuning_router", "skills_router", "setup_router", "renders_router", "property_videos_router", "photo_orders_router", "direct_mail_router", "contact_lists_router", "products_router", "pvc_router", "video_chat_router", "knowledge_base_router", "webhook_listeners_router", "voice_agent_router", "email_triage_router", "follow_up_sequences_router", "deal_journal_router", "listing_presentation_router", "cma_report_router", "morning_brief_router", "voice_memo_router", "transaction_coordinator_router"]
+__all__ = ["agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router", "deal_types_router", "research_router", "research_templates_router", "ai_agents_router", "elevenlabs_router", "agentic_research_router", "exa_research_router", "voice_campaigns_router", "offers_router", "search_router", "deal_calculator_router", "workflows_router", "insights_router", "scheduled_tasks_router", "pipeline_router", "daily_digest_router", "comps_router", "bulk_router", "activity_timeline_router", "market_watchlist_router", "predictive_intelligence_router", "market_opportunities_router", "relationship_intelligence_router", "intelligence_router", "web_scraper", "workspace_router", "cron_scheduler_router", "hybrid_search_router", "onboarding_router", "approval_router", "credential_scrubbing_router", "observer_router", "agent_brand_router", "facebook_ads_router", "postiz_router", "videogen_router", "zuckerbot_router", "facebook_targeting_router", "composio_router", "campaigns_router", "document_analysis_router", "sqlite_tuning_router", "skills_router", "setup_router", "renders_router", "property_videos_router", "photo_orders_router", "direct_mail_router", "contact_lists_router", "products_router", "pvc_router", "video_chat_router", "knowledge_base_router", "webhook_listeners_router", "voice_agent_router", "email_triage_router", "follow_up_sequences_router", "deal_journal_router", "listing_presentation_router", "cma_report_router", "morning_brief_router", "transaction_coordinator_router"]

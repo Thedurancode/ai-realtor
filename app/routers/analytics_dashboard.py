@@ -25,6 +25,26 @@ from app.models.dashboard import Dashboard
 
 router = APIRouter(prefix="/analytics/dashboard", tags=["analytics_dashboard"])
 
+# ── Portfolio analytics (merged from analytics.py) ────────────────
+from app.services.analytics_service import analytics_service as _analytics_singleton
+
+_portfolio_router = APIRouter(prefix="/analytics", tags=["analytics"])
+
+
+@_portfolio_router.get("/portfolio")
+def get_portfolio_summary(db: Session = Depends(get_db)):
+    return _analytics_singleton.get_portfolio_summary(db)
+
+
+@_portfolio_router.get("/pipeline")
+def get_pipeline_summary(db: Session = Depends(get_db)):
+    return _analytics_singleton.get_pipeline_summary(db)
+
+
+@_portfolio_router.get("/contracts")
+def get_contract_summary(db: Session = Depends(get_db)):
+    return _analytics_singleton.get_contract_summary(db)
+
 
 # ============================================================
 # Pydantic Models

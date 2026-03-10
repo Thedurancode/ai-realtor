@@ -3,15 +3,21 @@ Property Recap and Phone Call Endpoints
 
 API endpoints for AI-generated property summaries and VAPI phone calls.
 """
-from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import requests
 
 from app.database import get_db
 from app.rate_limit import limiter
 from app.models.property import Property
+from app.models.property_note import PropertyNote, NoteSource
 from app.models.property_recap import PropertyRecap
-from app.services.property_recap_service import property_recap_service
+from app.schemas.property_note import NoteCreate, NoteResponse, NoteListResponse
+from app.services.property_recap_service import property_recap_service, regenerate_recap_background
+from app.services.property_scoring_service import property_scoring_service
 from app.services.vapi_service import vapi_service
 from app.schemas.property_recap import RecapResponse, PhoneCallRequest, PhoneCallResponse
 
@@ -262,3 +268,93 @@ async def get_call_recording(call_id: str):
             status_code=500,
             detail=f"Error getting recording: {str(e)}"
         )
+
+
+# ── Property Notes (merged from property_notes.py) ──────────────
+
+_notes_router = APIRouter(prefix="/property-notes", tags=["property-notes"])
+
+
+@_notes_router.post("/", response_model=NoteResponse, status_code=201)
+async def create_note(note: NoteCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Add a note to a property."""
+    prop = db.query(Property).filter(Property.id == note.property_id).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    new_note = PropertyNote(
+        property_id=note.property_id, content=note.content, source=note.source, created_by=note.created_by,
+    )
+    db.add(new_note)
+    db.commit()
+    db.refresh(new_note)
+    background_tasks.add_task(regenerate_recap_background, note.property_id, "note_added")
+    return new_note
+
+
+@_notes_router.get("/property/{property_id}", response_model=NoteListResponse)
+def list_notes(property_id: int, limit: int = 20, db: Session = Depends(get_db)):
+    """List notes for a property, most recent first."""
+    prop = db.query(Property).filter(Property.id == property_id).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    notes = (
+        db.query(PropertyNote).filter(PropertyNote.property_id == property_id)
+        .order_by(PropertyNote.created_at.desc()).limit(limit).all()
+    )
+    if not notes:
+        voice_summary = f"No notes for {prop.address}."
+    elif len(notes) == 1:
+        voice_summary = f"1 note for {prop.address}: {notes[0].content[:100]}"
+    else:
+        voice_summary = f"{len(notes)} notes for {prop.address}. Most recent: {notes[0].content[:100]}"
+    return NoteListResponse(notes=notes, voice_summary=voice_summary)
+
+
+@_notes_router.delete("/{note_id}", status_code=204)
+def delete_note(note_id: int, db: Session = Depends(get_db)):
+    """Delete a note."""
+    note = db.query(PropertyNote).filter(PropertyNote.id == note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    db.delete(note)
+    db.commit()
+    return None
+
+
+# ── Property Scoring (merged from property_scoring.py) ───────────
+
+class BulkScoreRequest(BaseModel):
+    property_ids: list[int] | None = None
+    filters: dict | None = None
+
+
+_scoring_router = APIRouter(prefix="/scoring", tags=["scoring"])
+
+
+@_scoring_router.post("/property/{property_id}")
+def score_property(property_id: int, db: Session = Depends(get_db)):
+    """Score a single property (recalculates and saves)."""
+    return property_scoring_service.score_property(db, property_id)
+
+
+@_scoring_router.get("/property/{property_id}")
+def get_score_breakdown(property_id: int, db: Session = Depends(get_db)):
+    """Get stored score breakdown for a property (no recalculation)."""
+    prop = db.query(Property).filter(Property.id == property_id).first()
+    if not prop:
+        return {"error": f"Property {property_id} not found"}
+    if prop.deal_score is None:
+        return {"error": "Property has not been scored yet. Use POST to score."}
+    return {"property_id": prop.id, "address": prop.address, "score": prop.deal_score, "grade": prop.score_grade, "breakdown": prop.score_breakdown}
+
+
+@_scoring_router.post("/bulk")
+def bulk_score(request: BulkScoreRequest, db: Session = Depends(get_db)):
+    """Score multiple properties."""
+    return property_scoring_service.bulk_score(db, property_ids=request.property_ids, filters=request.filters)
+
+
+@_scoring_router.get("/top")
+def get_top_properties_scored(limit: int = Query(10, ge=1, le=100), min_score: float = Query(0, ge=0, le=100), db: Session = Depends(get_db)):
+    """Get top-scored properties."""
+    return property_scoring_service.get_top_properties(db, limit=limit, min_score=min_score)

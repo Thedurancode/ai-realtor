@@ -11,9 +11,9 @@ from app.routers import (
     research_templates_router, ai_agents_router, elevenlabs_router,
     agentic_research_router, exa_research_router, voice_campaigns_router,
     offers_router, search_router, deal_calculator_router, workflows_router,
-    property_notes_router, insights_router, scheduled_tasks_router,
-    analytics_router, pipeline_router, daily_digest_router, follow_ups_router,
-    comps_router, bulk_router, activity_timeline_router, property_scoring_router,
+    insights_router, scheduled_tasks_router,
+    pipeline_router, daily_digest_router,
+    comps_router, bulk_router, activity_timeline_router,
     market_watchlist_router, web_scraper, approval_router,
     credential_scrubbing_router, observer_router, agent_brand_router,
     postiz_router, videogen_router, sqlite_tuning_router, skills_router,
@@ -23,7 +23,7 @@ from app.routers import (
     products_router, pvc_router, video_chat_router, knowledge_base_router,
     webhook_listeners_router, voice_agent_router, email_triage_router,
     follow_up_sequences_router, deal_journal_router, listing_presentation_router,
-    cma_report_router, morning_brief_router, voice_memo_router,
+    cma_report_router, morning_brief_router,
 )
 from app.routers import (
     portal, document_extraction, calendar, analytics_dashboard,
@@ -33,6 +33,11 @@ from app.routers import (
     enhanced_property_videos, property_websites, telnyx,
     orchestration_router, transaction_coordinator_router,
 )
+# Sub-routers merged into larger files
+from app.routers.analytics_dashboard import _portfolio_router
+from app.routers.voice_agent import _memo_router
+from app.routers.property_recap import _notes_router, _scoring_router
+from app.routers.follow_up_sequences import _queue_router
 
 
 def register_routers(app: FastAPI) -> None:
@@ -74,7 +79,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(elevenlabs_router)
     app.include_router(voice_campaigns_router)
     app.include_router(voice_agent_router)
-    app.include_router(voice_memo_router)
+    app.include_router(_memo_router)  # merged from voice_memo.py
     app.include_router(telnyx.router)
 
     # Deals & Offers
@@ -88,12 +93,12 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(workflows_router)
     app.include_router(scheduled_tasks_router)
     app.include_router(daily_digest_router)
-    app.include_router(follow_ups_router)
+    app.include_router(_queue_router)  # merged from follow_ups.py
     app.include_router(follow_up_sequences_router)
     app.include_router(morning_brief_router)
 
     # Analytics & Intelligence
-    app.include_router(analytics_router)
+    app.include_router(_portfolio_router)  # merged from analytics.py
     app.include_router(analytics_dashboard.router)
     app.include_router(analytics_alerts.router)
     app.include_router(insights_router)
@@ -103,8 +108,8 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(intelligence.router)
 
     # Properties extended
-    app.include_router(property_notes_router)
-    app.include_router(property_scoring_router)
+    app.include_router(_notes_router)  # merged from property_notes.py
+    app.include_router(_scoring_router)  # merged from property_scoring.py
     app.include_router(property_videos.router)
     app.include_router(property_websites.router)
     app.include_router(comps_router)

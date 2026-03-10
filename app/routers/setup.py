@@ -9,11 +9,12 @@ manually editing .env files.
 import os
 import json
 import logging
+import secrets
 import subprocess
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 import httpx
 from sqlalchemy import text
@@ -22,6 +23,53 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 
 router = APIRouter(prefix="/api/setup", tags=["setup"])
+
+# ── Setup Security ──────────────────────────────────────────────────
+# Once the platform is configured, setup endpoints require either:
+# 1. A valid x-api-key header (same as normal API auth), OR
+# 2. The SETUP_TOKEN from .env (for initial reconfiguration)
+# The /status endpoint is always readable (values are masked).
+
+
+def _is_configured() -> bool:
+    """Check if all required env vars are set."""
+    return all(os.getenv(key) for key in REQUIRED_ENV_VARS)
+
+
+def _verify_setup_access(request: Request) -> None:
+    """Verify the caller has permission to modify setup.
+
+    Once configured, requires x-api-key or x-setup-token header.
+    Before first configuration, access is open.
+    """
+    if not _is_configured():
+        return  # First-time setup — allow open access
+
+    # Check for API key (same as normal auth)
+    api_key = request.headers.get("x-api-key")
+    if api_key:
+        from app.auth import verify_api_key
+        db = SessionLocal()
+        try:
+            agent = verify_api_key(db, api_key)
+            if agent:
+                return
+        finally:
+            db.close()
+
+    # Check for setup token
+    setup_token = request.headers.get("x-setup-token")
+    expected_token = os.getenv("SETUP_TOKEN", "")
+    if setup_token and expected_token and secrets.compare_digest(setup_token, expected_token):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Setup is locked. Provide x-api-key or x-setup-token header."
+    )
+
+
+from app.database import SessionLocal
 
 
 # =============================================================================
@@ -127,27 +175,9 @@ async def get_setup_status():
 
 
 @router.post("/validate", response_model=ValidateResponse)
-async def validate_api_key(request: ValidateRequest):
-    """
-    Validate an API key by testing it against the respective service.
-
-    Supports validation for:
-    - Google Places API
-    - RapidAPI (Zillow/Skip Trace)
-    - DocuSeal
-    - Telegram Bot
-    - Zhipu AI
-    - Anthropic Claude
-    - VAPI
-    - ElevenLabs
-    - Resend
-    - Exa AI
-
-    Returns:
-        - valid: True if key is valid
-        - error: Error message if validation failed
-        - service: Service name that was validated
-    """
+async def validate_api_key(request: ValidateRequest, _auth=Depends(_verify_setup_access)):
+    """Validate an API key by testing it against the respective service.
+    Requires auth (x-api-key or x-setup-token) once platform is configured."""
     key = request.key
     value = request.value.strip()
 
@@ -471,21 +501,8 @@ async def validate_api_key(request: ValidateRequest):
 
 
 @router.post("/save", response_model=SaveResponse)
-async def save_configuration(request: SaveRequest):
-    """
-    Save environment configuration and restart services.
-
-    This endpoint:
-    1. Validates all required keys are present
-    2. Saves to .env file
-    3. Optionally restarts Docker containers
-    4. Returns success status
-
-    Returns:
-        - success: True if saved successfully
-        - message: Status message
-        - restarted: True if containers were restarted
-    """
+async def save_configuration(request: SaveRequest, _auth=Depends(_verify_setup_access)):
+    """Save environment configuration. Requires auth once platform is configured."""
     values = request.values
 
     # Validate all required keys are present
@@ -559,12 +576,8 @@ async def save_configuration(request: SaveRequest):
 
 
 @router.post("/restart")
-async def restart_services():
-    """
-    Restart all Docker services.
-
-    Useful after configuration changes.
-    """
+async def restart_services(_auth=Depends(_verify_setup_access)):
+    """Restart all Docker services. Requires auth once platform is configured."""
     try:
         if os.path.exists('/.dockerenv'):
             # Restart AI Realtor
