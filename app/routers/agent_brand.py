@@ -980,7 +980,8 @@ def delete_agent_brand(
     if not brand:
         raise HTTPException(status_code=404, detail="Brand profile not found")
 
-    agent_name = db.query(Agent).filter(Agent.id == agent_id).first().name
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    agent_name = agent.name if agent else "Unknown"
 
     db.delete(brand)
     db.commit()

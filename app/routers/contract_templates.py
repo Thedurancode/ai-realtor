@@ -61,7 +61,7 @@ def list_templates(
     if state:
         query = query.filter(
             (ContractTemplate.state == state) |
-            (ContractTemplate.state == None)
+            (ContractTemplate.state.is_(None))
         )
 
     if category:

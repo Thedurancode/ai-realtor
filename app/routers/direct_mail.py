@@ -73,7 +73,7 @@ async def send_postcard(
     # Use provided from_address or agent's default
     if not data.from_address:
         data.from_address = {
-            "name": agent.full_name or "Real Estate Agent",
+            "name": agent.name or "Real Estate Agent",
             "company": agent.brokerage or "",
             "address_line1": agent.office_address or "123 Main St",
             "address_city": agent.office_city or "Anytown",
@@ -221,7 +221,7 @@ async def send_letter(
     # Use provided from_address or agent's default
     if not data.from_address:
         data.from_address = {
-            "name": agent.full_name or "Real Estate Agent",
+            "name": agent.name or "Real Estate Agent",
             "company": agent.brokerage or "",
             "address_line1": agent.office_address or "123 Main St",
             "address_city": agent.office_city or "Anytown",

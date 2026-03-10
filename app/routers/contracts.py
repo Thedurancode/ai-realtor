@@ -1082,7 +1082,7 @@ async def send_contract_multi_party(
             })
 
         # Send multi-party notification emails
-        resend_service.send_multi_party_notification(
+        await resend_service.send_multi_party_notification(
             submitters=resend_submitters,
             contract_name=contract.name,
             property_address=contract.property.address,

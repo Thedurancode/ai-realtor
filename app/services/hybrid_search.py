@@ -78,7 +78,8 @@ class HybridSearchEngine:
 
         # Populate FTS5 if empty
         cursor.execute("SELECT COUNT(*) FROM property_fts")
-        if cursor.fetchone()[0] == 0:
+        row = cursor.fetchone()
+        if not row or row[0] == 0:
             logger.info("Populating property_fts table...")
             cursor.execute("""
                 INSERT INTO property_fts(rowid, address, city, description)
@@ -393,7 +394,8 @@ class HybridSearchEngine:
 
         cursor = self.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM property_embeddings")
-        count = cursor.fetchone()[0]
+        row = cursor.fetchone()
+        count = row[0] if row else 0
         return count > 0
 
     def search_similar_properties(

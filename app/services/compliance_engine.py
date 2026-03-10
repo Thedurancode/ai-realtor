@@ -125,7 +125,7 @@ class ComplianceEngine:
 
         # Add city-specific rules
         rules = query.filter(
-            (ComplianceRule.city == None) |
+            (ComplianceRule.city.is_(None)) |
             (ComplianceRule.city == property.city)
         ).all()
 
