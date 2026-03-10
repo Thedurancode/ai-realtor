@@ -1,0 +1,35 @@
+{
+  "name": "RealtorClaw AI Platform",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.11" },
+    "ghcr.io/devcontainers/features/node:1": { "version": "20" },
+    "ghcr.io/devcontainers/features/common-utils:2": {}
+  },
+  "forwardedPorts": [8000, 8001, 3000],
+  "portsAttributes": {
+    "8000": { "label": "API Server", "onAutoForward": "notify" },
+    "8001": { "label": "MCP SSE Server", "onAutoForward": "notify" },
+    "3000": { "label": "Frontend", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "pip install -r requirements.txt && npm install -g @anthropic-ai/claude-code",
+  "postStartCommand": "bash scripts/daytona-start.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      }
+    }
+  },
+  "remoteEnv": {
+    "DATABASE_URL": "sqlite:///./realtorclaw.db",
+    "PORTAL_JWT_SECRET": "${localEnv:PORTAL_JWT_SECRET}"
+  }
+}

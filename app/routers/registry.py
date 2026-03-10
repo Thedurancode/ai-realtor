@@ -31,7 +31,7 @@ from app.routers import (
     market_opportunities, relationship_intelligence, intelligence,
     workspace, cron_scheduler, hybrid_search, onboarding,
     enhanced_property_videos, property_websites, telnyx,
-    orchestration_router, transaction_coordinator_router,
+    orchestration_router, transaction_coordinator_router, timeline,
 )
 # Sub-routers merged into larger files
 from app.routers.analytics_dashboard import _portfolio_router
@@ -131,6 +131,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(renders_router)
     app.include_router(video_chat_router)
     app.include_router(pvc_router)
+    app.include_router(timeline.router)
 
     # Operations
     app.include_router(bulk_router)

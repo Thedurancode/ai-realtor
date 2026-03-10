@@ -76,3 +76,7 @@ class TimelineProjectList(BaseModel):
 class RenderFromTimelineRequest(BaseModel):
     """Request to render a timeline project."""
     webhook_url: Optional[str] = None
+
+
+# Re-export from render_job schema for backward compatibility
+from app.schemas.render_job import RenderJobResponse  # noqa: E402, F401

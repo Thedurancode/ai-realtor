@@ -165,6 +165,13 @@ def health_check():
             "error": db_error,
         },
     }
+    # Add circuit breaker status
+    try:
+        from app.utils.circuit_breaker import circuit_breakers
+        response["circuit_breakers"] = circuit_breakers.status()
+    except Exception:
+        pass
+
     if db_status != "healthy":
         return JSONResponse(status_code=503, content=response)
     return response

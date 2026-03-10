@@ -28,7 +28,7 @@ from . import activity_timeline  # noqa: F401
 from . import property_scoring  # noqa: F401
 from . import market_watchlist  # noqa: F401
 from . import heartbeat  # noqa: F401
-# facebook_targeting uses legacy import pattern — skipped
+from . import facebook_targeting  # noqa: F401
 # New intelligence tools
 from . import intelligence  # noqa: F401
 # Postiz social media integration
@@ -47,20 +47,18 @@ from . import calls  # noqa: F401
 from . import call_history  # noqa: F401
 # Property photo ordering
 from . import photo_orders  # noqa: F401
-# Photo ordering
-from . import photo_orders  # noqa: F401
 # Direct mail tools (Lob.com)
 from . import direct_mail  # noqa: F401
 # Contact lists tools
 from . import contact_lists  # noqa: F401
-# property_websites uses legacy import pattern — skipped
+from . import property_websites  # noqa: F401
 # Zuckerbot AI Facebook Ads
 from . import zuckerbot  # noqa: F401
 # Skills System
 from . import skills  # noqa: F401
 # Shotstack video pipeline (property + brand videos)
 from . import shotstack_videos  # noqa: F401
-# enhanced_property_videos uses legacy import pattern — skipped
+from . import enhanced_property_videos  # noqa: F401
 # Knowledge Base RAG
 from . import knowledge_base  # noqa: F401
 # Webhook Listeners
@@ -97,5 +95,9 @@ from . import approval  # noqa: F401
 from . import agents  # noqa: F401
 # Agent onboarding
 from . import onboarding  # noqa: F401
-# Web scraper tools - TODO: Fix import issues
-# from . import web_scraper  # noqa: F401
+# Web scraper tools
+from . import web_scraper  # noqa: F401
+# Document analysis (inspection reports, contracts)
+from . import document_analysis  # noqa: F401
+# Context (property conversation history)
+from . import context  # noqa: F401
