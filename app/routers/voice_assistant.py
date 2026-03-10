@@ -1,6 +1,7 @@
 """Voice Assistant API - manage phone numbers and handle inbound calls."""
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, case
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -326,45 +327,46 @@ def get_call_analytics(
     db: Session = Depends(get_db),
     current_agent: Agent = Depends(get_current_agent)
 ):
-    """Get call analytics overview."""
-    calls = db.query(PhoneCall).filter(
-        PhoneCall.agent_id == current_agent.id
-    ).all()
+    """Get call analytics overview — aggregated in SQL instead of loading all rows."""
+    base = db.query(PhoneCall).filter(PhoneCall.agent_id == current_agent.id)
 
-    # Calculate metrics
-    total_calls = len(calls)
-    inbound_calls = len([c for c in calls if c.direction == "inbound"])
-    outbound_calls = len([c for c in calls if c.direction == "outbound"])
+    # Aggregate counts and sums in a single query
+    stats = base.with_entities(
+        func.count(PhoneCall.id).label("total"),
+        func.sum(case((PhoneCall.direction == "inbound", 1), else_=0)).label("inbound"),
+        func.sum(case((PhoneCall.direction == "outbound", 1), else_=0)).label("outbound"),
+        func.sum(case((PhoneCall.status == "completed", 1), else_=0)).label("completed"),
+        func.sum(case((PhoneCall.status.in_(["no_answer", "busy", "failed"]), 1), else_=0)).label("missed"),
+        func.coalesce(func.sum(PhoneCall.duration_seconds), 0).label("duration"),
+        func.coalesce(func.sum(PhoneCall.cost), 0).label("cost"),
+    ).first()
 
-    completed_calls = len([c for c in calls if c.status == "completed"])
-    missed_calls = len([c for c in calls if c.status in ["no_answer", "busy", "failed"]])
-
-    total_duration = sum([c.duration_seconds or 0 for c in calls])
-    total_cost = sum([c.cost or 0 for c in calls])
+    total = stats.total or 0
+    completed = int(stats.completed or 0)
 
     # Intent breakdown
-    intents = {}
-    for call in calls:
-        if call.intent:
-            intents[call.intent] = intents.get(call.intent, 0) + 1
+    intent_rows = base.with_entities(
+        PhoneCall.intent, func.count(PhoneCall.id)
+    ).filter(PhoneCall.intent.isnot(None)).group_by(PhoneCall.intent).all()
+    intents = {row[0]: row[1] for row in intent_rows}
 
     # Outcome breakdown
-    outcomes = {}
-    for call in calls:
-        if call.outcome:
-            outcomes[call.outcome] = outcomes.get(call.outcome, 0) + 1
+    outcome_rows = base.with_entities(
+        PhoneCall.outcome, func.count(PhoneCall.id)
+    ).filter(PhoneCall.outcome.isnot(None)).group_by(PhoneCall.outcome).all()
+    outcomes = {row[0]: row[1] for row in outcome_rows}
 
     return {
-        "total_calls": total_calls,
-        "inbound_calls": inbound_calls,
-        "outbound_calls": outbound_calls,
-        "completed_calls": completed_calls,
-        "missed_calls": missed_calls,
-        "completion_rate": round(completed_calls / total_calls * 100, 1) if total_calls > 0 else 0,
-        "total_duration_minutes": round(total_duration / 60, 1),
-        "total_cost": round(total_cost, 2),
+        "total_calls": total,
+        "inbound_calls": int(stats.inbound or 0),
+        "outbound_calls": int(stats.outbound or 0),
+        "completed_calls": completed,
+        "missed_calls": int(stats.missed or 0),
+        "completion_rate": round(completed / total * 100, 1) if total > 0 else 0,
+        "total_duration_minutes": round(float(stats.duration) / 60, 1),
+        "total_cost": round(float(stats.cost), 2),
         "intents": intents,
-        "outcomes": outcomes
+        "outcomes": outcomes,
     }
 
 

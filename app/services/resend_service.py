@@ -313,7 +313,7 @@ Powered by AI Realtor Platform
         except Exception as e:
             return {"success": False, "error": str(e), "to": to_email}
 
-    def send_multi_party_notification(
+    async def send_multi_party_notification(
         self,
         submitters: List[Dict[str, Any]],
         contract_name: str,
@@ -334,7 +334,7 @@ Powered by AI Realtor Platform
         Returns:
             List of send results
         """
-        import time
+        import asyncio
         results = []
 
         for i, submitter in enumerate(submitters):
@@ -353,7 +353,7 @@ Powered by AI Realtor Platform
 
             # Add delay to respect Resend rate limit (2 emails/second)
             if i < len(submitters) - 1:  # Don't delay after last email
-                time.sleep(0.6)  # 600ms delay = ~1.6 emails/second
+                await asyncio.sleep(0.6)  # 600ms delay — non-blocking
 
         return results
 

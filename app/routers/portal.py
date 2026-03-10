@@ -260,7 +260,7 @@ async def get_my_properties(
             id=access.id,
             property_id=access.property_id,
             access_level=access.access_level,
-            relationship=access.relationship,
+            relationship=access.relationship_type,
             can_view_price=access.can_view_price,
             can_sign_contracts=access.can_sign_contracts,
             property=property_data
@@ -286,42 +286,43 @@ async def search_properties(
         ).all()
     ]
 
-    # Search for matching properties
+    # Search for matching properties — batch load instead of N+1
     query = query.lower().strip()
 
-    all_matches = []
-    for prop_id in accessible_property_ids:
-        prop = db.query(Property).filter(Property.id == prop_id).first()
-        if prop:
-            # Build searchable strings
-            searchable = [
-                f"{prop.address}, {prop.city}, {prop.state}".lower(),
-                f"{prop.address} {prop.city} {prop.state}".lower(),
-                f"{prop.address}, {prop.city}".lower(),
-                f"{prop.address}".lower(),
-                f"{prop.city}, {prop.state}".lower(),
-                f"{prop.city}".lower(),
-            ]
-            # Check if query matches any searchable string
-            if any(query in s for s in searchable):
-                # Get access info for this property
-                access = db.query(PropertyAccess).filter(
-                    PropertyAccess.portal_user_id == current_user.id,
-                    PropertyAccess.property_id == prop.id,
-                    PropertyAccess.is_active == True
-                ).first()
+    # Load all accessible properties in one query
+    properties = db.query(Property).filter(Property.id.in_(accessible_property_ids)).all()
 
-                if access:
-                    all_matches.append({
-                        "id": prop.id,
-                        "title": prop.title,
-                        "address": prop.address,
-                        "city": prop.city,
-                        "state": prop.state,
-                        "zip_code": prop.zip_code,
-                        "access_level": access.access_level,
-                        "relationship": access.relationship,
-                    })
+    # Build access lookup in one query
+    accesses = db.query(PropertyAccess).filter(
+        PropertyAccess.portal_user_id == current_user.id,
+        PropertyAccess.property_id.in_(accessible_property_ids),
+        PropertyAccess.is_active == True
+    ).all()
+    access_map = {a.property_id: a for a in accesses}
+
+    all_matches = []
+    for prop in properties:
+        searchable = [
+            f"{prop.address}, {prop.city}, {prop.state}".lower(),
+            f"{prop.address} {prop.city} {prop.state}".lower(),
+            f"{prop.address}, {prop.city}".lower(),
+            f"{prop.address}".lower(),
+            f"{prop.city}, {prop.state}".lower(),
+            f"{prop.city}".lower(),
+        ]
+        if any(query in s for s in searchable):
+            access = access_map.get(prop.id)
+            if access:
+                all_matches.append({
+                    "id": prop.id,
+                    "title": prop.title,
+                    "address": prop.address,
+                    "city": prop.city,
+                    "state": prop.state,
+                    "zip_code": prop.zip_code,
+                    "access_level": access.access_level,
+                    "relationship": access.relationship_type,
+                })
 
     log_activity(db, current_user.id, "search_properties", metadata=f"Searched for: {query}")
 
@@ -362,7 +363,7 @@ async def get_property_by_identifier(
                 "city": prop.city,
                 "state": prop.state,
                 "access_level": access.access_level,
-                "relationship": access.relationship,
+                "relationship": access.relationship_type,
                 "can_view_price": access.can_view_price,
                 "can_sign_contracts": access.can_sign_contracts,
             })
@@ -529,8 +530,8 @@ async def get_contract_details(
         "property_id": contract.property_id,
         "status": contract.status,
         "is_required": contract.is_required,
-        "docuseal_document_id": contract.docuseal_document_id,
-        "docuseal_signing_url": contract.docuseal_signing_url,
+        "docuseal_document_id": contract.docuseal_submission_id,
+        "docuseal_signing_url": contract.docuseal_url,
         "can_sign": access.can_sign_contracts,
         "created_at": contract.created_at,
         "updated_at": contract.updated_at
@@ -643,7 +644,7 @@ async def grant_property_access(
     if existing_access:
         # Update existing access
         existing_access.access_level = request.access_level
-        existing_access.relationship = request.relationship
+        existing_access.relationship_type = request.relationship
         existing_access.can_view_price = request.can_view_price
         existing_access.can_sign_contracts = request.can_sign_contracts
         existing_access.is_active = True
@@ -653,7 +654,7 @@ async def grant_property_access(
             portal_user_id=user.id,
             property_id=request.property_id,
             access_level=request.access_level,
-            relationship=request.relationship,
+            relationship_type=request.relationship,
             can_view_price=request.can_view_price,
             can_sign_contracts=request.can_sign_contracts
         )

@@ -346,13 +346,16 @@ class SQLiteIndexAnalyzer:
                 table = suggestion["table"]
                 columns = suggestion["columns"]
 
-                # Check if index exists
-                result = conn.execute(text(f"""
-                    SELECT name FROM sqlite_master
-                    WHERE type='index'
-                    AND tbl_name='{table}'
-                    AND sql LIKE '%{columns[0]}%'
-                """))
+                # Check if index exists (parameterized to avoid SQL injection)
+                result = conn.execute(
+                    text("""
+                        SELECT name FROM sqlite_master
+                        WHERE type='index'
+                        AND tbl_name=:table_name
+                        AND sql LIKE :col_pattern
+                    """),
+                    {"table_name": table, "col_pattern": f"%{columns[0]}%"}
+                )
 
                 if not result.fetchone():
                     suggestions.append(suggestion)
@@ -385,7 +388,8 @@ class SQLiteIndexAnalyzer:
                     if not table.isidentifier():
                         continue
                     count_result = conn.execute(text(f'SELECT COUNT(*) FROM "{table}"'))
-                    row_count = count_result.fetchone()[0]
+                    row = count_result.fetchone()
+                    row_count = row[0] if row else 0
 
                     stats.append({
                         "table": table,

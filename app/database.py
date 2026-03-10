@@ -34,6 +34,7 @@ else:
         pool_size=5,
         max_overflow=10,
         pool_pre_ping=True,
+        pool_recycle=1800,  # Recycle connections after 30 min to avoid stale connections
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -103,13 +103,18 @@ def list_photo_orders(
         .all()
     )
 
-    # Add property addresses
+    # Add property addresses — batch load instead of N+1
+    property_ids = list({o.property_id for o in orders if o.property_id})
+    if property_ids:
+        props = db.query(Property.id, Property.address).filter(Property.id.in_(property_ids)).all()
+        addr_map = {p.id: p.address for p in props}
+    else:
+        addr_map = {}
+
     result = []
     for order in orders:
         order_dict = PhotoOrderSummary.model_validate(order).model_dump()
-        property_obj = db.query(Property).filter(Property.id == order.property_id).first()
-        if property_obj:
-            order_dict["property_address"] = property_obj.address
+        order_dict["property_address"] = addr_map.get(order.property_id)
         result.append(PhotoOrderSummary(**order_dict))
 
     return result

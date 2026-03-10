@@ -3,9 +3,12 @@ VAPI Integration Service
 
 Handles phone calls using VAPI API with property recap context.
 """
-import requests
+import logging
+import httpx
 from typing import Optional, Dict
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.config import settings
 from app.models.property import Property
@@ -92,15 +95,18 @@ class VAPIService:
             },
         }
 
-        # Make API call to VAPI
-        response = requests.post(
-            f"{self.base_url}/call/phone",
-            headers=self.headers,
-            json=payload,
-            timeout=30
-        )
-
-        response.raise_for_status()
+        # Make API call to VAPI (async to avoid blocking event loop)
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    f"{self.base_url}/call/phone",
+                    headers=self.headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+        except httpx.HTTPError as e:
+            logger.error("VAPI call failed for property %s: %s", property.id, e)
+            return {"success": False, "error": str(e), "property_id": property.id}
 
         call_data = response.json()
 
@@ -301,26 +307,32 @@ Market context:
     async def get_call_status(self, call_id: str) -> Dict:
         """Get status of a VAPI call"""
         self._ensure_api_key()
-        response = requests.get(
-            f"{self.base_url}/call/{call_id}",
-            headers=self.headers,
-            timeout=30
-        )
-
-        response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.get(
+                    f"{self.base_url}/call/{call_id}",
+                    headers=self.headers,
+                )
+                response.raise_for_status()
+        except httpx.HTTPError as e:
+            logger.error("VAPI get_call_status failed for %s: %s", call_id, e)
+            raise
         return response.json()
 
     async def end_call(self, call_id: str) -> Dict:
         """End an ongoing VAPI call"""
         self._ensure_api_key()
-        response = requests.patch(
-            f"{self.base_url}/call/{call_id}",
-            headers=self.headers,
-            json={"status": "ended"},
-            timeout=30
-        )
-
-        response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.patch(
+                    f"{self.base_url}/call/{call_id}",
+                    headers=self.headers,
+                    json={"status": "ended"},
+                )
+                response.raise_for_status()
+        except httpx.HTTPError as e:
+            logger.error("VAPI end_call failed for %s: %s", call_id, e)
+            raise
         return response.json()
 
     async def get_call_recording(self, call_id: str) -> Optional[str]:

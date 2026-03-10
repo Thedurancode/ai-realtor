@@ -143,15 +143,15 @@ class ContactList(Base):
 
             # Apply property-based rules
             elif self.smart_rule == SmartListRule.NO_PROPERTY:
-                query = query.filter(Contact.property_id == None)
+                query = query.filter(Contact.property_id.is_(None))
             elif self.smart_rule == SmartListRule.HAS_PROPERTY:
-                query = query.filter(Contact.property_id != None)
+                query = query.filter(Contact.property_id.isnot(None))
 
             # Apply contact info rules
             elif self.smart_rule == SmartListRule.NO_PHONE:
-                query = query.filter(Contact.phone == None)
+                query = query.filter(Contact.phone.is_(None))
             elif self.smart_rule == SmartListRule.HAS_EMAIL:
-                query = query.filter(Contact.email != None)
+                query = query.filter(Contact.email.isnot(None))
 
             # Apply additional filters from JSON
             if self.filters:
