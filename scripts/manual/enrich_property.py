@@ -76,7 +76,7 @@ def main():
         try:
             error_detail = enrich_resp.json()
             print(f"\n💡 Error: {error_detail.get('detail', 'Unknown error')}")
-        except:
+        except Exception:
             pass
 
 if __name__ == "__main__":

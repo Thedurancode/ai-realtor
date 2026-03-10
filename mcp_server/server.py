@@ -96,7 +96,7 @@ def _log_conversation(tool_name: str, arguments: Any, result: list[TextContent] 
                 from .utils.property_resolver import find_property_by_address
                 try:
                     property_id = find_property_by_address(arguments.get("address"))
-                except:
+                except Exception:
                     pass  # Address resolution failed, continue without property_id
 
         payload = {

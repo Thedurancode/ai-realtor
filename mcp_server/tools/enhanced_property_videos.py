@@ -2,14 +2,11 @@
 
 Voice commands for enhanced property video generation with avatars and AI footage.
 """
-import asyncio
 from typing import Dict, Any, List
-from mcp_server.types import TextContent
+from mcp.types import Tool, TextContent
 
-from mcp_server.utils.api import api_get, api_post
-from mcp_server.utils.property import find_property_by_address
-from mcp_server.models import get_db, Property, AgentVideoProfile
-from sqlalchemy.orm import Session
+from ..server import register_tool
+from ..utils.http_client import api_get, api_post
 
 
 async def handle_generate_enhanced_video(arguments: Dict[str, Any]) -> List[TextContent]:

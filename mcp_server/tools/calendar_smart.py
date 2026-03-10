@@ -29,14 +29,14 @@ async def handle_check_conflicts(arguments: dict) -> list[TextContent]:
         # Try to parse as ISO or natural language
         try:
             proposed_start = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-        except:
+        except Exception:
             # Natural language - approximate
             proposed_start = datetime.now() + timedelta(days=1)  # Default to tomorrow
 
         if end_time:
             try:
                 proposed_end = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-            except:
+            except Exception:
                 proposed_end = proposed_start + timedelta(hours=1)  # Default 1 hour
 
     conflicts = []

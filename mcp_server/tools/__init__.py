@@ -85,5 +85,17 @@ from . import voice_memo  # noqa: F401
 from . import transaction_coordinator  # noqa: F401
 # Remotion video rendering
 from . import remotion_renders  # noqa: F401
+# Todos
+from . import todos  # noqa: F401
+# Compliance checks
+from . import compliance  # noqa: F401
+# Address autocomplete & details
+from . import address  # noqa: F401
+# Approval gateway
+from . import approval  # noqa: F401
+# Agent management
+from . import agents  # noqa: F401
+# Agent onboarding
+from . import onboarding  # noqa: F401
 # Web scraper tools - TODO: Fix import issues
 # from . import web_scraper  # noqa: F401

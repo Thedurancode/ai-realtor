@@ -8,7 +8,7 @@ Integrates with AI Realtor's property website builder
 import os
 import httpx
 from typing import Any, Dict, List
-from mcp_server.types import TextContent
+from mcp.types import TextContent
 
 from app.database import SessionLocal
 from app.models.property import Property

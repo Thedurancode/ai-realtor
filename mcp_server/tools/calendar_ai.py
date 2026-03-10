@@ -81,7 +81,7 @@ async def handle_optimal_time(arguments: dict) -> list[TextContent]:
                 "score": prop_data.get("score", 0),
                 "price": prop_data.get("price", 0),
             }
-        except:
+        except Exception:
             pass
 
     # Multi-objective optimization
