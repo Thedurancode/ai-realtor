@@ -37,6 +37,7 @@ from app.services.agentic.utils import (
 )
 from app.services.agentic.workers._context import ServiceContext
 from app.services.agentic.workers._shared import (
+    EvidenceDraft,
     compute_enrichment_status,
     find_matching_crm_property,
     resolve_enrichment_max_age_hours,
@@ -67,15 +68,6 @@ from app.services.agentic.workers.rapidapi import (
     worker_walk_score,
 )
 from app.services.agentic.workers.underwriting import worker_underwriting
-
-
-@dataclass
-class EvidenceDraft:
-    category: str
-    claim: str
-    source_url: str
-    raw_excerpt: str | None = None
-    confidence: float | None = None
 
 
 @dataclass

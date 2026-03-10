@@ -11,7 +11,7 @@ from app.config import settings
 from app.models.agentic_job import AgenticJob
 from app.models.dossier import Dossier
 from app.models.evidence_item import EvidenceItem
-from app.services.agentic.pipeline import EvidenceDraft
+from app.services.agentic.workers._shared import EvidenceDraft
 from app.services.agentic.utils import utcnow
 from app.services.agentic.workers._context import ServiceContext
 

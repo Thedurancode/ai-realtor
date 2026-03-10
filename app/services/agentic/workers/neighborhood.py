@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.agentic_job import AgenticJob
-from app.services.agentic.pipeline import EvidenceDraft
+from app.services.agentic.workers._shared import EvidenceDraft
 from app.services.agentic.providers import build_search_provider_from_settings
 from app.services.agentic.workers._context import ServiceContext
 from app.services.agentic.workers._shared import source_quality_score

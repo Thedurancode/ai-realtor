@@ -9,7 +9,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.models.agentic_job import AgenticJob
-from app.services.agentic.pipeline import EvidenceDraft
+from app.services.agentic.workers._shared import EvidenceDraft
 from app.services.agentic.workers._context import ServiceContext
 
 

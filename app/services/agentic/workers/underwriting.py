@@ -11,7 +11,7 @@ from app.models.agentic_job import AgenticJob
 from app.models.evidence_item import EvidenceItem
 from app.models.risk_score import RiskScore
 from app.models.underwriting import Underwriting
-from app.services.agentic.pipeline import EvidenceDraft
+from app.services.agentic.workers._shared import EvidenceDraft
 from app.services.agentic.workers._context import ServiceContext
 
 

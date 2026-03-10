@@ -20,9 +20,9 @@ from app.services.agentic.comps import (
     passes_hard_filters,
     similarity_score,
 )
-from app.services.agentic.pipeline import EvidenceDraft
 from app.services.agentic.workers._context import ServiceContext
 from app.services.agentic.workers._shared import (
+    EvidenceDraft,
     default_comp_radius_mi,
     effective_comp_score,
     source_quality_score,

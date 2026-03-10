@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
@@ -13,6 +14,17 @@ from app.models.zillow_enrichment import ZillowEnrichment
 from app.models.agentic_property import ResearchProperty
 from app.services.agentic.utils import utcnow
 from app.services.agentic.workers._context import ServiceContext
+
+
+@dataclass
+class EvidenceDraft:
+    """Lightweight evidence container shared between pipeline and workers."""
+
+    category: str
+    claim: str
+    source_url: str
+    raw_excerpt: str | None = None
+    confidence: float | None = None
 
 
 def source_quality_score(

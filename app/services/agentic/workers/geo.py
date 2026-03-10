@@ -11,7 +11,7 @@ from app.models.agentic_job import AgenticJob
 from app.models.agentic_property import ResearchProperty
 from app.models.skip_trace import SkipTrace
 from app.models.zillow_enrichment import ZillowEnrichment
-from app.services.agentic.pipeline import EvidenceDraft
+from app.services.agentic.workers._shared import EvidenceDraft
 from app.services.agentic.utils import normalize_us_state_code
 from app.services.agentic.workers._context import ServiceContext
 from app.services.agentic.workers._shared import (
