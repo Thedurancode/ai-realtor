@@ -34,6 +34,26 @@ class SetPermissionRequest(BaseModel):
     reason: Optional[str] = None
 
 
+@router.get("/scopes")
+async def list_available_scopes():
+    """List all available API scopes."""
+    return API_SCOPES
+
+
+@router.post("/api-keys/{key_id}/revoke")
+async def revoke_api_key(
+    key_id: int,
+    db: Session = Depends(get_db)
+):
+    """Revoke an API key."""
+    success = workspace_service.revoke_api_key(db, key_id)
+
+    if not success:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    return {"message": "API key revoked successfully"}
+
+
 @router.post("/")
 async def create_workspace(
     request: CreateWorkspaceRequest,
@@ -148,20 +168,6 @@ async def list_api_keys(
     }
 
 
-@router.post("/api-keys/{key_id}/revoke")
-async def revoke_api_key(
-    key_id: int,
-    db: Session = Depends(get_db)
-):
-    """Revoke an API key."""
-    success = workspace_service.revoke_api_key(db, key_id)
-
-    if not success:
-        raise HTTPException(status_code=404, detail="API key not found")
-
-    return {"message": "API key revoked successfully"}
-
-
 @router.post("/{workspace_id}/permissions")
 async def set_permission(
     workspace_id: int,
@@ -188,9 +194,3 @@ async def set_permission(
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/scopes")
-async def list_available_scopes():
-    """List all available API scopes."""
-    return API_SCOPES

@@ -116,8 +116,8 @@ def get_overview_stats(
     - New properties
     - Contracts signed
     """
-    service = AnalyticsService(db)
-    stats = service.get_dashboard_overview(current_agent.id, days)
+    service = AnalyticsService()
+    stats = service.get_dashboard_overview(db, current_agent.id, days)
     return stats
 
 
@@ -134,8 +134,8 @@ def get_events_trend(
 
     Event types: property_view, lead_created, conversion, page_view
     """
-    service = AnalyticsService(db)
-    data = service.get_events_trend(current_agent.id, event_type, days, granularity)
+    service = AnalyticsService()
+    data = service.get_events_trend(db, current_agent.id, event_type, days, granularity)
     return {"data": data}
 
 
@@ -155,8 +155,8 @@ def get_conversion_funnel(
     - Contracts sent
     - Deals closed
     """
-    service = AnalyticsService(db)
-    funnel = service.get_conversion_funnel(current_agent.id, days)
+    service = AnalyticsService()
+    funnel = service.get_conversion_funnel(db, current_agent.id, days)
     return {"funnel": funnel}
 
 
@@ -172,8 +172,8 @@ def get_top_properties(
 
     Useful for identifying popular listings.
     """
-    service = AnalyticsService(db)
-    top_properties = service.get_top_properties(current_agent.id, days, limit)
+    service = AnalyticsService()
+    top_properties = service.get_top_properties(db, current_agent.id, days, limit)
     return {"top_properties": top_properties}
 
 
@@ -188,8 +188,8 @@ def get_traffic_sources(
 
     Shows where your traffic is coming from (direct, organic, social, etc.)
     """
-    service = AnalyticsService(db)
-    sources = service.get_traffic_sources(current_agent.id, days)
+    service = AnalyticsService()
+    sources = service.get_traffic_sources(db, current_agent.id, days)
     return {"traffic_sources": sources}
 
 
@@ -204,8 +204,8 @@ def get_geo_distribution(
 
     Shows breakdown by city.
     """
-    service = AnalyticsService(db)
-    geo = service.get_geo_distribution(current_agent.id, days)
+    service = AnalyticsService()
+    geo = service.get_geo_distribution(db, current_agent.id, days)
     return {"geo_distribution": geo}
 
 
@@ -230,8 +230,8 @@ def get_chart_data(
     - For pie: traffic_source, property_type, city
     - For bar: top_properties
     """
-    service = AnalyticsService(db)
-    chart_data = service.get_chart_data(current_agent.id, chart_type, dimension, days)
+    service = AnalyticsService()
+    chart_data = service.get_chart_data(db, current_agent.id, chart_type, dimension, days)
     return chart_data
 
 
@@ -488,15 +488,15 @@ def generate_performance_report(
     - json: Return data as JSON
     - pdf: Generate PDF report (requires reportlab)
     """
-    service = AnalyticsService(db)
+    service = AnalyticsService()
 
     # Gather all data
-    overview = service.get_dashboard_overview(current_agent.id, days)
-    trend = service.get_events_trend(current_agent.id, "property_view", days)
-    funnel = service.get_conversion_funnel(current_agent.id, days)
-    top_properties = service.get_top_properties(current_agent.id, days)
-    traffic_sources = service.get_traffic_sources(current_agent.id, days)
-    geo_distribution = service.get_geo_distribution(current_agent.id, days)
+    overview = service.get_dashboard_overview(db, current_agent.id, days)
+    trend = service.get_events_trend(db, current_agent.id, "property_view", days)
+    funnel = service.get_conversion_funnel(db, current_agent.id, days)
+    top_properties = service.get_top_properties(db, current_agent.id, days)
+    traffic_sources = service.get_traffic_sources(db, current_agent.id, days)
+    geo_distribution = service.get_geo_distribution(db, current_agent.id, days)
 
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -550,8 +550,8 @@ def get_kpi_widget_data(
 
     Returns overview stats in widget-friendly format.
     """
-    service = AnalyticsService(db)
-    stats = service.get_dashboard_overview(current_agent.id, days)
+    service = AnalyticsService()
+    stats = service.get_dashboard_overview(db, current_agent.id, days)
 
     return {
         "widget_type": "kpi_cards",
@@ -582,8 +582,8 @@ def get_line_chart_widget_data(
 
     Metrics: property_views, leads_created, conversions
     """
-    service = AnalyticsService(db)
-    chart_data = service._get_line_chart(current_agent.id, metric, days)
+    service = AnalyticsService()
+    chart_data = service._get_line_chart(db, current_agent.id, metric, days)
 
     return {
         "widget_type": "line_chart",
@@ -604,8 +604,8 @@ def get_pie_chart_widget_data(
 
     Dimensions: traffic_source, property_type, city
     """
-    service = AnalyticsService(db)
-    chart_data = service._get_pie_chart(current_agent.id, dimension, days)
+    service = AnalyticsService()
+    chart_data = service._get_pie_chart(db, current_agent.id, dimension, days)
 
     return {
         "widget_type": "pie_chart",
@@ -628,8 +628,8 @@ def get_bar_chart_widget_data(
 
     Dimensions: top_properties
     """
-    service = AnalyticsService(db)
-    chart_data = service._get_bar_chart(current_agent.id, dimension, days)
+    service = AnalyticsService()
+    chart_data = service._get_bar_chart(db, current_agent.id, dimension, days)
 
     return {
         "widget_type": "bar_chart",

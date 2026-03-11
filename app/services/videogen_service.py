@@ -17,7 +17,7 @@ class VideoGenService:
     """Service for generating AI avatar videos"""
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.environ.get("VIDEOGEN_API_KEY")
+        self.api_key = api_key or os.environ.get("HEYGEN_API_KEY") or os.environ.get("VIDEOGEN_API_KEY")
         self.base_url = "https://api.heygen.com"
         self.headers = {
             "x-api-key": self.api_key,

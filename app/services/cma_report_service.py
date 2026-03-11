@@ -190,27 +190,38 @@ def _generate_ai_narrative(subject: dict, comp_sales: list, comp_rentals: list, 
             line += f", {r['beds']}bd/{r.get('baths', '?')}ba"
         rental_lines.append(line)
 
+    price_str = f"${price:,.0f}" if price else "Not listed"
+    zestimate_str = f"${zestimate:,.0f}" if zestimate else "N/A"
+    median_price = metrics.get('median_sale_price')
+    median_price_str = f"${median_price:,.0f}" if median_price else "N/A"
+    avg_ppsf = metrics.get('avg_price_per_sqft')
+    avg_ppsf_str = f"${avg_ppsf:,.0f}/sqft" if avg_ppsf else "N/A"
+    median_rent = rental_metrics.get('median_rent')
+    median_rent_str = f"${median_rent:,.0f}/mo" if median_rent else "N/A"
+    subject_diff_pct = metrics.get('subject_difference_pct') or 0
+    comp_count = metrics.get('comp_count') or 0
+
     prompt = f"""You are a real estate market analyst writing a CMA (Comparative Market Analysis) report.
 
 Subject Property: {address}
-List Price: ${price:,.0f} if price else 'Not listed'
+List Price: {price_str}
 Beds/Baths: {beds or '?'}/{baths or '?'}
 Square Feet: {sqft or 'Unknown'}
-Zestimate: ${zestimate:,.0f} if zestimate else 'N/A'
+Zestimate: {zestimate_str}
 
 Market Metrics:
-- Comp count: {metrics.get('comp_count', 0)}
-- Median comp sale price: ${metrics.get('median_sale_price', 0):,.0f} if metrics.get('median_sale_price') else 'N/A'
-- Avg price/sqft: ${metrics.get('avg_price_per_sqft', 0):,.0f}/sqft if metrics.get('avg_price_per_sqft') else 'N/A'
+- Comp count: {comp_count}
+- Median comp sale price: {median_price_str}
+- Avg price/sqft: {avg_ppsf_str}
 - Price trend: {metrics.get('price_trend', 'unknown')}
-- Subject vs market: {metrics.get('subject_vs_market', 'unknown')} ({metrics.get('subject_difference_pct', 0):.1f}%)
+- Subject vs market: {metrics.get('subject_vs_market', 'unknown')} ({subject_diff_pct:.1f}%)
 
 Comparable Sales:
 {chr(10).join(comp_summary_lines) if comp_summary_lines else '  No comparable sales data available.'}
 
 Comparable Rentals:
 {chr(10).join(rental_lines) if rental_lines else '  No rental data available.'}
-Median rent: ${rental_metrics.get('median_rent', 0):,.0f}/mo if rental_metrics.get('median_rent') else 'N/A'
+Median rent: {median_rent_str}
 
 Write exactly 3 sections in this JSON format (no markdown, raw JSON only):
 {{

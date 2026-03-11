@@ -79,24 +79,26 @@ async def list_avatars(
     try:
         avatars = await service.list_avatars()
 
-        # Update local cache
-        for avatar_data in avatars[:20]:  # Cache first 20
-            existing = db.query(VideoGenAvatar).filter(
-                VideoGenAvatar.avatar_id == avatar_data.get("avatar_id")
-            ).first()
+        # Update local cache (ignore duplicates)
+        try:
+            for avatar_data in avatars[:20]:
+                existing = db.query(VideoGenAvatar).filter(
+                    VideoGenAvatar.avatar_id == avatar_data.get("avatar_id")
+                ).first()
 
-            if not existing:
-                new_avatar = VideoGenAvatar(
-                    avatar_id=avatar_data.get("avatar_id"),
-                    avatar_name=avatar_data.get("avatar_name"),
-                    preview_image_url=avatar_data.get("preview_image_url"),
-                    gender=avatar_data.get("gender"),
-                    category=avatar_data.get("category"),
-                    default_voice_id=avatar_data.get("default_voice_id")
-                )
-                db.add(new_avatar)
-
-        db.commit()
+                if not existing:
+                    new_avatar = VideoGenAvatar(
+                        avatar_id=avatar_data.get("avatar_id"),
+                        avatar_name=avatar_data.get("avatar_name"),
+                        preview_image_url=avatar_data.get("preview_image_url"),
+                        gender=avatar_data.get("gender"),
+                        category=avatar_data.get("category"),
+                        default_voice_id=avatar_data.get("default_voice_id")
+                    )
+                    db.add(new_avatar)
+            db.commit()
+        except Exception:
+            db.rollback()
 
         return AvatarListResponse(
             avatars=avatars[:20],  # Return first 20

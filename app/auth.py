@@ -113,6 +113,7 @@ security = HTTPBearer(auto_error=False)
 
 
 async def get_current_agent(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ) -> Agent:
@@ -124,25 +125,33 @@ async def get_current_agent(
 
     The API key should be provided via Authorization header:
         Authorization: Bearer sk_live_...
+
+    Falls back to request.state.agent_id set by ApiKeyMiddleware for localhost.
     """
-    if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated. API key required.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    api_key = credentials.credentials
-    agent = verify_api_key(db, api_key)
-
-    if agent is None:
+    # Check Bearer token first
+    if credentials is not None:
+        api_key = credentials.credentials
+        agent = verify_api_key(db, api_key)
+        if agent is not None:
+            return agent
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return agent
+    # Fall back to middleware-set agent_id (localhost bypass)
+    agent_id = getattr(request.state, "agent_id", None)
+    if agent_id is not None:
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
+        if agent is not None:
+            return agent
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated. API key required.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 async def get_current_agent_optional(

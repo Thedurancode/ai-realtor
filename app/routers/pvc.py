@@ -82,7 +82,7 @@ async def upload_pvc_samples(
     """
     Upload audio samples for training a PVC voice.
     """
-    service = PVCService()
+    service = PVCService(api_key=settings.elevenlabs_api_key)
 
     try:
         result = await service.upload_pvc_samples(
@@ -104,7 +104,7 @@ async def start_speaker_separation(
     """
     Start speaker separation for uploaded samples.
     """
-    service = PVCService()
+    service = PVCService(api_key=settings.elevenlabs_api_key)
 
     try:
         result = await service.start_speaker_separation(
@@ -182,12 +182,12 @@ async def get_pvc_voice_status(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/voices", response_model=List[PVCVoiceResponse])
+@router.get("/voices")
 async def list_pvc_voices(db: Session = Depends(get_db)):
     """
     Get all PVC voices for the account.
     """
-    service = PVCService()
+    service = PVCService(api_key=settings.elevenlabs_api_key)
 
     try:
         voices = await service.get_pvc_voices()
@@ -205,7 +205,7 @@ async def delete_pvc_voice(
     """
     Delete a PVC voice.
     """
-    service = PVCService()
+    service = PVCService(api_key=settings.elevenlabs_api_key)
 
     try:
         # In a real implementation, this would call the ElevenLabs API to delete

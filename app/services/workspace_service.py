@@ -1,19 +1,31 @@
 """Workspace service for multi-tenant SaaS support."""
 
+import hashlib
 import logging
 import secrets
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
 
 from app.models.workspace import Workspace, WorkspaceAPIKey, CommandPermission, API_SCOPES
 
 logger = logging.getLogger(__name__)
 
-# Password hashing for API keys
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class _SimpleHashContext:
+    """SHA-256 hash context — avoids passlib/bcrypt version conflicts."""
+
+    @staticmethod
+    def hash(secret: str) -> str:
+        return hashlib.sha256(secret.encode()).hexdigest()
+
+    @staticmethod
+    def verify(secret: str, hashed: str) -> bool:
+        return hashlib.sha256(secret.encode()).hexdigest() == hashed
+
+
+pwd_context = _SimpleHashContext()
 
 
 class WorkspaceService:

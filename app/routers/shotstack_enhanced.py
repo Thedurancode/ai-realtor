@@ -1818,3 +1818,352 @@ def _hex_to_rgb(hex_color: str) -> str:
     if len(h) != 6:
         return "30,58,138"  # fallback blue
     return f"{int(h[0:2], 16)},{int(h[2:4], 16)},{int(h[4:6], 16)}"
+
+
+# ======================================================================
+# 8. RENDERED MEDIA LIBRARY — browse all renders for a property/agent
+# ======================================================================
+
+@router.get("/media/property/{property_id}")
+def get_property_rendered_media(
+    property_id: int,
+    agent_id: int = 1,
+    status_filter: Optional[str] = None,
+    media_type: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    """Get all rendered media for a property across all video types.
+
+    Returns property videos, social clips, CMA videos, slideshows, and
+    thumbnails — everything that has been rendered for this property.
+    Use this when editing a template to see what existing media can be
+    reused or selected instead of re-rendering.
+
+    Filters:
+      - status_filter: done, rendering, pending, failed
+      - media_type: property_video, social_clip, cma_video, slideshow, thumbnail
+    """
+    results = []
+
+    # Property Videos
+    if not media_type or media_type == "property_video":
+        q = db.query(PropertyVideoJob).filter(
+            PropertyVideoJob.property_id == property_id,
+            PropertyVideoJob.agent_id == agent_id,
+        )
+        if status_filter:
+            q = q.filter(PropertyVideoJob.status == status_filter)
+        for v in q.order_by(PropertyVideoJob.created_at.desc()).limit(limit).all():
+            results.append({
+                "id": v.id,
+                "media_type": "property_video",
+                "status": v.status,
+                "video_url": v.video_url,
+                "thumbnail_url": None,
+                "style": v.style,
+                "duration": v.duration,
+                "pipeline_type": v.pipeline_type,
+                "render_id": v.shotstack_render_id,
+                "has_timeline": v.timeline_json is not None,
+                "created_at": v.created_at,
+            })
+
+    # Social Clips
+    if not media_type or media_type == "social_clip":
+        q = db.query(SocialClip).filter(
+            SocialClip.property_id == property_id,
+            SocialClip.agent_id == agent_id,
+        )
+        if status_filter:
+            q = q.filter(SocialClip.status == status_filter)
+        for c in q.order_by(SocialClip.created_at.desc()).limit(limit).all():
+            results.append({
+                "id": c.id,
+                "media_type": "social_clip",
+                "status": c.status,
+                "video_url": c.video_url,
+                "thumbnail_url": c.thumbnail_url,
+                "style": c.style,
+                "duration": c.actual_duration,
+                "aspect_ratio": c.aspect_ratio,
+                "platform": c.platform,
+                "duration_target": c.duration_target,
+                "render_id": c.shotstack_render_id,
+                "has_timeline": c.timeline_json is not None,
+                "created_at": c.created_at,
+            })
+
+    # CMA Videos
+    if not media_type or media_type == "cma_video":
+        q = db.query(CmaVideo).filter(
+            CmaVideo.property_id == property_id,
+            CmaVideo.agent_id == agent_id,
+        )
+        if status_filter:
+            q = q.filter(CmaVideo.status == status_filter)
+        for v in q.order_by(CmaVideo.created_at.desc()).limit(limit).all():
+            results.append({
+                "id": v.id,
+                "media_type": "cma_video",
+                "status": v.status,
+                "video_url": v.video_url,
+                "thumbnail_url": v.thumbnail_url,
+                "style": v.style,
+                "duration": v.duration,
+                "max_comps": v.max_comps,
+                "render_id": v.shotstack_render_id,
+                "has_timeline": v.timeline_json is not None,
+                "created_at": v.created_at,
+            })
+
+    # Listing Slideshows
+    if not media_type or media_type == "slideshow":
+        q = db.query(ListingSlideshow).filter(
+            ListingSlideshow.property_id == property_id,
+            ListingSlideshow.agent_id == agent_id,
+        )
+        if status_filter:
+            q = q.filter(ListingSlideshow.status == status_filter)
+        for s in q.order_by(ListingSlideshow.created_at.desc()).limit(limit).all():
+            results.append({
+                "id": s.id,
+                "media_type": "slideshow",
+                "status": s.status,
+                "video_url": s.video_url,
+                "thumbnail_url": s.thumbnail_url,
+                "style": s.style,
+                "duration": s.duration,
+                "aspect_ratio": s.aspect_ratio,
+                "photo_count": len(s.photo_urls) if s.photo_urls else 0,
+                "render_id": s.shotstack_render_id,
+                "has_timeline": s.timeline_json is not None,
+                "created_at": s.created_at,
+            })
+
+    # Thumbnails (linked to any source for this property)
+    if not media_type or media_type == "thumbnail":
+        # Get IDs of all property videos for this property to find thumbnails
+        video_ids = [r["id"] for r in results if r["media_type"] == "property_video"]
+        clip_ids = [r["id"] for r in results if r["media_type"] == "social_clip"]
+        slideshow_ids = [r["id"] for r in results if r["media_type"] == "slideshow"]
+        cma_ids = [r["id"] for r in results if r["media_type"] == "cma_video"]
+
+        thumb_q = db.query(VideoThumbnail).filter(
+            VideoThumbnail.agent_id == agent_id,
+        )
+        if status_filter:
+            thumb_q = thumb_q.filter(VideoThumbnail.status == status_filter)
+
+        for t in thumb_q.order_by(VideoThumbnail.created_at.desc()).limit(limit).all():
+            # Only include thumbnails for this property's videos
+            match = (
+                (t.source_type == "property_video_job" and t.source_id in video_ids)
+                or (t.source_type == "social_clip" and t.source_id in clip_ids)
+                or (t.source_type == "slideshow" and t.source_id in slideshow_ids)
+                or (t.source_type == "cma_video" and t.source_id in cma_ids)
+            )
+            if match:
+                results.append({
+                    "id": t.id,
+                    "media_type": "thumbnail",
+                    "status": t.status,
+                    "video_url": None,
+                    "thumbnail_url": t.thumbnail_url,
+                    "source_type": t.source_type,
+                    "source_id": t.source_id,
+                    "frame_time": t.frame_time,
+                    "render_id": t.shotstack_render_id,
+                    "has_timeline": False,
+                    "created_at": t.created_at,
+                })
+
+    # Sort all by created_at descending
+    results.sort(key=lambda r: r["created_at"] or "", reverse=True)
+
+    # Summary counts
+    done_count = sum(1 for r in results if r["status"] == "done")
+    total_count = len(results)
+
+    return {
+        "property_id": property_id,
+        "agent_id": agent_id,
+        "total": total_count,
+        "done": done_count,
+        "rendering": sum(1 for r in results if r["status"] == "rendering"),
+        "failed": sum(1 for r in results if r["status"] == "failed"),
+        "media": results[:limit],
+        "by_type": {
+            "property_video": sum(1 for r in results if r["media_type"] == "property_video"),
+            "social_clip": sum(1 for r in results if r["media_type"] == "social_clip"),
+            "cma_video": sum(1 for r in results if r["media_type"] == "cma_video"),
+            "slideshow": sum(1 for r in results if r["media_type"] == "slideshow"),
+            "thumbnail": sum(1 for r in results if r["media_type"] == "thumbnail"),
+        },
+    }
+
+
+@router.get("/media/agent/{agent_id}")
+def get_agent_rendered_media(
+    agent_id: int,
+    status_filter: Optional[str] = None,
+    media_type: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    """Get all rendered media for an agent across all properties and types.
+
+    Similar to the property endpoint but agent-wide — shows everything
+    this agent has ever rendered. Useful for a media library view.
+    """
+    results = []
+
+    if not media_type or media_type == "property_video":
+        q = db.query(PropertyVideoJob).filter(PropertyVideoJob.agent_id == agent_id)
+        if status_filter:
+            q = q.filter(PropertyVideoJob.status == status_filter)
+        for v in q.order_by(PropertyVideoJob.created_at.desc()).limit(limit).all():
+            results.append({
+                "id": v.id,
+                "media_type": "property_video",
+                "property_id": v.property_id,
+                "status": v.status,
+                "video_url": v.video_url,
+                "thumbnail_url": None,
+                "style": v.style,
+                "duration": v.duration,
+                "pipeline_type": v.pipeline_type,
+                "render_id": v.shotstack_render_id,
+                "has_timeline": v.timeline_json is not None,
+                "created_at": v.created_at,
+            })
+
+    if not media_type or media_type == "social_clip":
+        q = db.query(SocialClip).filter(SocialClip.agent_id == agent_id)
+        if status_filter:
+            q = q.filter(SocialClip.status == status_filter)
+        for c in q.order_by(SocialClip.created_at.desc()).limit(limit).all():
+            results.append({
+                "id": c.id,
+                "media_type": "social_clip",
+                "property_id": c.property_id,
+                "status": c.status,
+                "video_url": c.video_url,
+                "thumbnail_url": c.thumbnail_url,
+                "style": c.style,
+                "duration": c.actual_duration,
+                "aspect_ratio": c.aspect_ratio,
+                "platform": c.platform,
+                "render_id": c.shotstack_render_id,
+                "has_timeline": c.timeline_json is not None,
+                "created_at": c.created_at,
+            })
+
+    if not media_type or media_type == "cma_video":
+        q = db.query(CmaVideo).filter(CmaVideo.agent_id == agent_id)
+        if status_filter:
+            q = q.filter(CmaVideo.status == status_filter)
+        for v in q.order_by(CmaVideo.created_at.desc()).limit(limit).all():
+            results.append({
+                "id": v.id,
+                "media_type": "cma_video",
+                "property_id": v.property_id,
+                "status": v.status,
+                "video_url": v.video_url,
+                "thumbnail_url": v.thumbnail_url,
+                "style": v.style,
+                "duration": v.duration,
+                "render_id": v.shotstack_render_id,
+                "has_timeline": v.timeline_json is not None,
+                "created_at": v.created_at,
+            })
+
+    if not media_type or media_type == "slideshow":
+        q = db.query(ListingSlideshow).filter(ListingSlideshow.agent_id == agent_id)
+        if status_filter:
+            q = q.filter(ListingSlideshow.status == status_filter)
+        for s in q.order_by(ListingSlideshow.created_at.desc()).limit(limit).all():
+            results.append({
+                "id": s.id,
+                "media_type": "slideshow",
+                "property_id": s.property_id,
+                "status": s.status,
+                "video_url": s.video_url,
+                "thumbnail_url": s.thumbnail_url,
+                "style": s.style,
+                "duration": s.duration,
+                "aspect_ratio": s.aspect_ratio,
+                "photo_count": len(s.photo_urls) if s.photo_urls else 0,
+                "render_id": s.shotstack_render_id,
+                "has_timeline": s.timeline_json is not None,
+                "created_at": s.created_at,
+            })
+
+    results.sort(key=lambda r: r["created_at"] or "", reverse=True)
+    results = results[:limit]
+
+    done_count = sum(1 for r in results if r["status"] == "done")
+
+    return {
+        "agent_id": agent_id,
+        "total": len(results),
+        "done": done_count,
+        "rendering": sum(1 for r in results if r["status"] == "rendering"),
+        "failed": sum(1 for r in results if r["status"] == "failed"),
+        "media": results,
+        "by_type": {
+            "property_video": sum(1 for r in results if r["media_type"] == "property_video"),
+            "social_clip": sum(1 for r in results if r["media_type"] == "social_clip"),
+            "cma_video": sum(1 for r in results if r["media_type"] == "cma_video"),
+            "slideshow": sum(1 for r in results if r["media_type"] == "slideshow"),
+        },
+    }
+
+
+@router.get("/media/{media_type}/{media_id}/timeline")
+def get_media_timeline(
+    media_type: str,
+    media_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get the Shotstack Edit JSON (timeline) for a rendered media item.
+
+    Use this to clone/modify an existing render — load the timeline into
+    the editor, make changes, and re-render without starting from scratch.
+
+    media_type: property_video, social_clip, cma_video, slideshow
+    """
+    model_map = {
+        "property_video": PropertyVideoJob,
+        "social_clip": SocialClip,
+        "cma_video": CmaVideo,
+        "slideshow": ListingSlideshow,
+    }
+
+    model = model_map.get(media_type)
+    if not model:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid media_type. Must be one of: {list(model_map.keys())}"
+        )
+
+    record = db.query(model).filter(model.id == media_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail=f"{media_type} not found")
+
+    timeline = getattr(record, "timeline_json", None)
+    if not timeline:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No timeline data saved for this {media_type}. It may have been rendered externally."
+        )
+
+    return {
+        "id": media_id,
+        "media_type": media_type,
+        "status": record.status,
+        "video_url": record.video_url,
+        "render_id": record.shotstack_render_id,
+        "timeline_json": timeline,
+        "created_at": record.created_at,
+    }
