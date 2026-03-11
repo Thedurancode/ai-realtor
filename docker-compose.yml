@@ -1,71 +1,215 @@
+# =============================================================================
+# RealtorClaw — Unified Docker Compose
+# =============================================================================
+#
+# Usage:
+#   docker compose up                      → API + PostgreSQL (default)
+#   docker compose up api                  → API only (bring your own DB)
+#   docker compose --profile sqlite up     → API + SQLite (no Postgres)
+#   docker compose --profile full up       → API + Postgres + Remotion worker
+#   docker compose --profile claude up     → Add Claude Code environment
+#   docker compose --profile dev up        → Dev workspace (VS Code + Claude)
+#   docker compose --profile nanobot up    → Add Nanobot AI gateway
+#
+# Quick start (zero config):
+#   cp .env.example .env  # add your API keys
+#   docker compose up -d
+#
+# =============================================================================
+
 services:
-  postgres:
+  # ── PostgreSQL + pgvector ────────────────────────────────────────────────
+  db:
     image: pgvector/pgvector:pg16
-    container_name: ai_realtor_postgres
+    container_name: realtorclaw-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ai_realtor
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-ai_realtor}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5433:5432"
+      - "${DB_PORT:-5433}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
       retries: 5
 
+  # ── API (lean build — no Remotion, ~250MB) ───────────────────────────────
+  api:
+    build:
+      context: .
+      target: lean
+    container_name: realtorclaw-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-ai_realtor}
+      MCP_API_BASE_URL: http://localhost:8000
+      MCP_API_KEY: ${REALTORCLAW_API_KEY:-}
+      APP_ENV: ${APP_ENV:-production}
+      API_WORKERS: ${API_WORKERS:-2}
+    ports:
+      - "${API_PORT:-8000}:8000"
+      - "${MCP_PORT:-8001}:8001"
+    volumes:
+      - ./log:/app/log
+      - ./uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/docs"]
+      interval: 20s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── API (SQLite mode — no Postgres needed) ───────────────────────────────
+  api-sqlite:
+    build:
+      context: .
+      target: lean
+    container_name: realtorclaw-sqlite
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite:////app/data/ai_realtor.db
+      MCP_API_BASE_URL: http://localhost:8000
+      MCP_API_KEY: ${REALTORCLAW_API_KEY:-}
+      APP_ENV: ${APP_ENV:-development}
+    ports:
+      - "${API_PORT:-8000}:8000"
+      - "${MCP_PORT:-8001}:8001"
+    volumes:
+      - sqlitedata:/app/data
+      - ./log:/app/log
+      - ./uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/docs"]
+      interval: 20s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    profiles: ["sqlite"]
+
+  # ── Remotion render worker ───────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      target: worker
+    container_name: realtorclaw-worker
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-ai_realtor}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
+    profiles: ["full"]
+
+  # ── Redis (only for Remotion job queue) ──────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: ai_realtor_redis
+    container_name: realtorclaw-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
-      timeout: 5s
+      timeout: 3s
       retries: 5
+    profiles: ["full"]
 
-  app:
-    build: .
-    container_name: ai_realtor_app
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file:
-      - .env.docker
+  # ── Claude Code environment ──────────────────────────────────────────────
+  claude:
+    build:
+      context: .
+      dockerfile: Dockerfile.claude-setup
+    container_name: realtorclaw-claude
+    stdin_open: true
+    tty: true
     environment:
-      # Database
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ai_realtor
-
-      # Remotion Rendering
-      WORKER_ENABLED: "1"
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
-
-      # AWS S3 (for video storage)
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-ai-realtor-renders}
-
-      # MCP Server (talks to API internally)
-      MCP_API_BASE_URL: http://localhost:8000
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      MCP_API_BASE_URL: http://api:8000
       MCP_API_KEY: ${REALTORCLAW_API_KEY:-}
-
-    ports:
-      - "8000:8000"
-      - "8001:8001"
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
     volumes:
-      # Mount logs directory
-      - ./log:/app/log
+      - claude_home:/root/.claude
+      - ./.env:/root/Documents/GitHub/ai-realtor/.env:ro
+    ports:
+      - "${CLAUDE_PORT:-8002}:8001"
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles: ["claude"]
+
+  # ── Dev workspace (VS Code + Claude) ────────────────────────────────────
+  coder:
+    build:
+      context: ./coder
+    container_name: realtorclaw-dev
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "${CODER_PORT:-13337}:13337"
+      - "${CODER_API_PORT:-8003}:8000"
+    volumes:
+      - coder_home:/home/coder
+    profiles: ["dev"]
+
+  # ── Nanobot AI gateway ──────────────────────────────────────────────────
+  nanobot:
+    image: ghcr.io/hkuds/nanobot:latest
+    container_name: realtorclaw-nanobot
+    restart: unless-stopped
+    environment:
+      NANOBOT_API_BASE_URL: http://api:8000
+      NANOBOT_API_KEY: ${REALTORCLAW_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+    volumes:
+      - nanobot_config:/root/.nanobot
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:18790/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    ports:
+      - "${NANOBOT_PORT:-18790}:18790"
+    profiles: ["nanobot"]
 
 volumes:
-  postgres_data:
+  pgdata:
+  sqlitedata:
+  claude_home:
+  coder_home:
+  nanobot_config:
+
+networks:
+  default:
+    name: realtorclaw-network
+    driver: bridge
