@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 
 from app.routers import (
-    shotstack_enhanced_router,
+    shotstack_enhanced_router, shotstack_create_router,
     agents_router, properties_router, address_router, skip_trace_router,
     contacts_router, todos_router, contracts_router, contract_templates_router,
     agent_preferences_router, context_router, notifications_router,
@@ -163,6 +163,9 @@ def register_routers(app: FastAPI) -> None:
 
     # Shotstack Enhanced Video
     app.include_router(shotstack_enhanced_router)
+
+    # Shotstack Create API (Consolidated Pipeline)
+    app.include_router(shotstack_create_router)
 
     # Orchestration
     app.include_router(orchestration_router.router)

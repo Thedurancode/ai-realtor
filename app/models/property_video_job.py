@@ -10,10 +10,11 @@ class PropertyVideoJob(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False, index=True)
-    property_id = Column(Integer, ForeignKey("properties.id"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=True, index=True)
     script = Column(Text, nullable=True)
     style = Column(String(50), nullable=False, server_default="luxury")
     status = Column(String(50), nullable=False, server_default="pending")
+    pipeline_type = Column(String(50), nullable=True, server_default="legacy")
     error = Column(Text, nullable=True)
     shotstack_render_id = Column(String(100), nullable=True)
     video_url = Column(String(500), nullable=True)
