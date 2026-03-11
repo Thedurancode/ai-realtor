@@ -27,10 +27,14 @@ fi
 
 # ── API server (foreground) ────────────────────────────────────────────
 echo "Starting API on :8000..."
+
+# Use uvloop/httptools if available, plain asyncio otherwise
+EXTRA_ARGS=""
+python -c "import uvloop" 2>/dev/null && EXTRA_ARGS="--loop uvloop"
+python -c "import httptools" 2>/dev/null && EXTRA_ARGS="$EXTRA_ARGS --http httptools"
+
 exec uvicorn app.main:app \
     --host 0.0.0.0 \
     --port 8000 \
     --workers ${API_WORKERS:-1} \
-    --loop uvloop \
-    --http httptools 2>/dev/null \
-    || exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${API_WORKERS:-1}
+    $EXTRA_ARGS
