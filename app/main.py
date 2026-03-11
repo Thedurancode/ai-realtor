@@ -17,6 +17,7 @@ from app.database import SessionLocal
 from app.rate_limit import limiter, RateLimitToggleMiddleware, RATE_LIMIT_ENABLED, RATE_LIMIT_DEFAULT, RATE_LIMIT_TIERS
 from app.auth import verify_api_key
 from app.middleware.api_key import ApiKeyMiddleware
+from app.middleware.request_id import RequestIdMiddleware
 from app.websocket import manager
 from app.api_key_cache import invalidate_api_key_cache
 from app.routers.registry import register_routers
@@ -59,10 +60,11 @@ app.openapi = custom_openapi
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.error("Unhandled exception on %s %s [%s]: %s", request.method, request.url.path, request_id, exc, exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"error": "internal_server_error", "message": "An unexpected error occurred. Please try again later."},
+        content={"error": "internal_server_error", "message": "An unexpected error occurred. Please try again later.", "request_id": request_id},
     )
 
 # ---------------------------------------------------------------------------
@@ -76,6 +78,7 @@ CORS_ORIGINS = [o.strip() for o in settings.cors_origins.split(",") if o.strip()
 app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.add_middleware(RateLimitToggleMiddleware)
 app.add_middleware(ApiKeyMiddleware)
+app.add_middleware(RequestIdMiddleware)
 
 # ---------------------------------------------------------------------------
 # Routers

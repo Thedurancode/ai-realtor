@@ -1,23 +1,18 @@
 # YOLO Plan
-Goal: Round 7 — Full MCP coverage + disabled feature fixes
+Goal: Round 8 — Production hardening (env validation, rate limiting, pagination, CORS, health check)
 
 ## Tasks
 
-- [x] 1. Fix 3 legacy MCP tools (facebook_targeting, property_websites, enhanced_property_videos) — rewritten to register_tool pattern
-- [x] 2. Fix broken web_scraper MCP import — re-enabled in __init__.py
-- [x] 3. Build 8 new MCP tool modules (todos, compliance, address, approval, document_analysis, context, agents, onboarding)
-- [x] 4. Fix duplicate photo_orders import in MCP __init__.py
-- [x] 5. Fix disabled timeline router — added missing RenderJobResponse schema, re-enabled import
-- [x] 6. Resolve MCP tool name conflicts (context.py vs conversation.py) — deduplicated to 2 unique tools
-- [x] 7. Register timeline router in registry.py
-
-## Stats
-- MCP tool modules: 62 → 69 (+7 new)
-- MCP tools registered: ~313 total
-- Disabled features fixed: 4 (timeline, web_scraper, facebook_targeting, property_websites + enhanced_property_videos)
+- [x] ~~2. Rate limiting~~ — ALREADY EXISTS (slowapi, per-agent tiers, toggle)
+- [x] ~~4. CORS lockdown~~ — ALREADY EXISTS (configurable via CORS_ORIGINS env var)
+- [x] ~~5. Health check~~ — ALREADY EXISTS (/health with DB + circuit breaker status)
+- [x] 1. Startup env validation — warn on missing critical/optional API keys at boot
+- [x] 3. Pagination — added .limit() caps to 8 unbounded list endpoints (contact_lists, postiz x3, voice_assistant, todos x2, renders)
+- [x] 6. Request ID middleware — X-Request-ID on every request/response, wired into error handler
 
 ## Completed
-- [x] Round 7: Full MCP coverage — 8 new tool modules, 4 legacy fixes, timeline re-enabled
+- [x] Round 8: Production hardening — env validation, pagination caps, request ID traceability
+- [x] Round 7: Full MCP coverage — 8 new tool modules, 4 legacy fixes, timeline re-enabled, MCP stats: 69 modules, ~313 tools
 - [x] Round 6: Bug hunt — AttributeError, None crashes, async/sync, ORM column ref bugs
 - [x] Round 5: DB indexes, N+1 fixes, pool_recycle, asyncio.sleep, VAPI error handling
 - [x] Round 4: Setup security, pipeline dedup (3,067 lines removed), 5 router merges

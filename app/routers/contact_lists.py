@@ -62,7 +62,7 @@ async def list_contact_lists(
     if agent_id:
         query = query.filter(ContactList.agent_id == agent_id)
 
-    lists = query.order_by(ContactList.created_at.desc()).all()
+    lists = query.order_by(ContactList.created_at.desc()).limit(100).all()
 
     # Auto-refresh smart lists if needed
     for contact_list in lists:

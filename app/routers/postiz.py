@@ -606,7 +606,7 @@ def list_campaigns(agent_id: int, status: Optional[str] = None, db: Session = De
     if status:
         query = query.filter(PostizCampaign.campaign_status == status)
 
-    campaigns = query.order_by(PostizCampaign.created_at.desc()).all()
+    campaigns = query.order_by(PostizCampaign.created_at.desc()).limit(100).all()
 
     return [
         {
@@ -665,7 +665,7 @@ def list_templates(agent_id: int, category: Optional[str] = None, db: Session = 
     if category:
         query = query.filter(PostizTemplate.template_category == category)
 
-    templates = query.all()
+    templates = query.limit(100).all()
 
     return [
         {

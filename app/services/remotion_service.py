@@ -104,7 +104,7 @@ class RemotionService:
     @staticmethod
     def list_render_jobs(db: Session, agent_id: int) -> list[RenderJob]:
         """List all render jobs for an agent."""
-        return db.query(RenderJob).filter(RenderJob.agent_id == agent_id).order_by(RenderJob.created_at.desc()).all()
+        return db.query(RenderJob).filter(RenderJob.agent_id == agent_id).order_by(RenderJob.created_at.desc()).limit(100).all()
 
     @staticmethod
     async def cancel_render_job(db: Session, render_id: str) -> Optional[RenderJob]:

@@ -84,13 +84,59 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Fail loudly if the default JWT secret is used outside local development
+# ---------------------------------------------------------------------------
+# Startup validation
+# ---------------------------------------------------------------------------
+import logging as _logging
 import os as _os
+
+_log = _logging.getLogger("app.config")
+_env = _os.getenv("APP_ENV", "development")
+
+# Fail loudly if the default JWT secret is used outside local development
 if (
     settings.portal_jwt_secret == "change-this-in-production-use-a-strong-random-secret"
-    and _os.getenv("APP_ENV", "development") != "development"
+    and _env != "development"
 ):
     raise RuntimeError(
         "PORTAL_JWT_SECRET is still the default value. "
         "Set a strong random secret via the PORTAL_JWT_SECRET environment variable."
+    )
+
+# Warn about missing critical API keys at startup
+_CRITICAL_KEYS = {
+    "anthropic_api_key": "AI features (Claude)",
+    "resend_api_key": "Email sending (Resend)",
+    "vapi_api_key": "Voice calls (VAPI)",
+    "docuseal_api_key": "Contract signing (DocuSeal)",
+}
+_OPTIONAL_KEYS = {
+    "shotstack_api_key": "Video rendering (Shotstack)",
+    "elevenlabs_api_key": "Text-to-speech (ElevenLabs)",
+    "lob_api_key": "Direct mail (Lob)",
+    "openrouter_api_key": "Script generation (OpenRouter)",
+    "rapidapi_key": "Skip tracing & Zillow (RapidAPI)",
+    "google_places_api_key": "Address lookup (Google Places)",
+}
+
+_missing_critical = [
+    f"  - {name}: {desc}"
+    for name, desc in _CRITICAL_KEYS.items()
+    if not getattr(settings, name, "")
+]
+_missing_optional = [
+    f"  - {name}: {desc}"
+    for name, desc in _OPTIONAL_KEYS.items()
+    if not getattr(settings, name, "")
+]
+
+if _missing_critical:
+    _log.warning(
+        "Missing CRITICAL API keys — some core features will fail:\n%s",
+        "\n".join(_missing_critical),
+    )
+if _missing_optional:
+    _log.info(
+        "Missing optional API keys — related features disabled:\n%s",
+        "\n".join(_missing_optional),
     )

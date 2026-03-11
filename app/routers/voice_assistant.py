@@ -65,7 +65,7 @@ def list_phone_numbers(
     if is_active is not None:
         query = query.filter(PhoneNumber.is_active == is_active)
 
-    return query.all()
+    return query.limit(100).all()
 
 
 @router.get("/phone-numbers/{phone_id}", response_model=PhoneNumberResponse)

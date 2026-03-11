@@ -367,7 +367,7 @@ def list_todos_for_property(
     if contact_id:
         todos_query = todos_query.filter(Todo.contact_id == contact_id)
 
-    todos = todos_query.order_by(Todo.priority.desc(), Todo.created_at).all()
+    todos = todos_query.order_by(Todo.priority.desc(), Todo.created_at).limit(200).all()
 
     if not todos:
         status_text = f"{format_status_for_voice(status)} " if status else ""
@@ -409,7 +409,7 @@ def list_todos_for_contact(
     if status:
         todos_query = todos_query.filter(Todo.status == status)
 
-    todos = todos_query.order_by(Todo.priority.desc(), Todo.created_at).all()
+    todos = todos_query.order_by(Todo.priority.desc(), Todo.created_at).limit(200).all()
 
     if not todos:
         status_text = f"{format_status_for_voice(status)} " if status else ""

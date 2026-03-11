@@ -505,7 +505,7 @@ class ShotstackService:
                 volume=soundtrack_volume,
             )
 
-        output = Output(format=output_format, resolution=output_resolution, fps=output_fps)
+        output = Output(format=output_format, resolution=output_resolution, fps=float(output_fps))
         return Edit(timeline=timeline, output=output)
 
     # ------------------------------------------------------------------
@@ -559,7 +559,20 @@ class ShotstackService:
 
     def submit_render(self, edit: Edit) -> Dict:
         """Submit an Edit for rendering. Returns {"id": ..., "status": "queued"}."""
-        response = self._api.post_render(edit)
+        try:
+            response = self._api.post_render(edit)
+        except Exception as e:
+            # Extract useful message from SDK exceptions
+            body = getattr(e, "body", None)
+            if body:
+                import json as _json
+                try:
+                    parsed = _json.loads(body) if isinstance(body, str) else body
+                    msg = parsed.get("response", {}).get("error") or parsed.get("message", str(e))
+                    raise RuntimeError(f"Shotstack API error: {msg}") from e
+                except (ValueError, AttributeError):
+                    pass
+            raise
         inner = response.get("response", {})
         return {"id": inner.get("id"), "status": inner.get("status", "queued")}
 
@@ -712,28 +725,28 @@ def _styled_intro_text_clip(
 def _build_clip_from_spec(spec: Dict) -> Clip:
     """Build a Clip from a freeform spec dict."""
     clip_type = spec.get("type", "video")
-    start = spec.get("start", 0)
-    length = spec.get("length", 5)
+    start = float(spec.get("start", 0))
+    length = float(spec.get("length", 5))
 
     # Build asset
     if clip_type == "video":
-        asset_kwargs = {"type": "video", "src": spec["src"], "volume": spec.get("volume", 0)}
+        asset_kwargs = {"type": "video", "src": spec["src"], "volume": float(spec.get("volume", 0))}
         if spec.get("trim"):
-            asset_kwargs["trim"] = spec["trim"]
+            asset_kwargs["trim"] = float(spec["trim"])
         if spec.get("speed"):
-            asset_kwargs["speed"] = spec["speed"]
+            asset_kwargs["speed"] = float(spec["speed"])
         asset = VideoAsset(**asset_kwargs)
     elif clip_type == "image":
         asset = ImageAsset(type="image", src=spec["src"])
     elif clip_type == "audio":
-        asset_kwargs = {"type": "audio", "src": spec["src"], "volume": spec.get("volume", 1.0)}
+        asset_kwargs = {"type": "audio", "src": spec["src"], "volume": float(spec.get("volume", 1.0))}
         if spec.get("trim"):
-            asset_kwargs["trim"] = spec["trim"]
+            asset_kwargs["trim"] = float(spec["trim"])
         asset = AudioAsset(**asset_kwargs)
     elif clip_type == "html":
         asset = HtmlAsset(
             type="html", html=spec.get("html", ""),
-            width=spec.get("width", 800), height=spec.get("height", 120),
+            width=int(spec.get("width", 800)), height=int(spec.get("height", 120)),
         )
     else:
         raise ValueError(f"Unknown clip type: {clip_type}")
@@ -744,14 +757,14 @@ def _build_clip_from_spec(spec: Dict) -> Clip:
     if spec.get("fit"):
         clip_kwargs["fit"] = spec["fit"]
     if spec.get("scale"):
-        clip_kwargs["scale"] = spec["scale"]
+        clip_kwargs["scale"] = float(spec["scale"])
     if spec.get("opacity") is not None:
-        clip_kwargs["opacity"] = spec["opacity"]
+        clip_kwargs["opacity"] = float(spec["opacity"])
     if spec.get("position"):
         clip_kwargs["position"] = spec["position"]
     if spec.get("offset_x") is not None or spec.get("offset_y") is not None:
         clip_kwargs["offset"] = Offset(
-            x=spec.get("offset_x", 0), y=spec.get("offset_y", 0),
+            x=float(spec.get("offset_x", 0)), y=float(spec.get("offset_y", 0)),
         )
     if spec.get("transition_in") or spec.get("transition_out"):
         clip_kwargs["transition"] = Transition(
