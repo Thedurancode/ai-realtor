@@ -13,7 +13,7 @@ import logging
 import tempfile
 import asyncio
 import subprocess
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from pathlib import Path
 from datetime import datetime
 
@@ -330,3 +330,13 @@ class PropertyVideoService:
         except Exception as e:
             logger.error(f"Failed to fetch voices: {e}")
             return []
+
+
+_property_video_service: Optional["PropertyVideoService"] = None
+
+
+def get_property_video_service() -> "PropertyVideoService":
+    global _property_video_service
+    if _property_video_service is None:
+        _property_video_service = PropertyVideoService()
+    return _property_video_service

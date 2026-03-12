@@ -1,128 +1,138 @@
-from app.routers.agents import router as agents_router
-from app.routers.properties import router as properties_router
-from app.routers.address import router as address_router
-from app.routers.skip_trace import router as skip_trace_router
-from app.routers.contacts import router as contacts_router
-from app.routers.todos import router as todos_router
-from app.routers.contracts import router as contracts_router
-from app.routers.contract_templates import router as contract_templates_router
-from app.routers.agent_preferences import router as agent_preferences_router
-from app.routers.context import router as context_router
-from app.routers.notifications import router as notifications_router
-from app.routers.compliance_knowledge import router as compliance_knowledge_router
-from app.routers.compliance import router as compliance_router
-from app.routers.activities import router as activities_router
-from app.routers.property_recap import router as property_recap_router
-from app.routers.webhooks import router as webhooks_router
-from app.routers.deal_types import router as deal_types_router
-from app.routers.research import router as research_router
-from app.routers.research_templates import router as research_templates_router
-from app.routers.ai_agents import router as ai_agents_router
-from app.routers.elevenlabs import router as elevenlabs_router
-from app.routers.agentic_research import router as agentic_research_router
-from app.routers.exa_research import router as exa_research_router
-from app.routers.voice_campaigns import router as voice_campaigns_router
-from app.routers.offers import router as offers_router
-from app.routers.search import router as search_router
-from app.routers.deal_calculator import router as deal_calculator_router
-from app.routers.workflows import router as workflows_router
-# property_notes merged into property_recap.py
-from app.routers.insights import router as insights_router
-from app.routers.scheduled_tasks import router as scheduled_tasks_router
-# analytics merged into analytics_dashboard.py
-from app.routers.pipeline import router as pipeline_router
-from app.routers.daily_digest import router as daily_digest_router
-# follow_ups merged into follow_up_sequences.py
-from app.routers.comps import router as comps_router
-from app.routers.bulk import router as bulk_router
-from app.routers.activity_timeline import router as activity_timeline_router
-# property_scoring merged into property_recap.py
-from app.routers.market_watchlist import router as market_watchlist_router
-# New intelligence routers
-from app.routers.predictive_intelligence import router as predictive_intelligence_router
-from app.routers.market_opportunities import router as market_opportunities_router
-from app.routers.relationship_intelligence import router as relationship_intelligence_router
-from app.routers.intelligence import router as intelligence_router
-# Web scraper router
-from app.routers.web_scraper import router as web_scraper
-# ZeroClaw-inspired features
-from app.routers.workspace import router as workspace_router
-from app.routers.cron_scheduler import router as cron_scheduler_router
-from app.routers.hybrid_search import router as hybrid_search_router
-# Onboarding
-from app.routers.onboarding import router as onboarding_router
-# Approval Manager
-from app.routers.approval import router as approval_router
-# Credential Scrubbing
-from app.routers.credential_scrubbing import router as credential_scrubbing_router
-# Observer Pattern
-from app.routers.observer import router as observer_router
-# Agent Branding
-from app.routers.agent_brand import router as agent_brand_router
-# Facebook Ads Management
-from app.routers.facebook_ads import router as facebook_ads_router
-# Postiz Social Media Marketing
-from app.routers.postiz import router as postiz_router
-# VideoGen AI Avatar Videos
-from app.routers.videogen import router as videogen_router
-# Zuckerbot AI Facebook Ads
-from app.routers.zuckerbot import router as zuckerbot_router
-# Facebook Ad Targeting AI
-from app.routers.facebook_targeting import router as facebook_targeting_router
-# Composio MCP Integration
-from app.routers.composio import router as composio_router
-# Email/Text Campaigns
-from app.routers.campaigns import router as campaigns_router
-# Document Analysis AI
-from app.routers.document_analysis import router as document_analysis_router
-# SQLite Tuning
-from app.routers.sqlite_tuning import router as sqlite_tuning_router
-# Skills System
-from app.routers.skills import router as skills_router
-# Setup Wizard
-from app.routers.setup import router as setup_router
-# Remotion Video Rendering
-from app.routers.renders import router as renders_router
-# Property Videos with Voiceover
-from app.routers.property_videos import router as property_videos_router
-# Photo Ordering System
-from app.routers.photo_orders import router as photo_orders_router
-# Direct Mail System (Lob.com)
-from app.routers.direct_mail import router as direct_mail_router
-# Contact Lists System
-from app.routers.contact_lists import router as contact_lists_router
-# Products and Purchases
-from app.routers.products import router as products_router
-# PVC Voice Cloning
-from app.routers.pvc import router as pvc_router
-# Timeline Video Editor
-from app.routers.timeline import router as timeline_router
-# AI Video Chat (Vibe-editing)
-from app.routers.video_chat import router as video_chat_router
-# Knowledge Base RAG
-from app.routers.knowledge_base import router as knowledge_base_router
-# Webhook Listeners
-from app.routers.webhook_listeners import router as webhook_listeners_router
-# Voice Agent
-from app.routers.voice_agent import router as voice_agent_router
-# Email Triage
-from app.routers.email_triage import router as email_triage_router
-# Follow-Up Sequences
-from app.routers.follow_up_sequences import router as follow_up_sequences_router
-# Deal Journal
-from app.routers.deal_journal import router as deal_journal_router
-# Listing Presentation Builder
-from app.routers.listing_presentation import router as listing_presentation_router
-# CMA Report Generator
-from app.routers.cma_report import router as cma_report_router
-# Morning Brief (Telegram daily summary)
-from app.routers.morning_brief import router as morning_brief_router
-# voice_memo merged into voice_agent.py
-# Transaction Coordinator
-from app.routers.transaction_coordinator import router as transaction_coordinator_router
-# Shotstack Enhanced Video Features
-from app.routers.shotstack_enhanced import router as shotstack_enhanced_router
-# Shotstack Create API (Consolidated Pipeline)
-from app.routers.shotstack_create import router as shotstack_create_router
+"""Router package — re-exports every named router for backward compatibility.
 
-__all__ = ["shotstack_enhanced_router", "shotstack_create_router", "agents_router", "properties_router", "address_router", "skip_trace_router", "contacts_router", "todos_router", "contracts_router", "contract_templates_router", "agent_preferences_router", "context_router", "notifications_router", "compliance_knowledge_router", "compliance_router", "activities_router", "property_recap_router", "webhooks_router", "deal_types_router", "research_router", "research_templates_router", "ai_agents_router", "elevenlabs_router", "agentic_research_router", "exa_research_router", "voice_campaigns_router", "offers_router", "search_router", "deal_calculator_router", "workflows_router", "insights_router", "scheduled_tasks_router", "pipeline_router", "daily_digest_router", "comps_router", "bulk_router", "activity_timeline_router", "market_watchlist_router", "predictive_intelligence_router", "market_opportunities_router", "relationship_intelligence_router", "intelligence_router", "web_scraper", "workspace_router", "cron_scheduler_router", "hybrid_search_router", "onboarding_router", "approval_router", "credential_scrubbing_router", "observer_router", "agent_brand_router", "facebook_ads_router", "postiz_router", "videogen_router", "zuckerbot_router", "facebook_targeting_router", "composio_router", "campaigns_router", "document_analysis_router", "sqlite_tuning_router", "skills_router", "setup_router", "renders_router", "property_videos_router", "photo_orders_router", "direct_mail_router", "contact_lists_router", "products_router", "pvc_router", "video_chat_router", "knowledge_base_router", "webhook_listeners_router", "voice_agent_router", "email_triage_router", "follow_up_sequences_router", "deal_journal_router", "listing_presentation_router", "cma_report_router", "morning_brief_router", "transaction_coordinator_router", "timeline_router"]
+All router modules now live in domain sub-packages (core/, compliance/, etc.).
+Imports like ``from app.routers import agents_router`` continue to work.
+"""
+
+# --- Core ---
+from app.routers.core import (  # noqa: F401
+    agents_router, properties_router, address_router, skip_trace_router,
+    contacts_router, todos_router, contracts_router, contract_templates_router,
+    agent_preferences_router, context_router, notifications_router,
+)
+
+# --- Compliance ---
+from app.routers.compliance import (  # noqa: F401
+    compliance_router, compliance_knowledge_router,
+)
+
+# --- Pipeline ---
+from app.routers.pipeline import (  # noqa: F401
+    activities_router, property_recap_router, webhooks_router,
+    deal_types_router, pipeline_router, activity_timeline_router,
+)
+
+# --- Research ---
+from app.routers.research import (  # noqa: F401
+    research_router, research_templates_router,
+    agentic_research_router, exa_research_router,
+)
+
+# --- Voice ---
+from app.routers.voice import (  # noqa: F401
+    ai_agents_router, elevenlabs_router, voice_campaigns_router,
+    voice_agent_router,
+)
+
+# --- Deals ---
+from app.routers.deals import (  # noqa: F401
+    offers_router, search_router, deal_calculator_router,
+    deal_journal_router, transaction_coordinator_router,
+)
+
+# --- Workflows ---
+from app.routers.workflows import (  # noqa: F401
+    workflows_router, scheduled_tasks_router, daily_digest_router,
+    follow_up_sequences_router, morning_brief_router,
+)
+
+# --- Analytics ---
+from app.routers.analytics import insights_router  # noqa: F401
+
+# --- Properties (extended) ---
+from app.routers.properties import (  # noqa: F401
+    comps_router, market_watchlist_router, photo_orders_router,
+)
+
+# --- Marketing ---
+from app.routers.marketing import (  # noqa: F401
+    campaigns_router, postiz_router, zuckerbot_router,
+    facebook_ads_router, facebook_targeting_router,
+    contact_lists_router, direct_mail_router,
+    listing_presentation_router, cma_report_router,
+)
+
+# --- Video ---
+from app.routers.video import (  # noqa: F401
+    videogen_router, renders_router, video_chat_router,
+    pvc_router, shotstack_enhanced_router, shotstack_create_router,
+    agent_brand_router,
+)
+
+# --- Operations ---
+from app.routers.operations import (  # noqa: F401
+    bulk_router, approval_router, credential_scrubbing_router,
+    observer_router, email_triage_router,
+)
+
+# --- Platform ---
+from app.routers.platform import (  # noqa: F401
+    knowledge_base_router, webhook_listeners_router,
+    document_analysis_router, composio_router, skills_router,
+    setup_router, sqlite_tuning_router, web_scraper, products_router,
+)
+
+# Module-level re-exports for registry.py (modules imported as namespaces)
+from app.routers.analytics import (  # noqa: F401
+    analytics_dashboard, analytics_alerts,
+    predictive_intelligence, market_opportunities,
+    relationship_intelligence, intelligence,
+)
+from app.routers.properties import (  # noqa: F401
+    property_videos, property_websites, enhanced_property_videos,
+)
+from app.routers.voice import telnyx  # noqa: F401
+from app.routers.workflows import cron_scheduler  # noqa: F401
+from app.routers.platform import (  # noqa: F401
+    workspace, hybrid_search, onboarding, portal,
+    document_extraction, calendar, orchestration_router,
+)
+from app.routers.video import timeline  # noqa: F401
+
+__all__ = [
+    "shotstack_enhanced_router", "shotstack_create_router",
+    "agents_router", "properties_router", "address_router",
+    "skip_trace_router", "contacts_router", "todos_router",
+    "contracts_router", "contract_templates_router",
+    "agent_preferences_router", "context_router", "notifications_router",
+    "compliance_knowledge_router", "compliance_router",
+    "activities_router", "property_recap_router", "webhooks_router",
+    "deal_types_router", "research_router", "research_templates_router",
+    "ai_agents_router", "elevenlabs_router", "agentic_research_router",
+    "exa_research_router", "voice_campaigns_router",
+    "offers_router", "search_router", "deal_calculator_router",
+    "workflows_router", "insights_router", "scheduled_tasks_router",
+    "pipeline_router", "daily_digest_router",
+    "comps_router", "bulk_router", "activity_timeline_router",
+    "market_watchlist_router", "predictive_intelligence",
+    "market_opportunities", "relationship_intelligence", "intelligence",
+    "web_scraper", "workspace", "cron_scheduler",
+    "hybrid_search", "onboarding", "approval_router",
+    "credential_scrubbing_router", "observer_router",
+    "agent_brand_router", "facebook_ads_router", "postiz_router",
+    "videogen_router", "zuckerbot_router", "facebook_targeting_router",
+    "composio_router", "campaigns_router", "document_analysis_router",
+    "sqlite_tuning_router", "skills_router", "setup_router",
+    "renders_router", "property_videos", "photo_orders_router",
+    "direct_mail_router", "contact_lists_router", "products_router",
+    "pvc_router", "video_chat_router", "knowledge_base_router",
+    "webhook_listeners_router", "voice_agent_router",
+    "email_triage_router", "follow_up_sequences_router",
+    "deal_journal_router", "listing_presentation_router",
+    "cma_report_router", "morning_brief_router",
+    "transaction_coordinator_router", "timeline",
+    "analytics_dashboard", "analytics_alerts",
+    "property_websites", "enhanced_property_videos",
+    "telnyx", "portal", "document_extraction", "calendar",
+    "orchestration_router",
+]

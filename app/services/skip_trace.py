@@ -3,6 +3,7 @@ import hashlib
 from typing import Any
 import httpx
 from app.config import settings
+from app.utils.circuit_breaker import circuit_breakers
 
 
 class RapidAPISkipTraceService:
@@ -22,6 +23,10 @@ class RapidAPISkipTraceService:
         Perform skip trace using RapidAPI.
         Returns owner contact information for the given address.
         """
+        breaker = circuit_breakers.get("skip_trace")
+        if not breaker.is_available():
+            raise RuntimeError("Skip trace API temporarily unavailable (circuit open)")
+
         headers = {
             "x-rapidapi-host": self.api_host,
             "x-rapidapi-key": self.api_key,
@@ -30,19 +35,23 @@ class RapidAPISkipTraceService:
         # Step 1: Search by address to get person IDs
         citystatezip = f"{city}, {state} {zip_code}"
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/search/byaddress",
-                params={
-                    "street": address,
-                    "citystatezip": citystatezip,
-                    "page": 1
-                },
-                headers=headers,
-                timeout=30.0
-            )
-            response.raise_for_status()
-            search_result = response.json()
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/search/byaddress",
+                    params={
+                        "street": address,
+                        "citystatezip": citystatezip,
+                        "page": 1
+                    },
+                    headers=headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                search_result = response.json()
+        except Exception as e:
+            breaker.record_failure()
+            raise
 
         people = search_result.get("PeopleDetails", [])
 
@@ -113,6 +122,7 @@ class RapidAPISkipTraceService:
                 "type": "info"
             })
 
+        breaker.record_success()
         return {
             "owner_name": full_name,
             "owner_first_name": first_name,

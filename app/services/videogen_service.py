@@ -5,10 +5,12 @@ Generate AI avatar videos using HeyGen API and integrate with social media.
 import os
 import tempfile
 import logging
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, TYPE_CHECKING
 from datetime import datetime, timezone
 import httpx
 import asyncio
+
+from app.utils.circuit_breaker import circuit_breakers
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +78,10 @@ class VideoGenService:
                 }
             }
 
+        breaker = circuit_breakers.get("heygen")
+        if not breaker.is_available():
+            raise RuntimeError("HeyGen API temporarily unavailable (circuit open)")
+
         payload = {
             "avatar": avatar_id,
             "voice": {
@@ -89,14 +95,20 @@ class VideoGenService:
         if voice_id:
             payload["voice"]["voice_id"] = voice_id
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{self.base_url}/v1/video.generate",
-                headers=self.headers,
-                json=payload
-            )
-            response.raise_for_status()
-            return response.json()
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.base_url}/v1/video.generate",
+                    headers=self.headers,
+                    json=payload
+                )
+                response.raise_for_status()
+                result = response.json()
+            breaker.record_success()
+            return result
+        except Exception as e:
+            breaker.record_failure()
+            raise
 
     async def get_video_status(self, video_id: str) -> Dict:
         """Check video generation status
@@ -348,3 +360,13 @@ async def generate_video_and_upload(
         "postiz_media_url": media_result.get("path"),
         "platforms": platforms or []
     }
+
+
+_videogen_service: Optional["VideoGenService"] = None
+
+
+def get_videogen_service() -> "VideoGenService":
+    global _videogen_service
+    if _videogen_service is None:
+        _videogen_service = VideoGenService()
+    return _videogen_service

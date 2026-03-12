@@ -1,0 +1,22 @@
+name: Docker Build
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t realtorclaw-api --target lean .
+      - name: Verify image starts
+        run: |
+          docker run -d --name test-api \
+            -e DATABASE_URL=sqlite:///test.db \
+            -e TESTING=1 \
+            realtorclaw-api
+          sleep 5
+          docker logs test-api
+          docker stop test-api

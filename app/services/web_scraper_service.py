@@ -19,6 +19,7 @@ from app.models.property import Property, PropertyType
 from app.services.google_places import google_places_service
 from app.services.zillow_enrichment import zillow_enrichment_service
 from app.services.llm_service import llm_service
+from app.utils.circuit_breaker import circuit_breakers
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,10 @@ class WebScraperService:
         """
         client = await self._get_client()
 
+        breaker = circuit_breakers.get("web_scraper")
+        if not breaker.is_available():
+            return ScrapedPropertyData(url=url, raw_data={"error": "Scraper temporarily unavailable (circuit open)"})
+
         try:
             # Fetch the page
             response = await client.get(url)
@@ -138,12 +143,15 @@ class WebScraperService:
                 property_data = await self._ai_enrich_extraction(property_data, url)
 
             property_data.source = detected_source
+            breaker.record_success()
             return property_data
 
         except httpx.HTTPError as e:
+            breaker.record_failure()
             logger.error(f"HTTP error scraping {url}: {e}")
             return ScrapedPropertyData(url=url, raw_data={"error": str(e)})
         except Exception as e:
+            breaker.record_failure()
             logger.error(f"Error scraping {url}: {e}")
             return ScrapedPropertyData(url=url, raw_data={"error": str(e)})
 

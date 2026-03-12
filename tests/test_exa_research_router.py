@@ -1,10 +1,7 @@
-from fastapi.testclient import TestClient
-
-import app.routers.exa_research as exa_router_module
-from app.main import app
+import app.routers.research.exa_research as exa_router_module
 
 
-def test_property_dossier_endpoint_builds_and_submits_prompt(monkeypatch):
+def test_property_dossier_endpoint_builds_and_submits_prompt(client, agent, agent_headers, monkeypatch):
     captured: dict[str, str] = {}
 
     async def fake_create_research_task(instructions: str, model: str = "exa-research-fast"):
@@ -23,7 +20,6 @@ def test_property_dossier_endpoint_builds_and_submits_prompt(monkeypatch):
         fake_create_research_task,
     )
 
-    client = TestClient(app)
     response = client.post(
         "/exa/research/property-dossier",
         json={
@@ -32,6 +28,7 @@ def test_property_dossier_endpoint_builds_and_submits_prompt(monkeypatch):
             "strategy": "buy&hold",
             "model": "exa-research-fast",
         },
+        headers=agent_headers,
     )
     assert response.status_code == 200
 
@@ -43,7 +40,7 @@ def test_property_dossier_endpoint_builds_and_submits_prompt(monkeypatch):
     assert captured["model"] == "exa-research-fast"
 
 
-def test_subdivision_dossier_endpoint_builds_and_submits_prompt(monkeypatch):
+def test_subdivision_dossier_endpoint_builds_and_submits_prompt(client, agent, agent_headers, monkeypatch):
     captured: dict[str, str] = {}
 
     async def fake_create_research_task(instructions: str, model: str = "exa-research-fast"):
@@ -62,7 +59,6 @@ def test_subdivision_dossier_endpoint_builds_and_submits_prompt(monkeypatch):
         fake_create_research_task,
     )
 
-    client = TestClient(app)
     response = client.post(
         "/exa/research/subdivision-dossier",
         json={
@@ -72,6 +68,7 @@ def test_subdivision_dossier_endpoint_builds_and_submits_prompt(monkeypatch):
             "target_lot_count": 3,
             "model": "exa-research-fast",
         },
+        headers=agent_headers,
     )
     assert response.status_code == 200
 

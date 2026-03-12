@@ -35,10 +35,10 @@ from app.routers import (
     orchestration_router, transaction_coordinator_router, timeline,
 )
 # Sub-routers merged into larger files
-from app.routers.analytics_dashboard import _portfolio_router
-from app.routers.voice_agent import _memo_router
-from app.routers.property_recap import _notes_router, _scoring_router
-from app.routers.follow_up_sequences import _queue_router
+from app.routers.pipeline.property_recap import _notes_router, _scoring_router
+from app.routers.voice.voice_agent import _memo_router
+from app.routers.analytics.analytics_dashboard import _portfolio_router
+from app.routers.workflows.follow_up_sequences import _queue_router
 
 
 def register_routers(app: FastAPI) -> None:

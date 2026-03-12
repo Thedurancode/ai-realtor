@@ -9,6 +9,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -46,7 +48,7 @@ def test_email_service():
     if not email_service.enabled:
         print("\n❌ Email service is disabled!")
         print("   Set RESEND_API_KEY in your .env file")
-        return False
+        pytest.skip("Email service disabled — RESEND_API_KEY not set")
 
     # Test alert email
     print("\n3. Testing alert email...")
@@ -119,7 +121,7 @@ def test_email_service():
     print("• Setup guide: → RESEND_SETUP.md")
     print()
 
-    return True
+    assert True
 
 
 if __name__ == "__main__":

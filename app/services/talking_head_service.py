@@ -17,6 +17,7 @@ import httpx
 
 from app.config import settings
 from app.database import SessionLocal
+from app.utils.circuit_breaker import circuit_breakers
 from app.models.agent_brand import AgentBrand
 from app.models.talking_head_video import TalkingHeadVideo
 from app.services.heygen_enhanced_service import HeyGenEnhancedService
@@ -84,6 +85,10 @@ async def _generate_elevenlabs_tts(script: str, voice_id: str, output_path: Path
     Returns:
         Path to the generated audio file.
     """
+    breaker = circuit_breakers.get("elevenlabs")
+    if not breaker.is_available():
+        raise RuntimeError("ElevenLabs API temporarily unavailable (circuit open)")
+
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {
         "xi-api-key": settings.elevenlabs_api_key,
@@ -101,10 +106,15 @@ async def _generate_elevenlabs_tts(script: str, voice_id: str, output_path: Path
         },
     }
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.post(url, headers=headers, json=payload)
-        resp.raise_for_status()
-        output_path.write_bytes(resp.content)
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+            resp.raise_for_status()
+            output_path.write_bytes(resp.content)
+        breaker.record_success()
+    except Exception as e:
+        breaker.record_failure()
+        raise
 
     logger.info(f"ElevenLabs TTS generated: {output_path} ({output_path.stat().st_size} bytes)")
     return output_path

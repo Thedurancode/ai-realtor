@@ -126,7 +126,7 @@ async def get_current_agent(
     The API key should be provided via Authorization header:
         Authorization: Bearer sk_live_...
 
-    Falls back to request.state.agent_id set by ApiKeyMiddleware for localhost.
+    Falls back to request.state.agent_id from middleware only when TESTING=1.
     """
     # Check Bearer token first
     if credentials is not None:
@@ -140,12 +140,14 @@ async def get_current_agent(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Fall back to middleware-set agent_id (localhost bypass)
-    agent_id = getattr(request.state, "agent_id", None)
-    if agent_id is not None:
-        agent = db.query(Agent).filter(Agent.id == agent_id).first()
-        if agent is not None:
-            return agent
+    # Test environment fallback: use middleware-set agent_id
+    # Only active when TESTING=1 — never in production
+    if os.getenv("TESTING") == "1":
+        agent_id = getattr(request.state, "agent_id", None)
+        if agent_id is not None:
+            agent = db.query(Agent).filter(Agent.id == agent_id).first()
+            if agent is not None:
+                return agent
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

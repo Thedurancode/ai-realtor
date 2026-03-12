@@ -5,6 +5,7 @@ import httpx
 from typing import Dict, Any, Optional
 from app.config import settings
 from app.services.cache import zillow_cache
+from app.utils.circuit_breaker import circuit_breakers
 
 
 class ZillowEnrichmentService:
@@ -33,6 +34,10 @@ class ZillowEnrichmentService:
         if cached is not None:
             return cached
 
+        breaker = circuit_breakers.get("zillow")
+        if not breaker.is_available():
+            raise RuntimeError("Zillow API temporarily unavailable (circuit open)")
+
         headers = {
             "x-rapidapi-host": self.api_host,
             "x-rapidapi-key": self.api_key,
@@ -42,20 +47,25 @@ class ZillowEnrichmentService:
         import urllib.parse
         encoded_address = urllib.parse.quote(address)
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/pro/byaddress",
-                params={"propertyaddress": address},
-                headers=headers,
-                timeout=30.0,
-            )
-            response.raise_for_status()
-            data = response.json()
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/pro/byaddress",
+                    params={"propertyaddress": address},
+                    headers=headers,
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+                data = response.json()
 
-        # Parse the response
-        result = self._parse_zillow_response(data)
-        zillow_cache.set(cache_key, result, ttl_seconds=21600)  # 6 hours
-        return result
+            # Parse the response
+            result = self._parse_zillow_response(data)
+            zillow_cache.set(cache_key, result, ttl_seconds=21600)  # 6 hours
+            breaker.record_success()
+            return result
+        except Exception as e:
+            breaker.record_failure()
+            raise
 
     def _parse_zillow_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """

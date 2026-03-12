@@ -7,9 +7,9 @@ from app.models.property import PropertyStatus, PropertyType
 
 class TestCreateProperty:
     def test_create_basic(self, client, agent, agent_headers):
-        with patch("app.routers.properties.contract_auto_attach_service") as mock_attach, \
-             patch("app.routers.properties.run_auto_enrich_pipeline"), \
-             patch("app.routers.properties.schedule_compliance_check", new_callable=AsyncMock), \
+        with patch("app.routers.core.properties.contract_auto_attach_service") as mock_attach, \
+             patch("app.routers.core.properties.run_auto_enrich_pipeline"), \
+             patch("app.routers.core.properties.schedule_compliance_check", new_callable=AsyncMock), \
              patch("app.services.watchlist_service.watchlist_service"):
             mock_attach.auto_attach_contracts.return_value = []
             response = client.post("/properties/", json={
@@ -170,7 +170,7 @@ class TestDeleteProperty:
 
 class TestPropertyDealType:
     def test_set_deal_type(self, client, sample_property, agent_headers):
-        with patch("app.routers.properties.apply_deal_type") as mock_apply:
+        with patch("app.routers.core.properties.apply_deal_type") as mock_apply:
             mock_apply.return_value = {"success": True, "deal_type": "TRADITIONAL"}
             response = client.post(
                 f"/properties/{sample_property.id}/set-deal-type?deal_type_name=TRADITIONAL",
@@ -186,7 +186,7 @@ class TestPropertyDealType:
         assert response.status_code == 404
 
     def test_get_deal_status(self, client, sample_property, agent_headers):
-        with patch("app.routers.properties.get_deal_type_summary") as mock_summary:
+        with patch("app.routers.core.properties.get_deal_type_summary") as mock_summary:
             mock_summary.return_value = {"progress": 0.5}
             response = client.get(
                 f"/properties/{sample_property.id}/deal-status",

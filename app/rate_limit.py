@@ -45,32 +45,27 @@ RATE_LIMIT_TIERS = {
 # Key Functions
 # ============================================================================
 
-def get_agent_id(request: Request) -> Optional[str]:
-    """
-    Extract agent ID from API key for rate limiting.
+def get_rate_limit_key(request: Request) -> str:
+    """Rate limit by API key if authenticated, else by IP."""
+    # Check Authorization: Bearer header
+    auth = request.headers.get("authorization", "")
+    if auth.startswith("Bearer "):
+        import hashlib
+        key = auth[7:]
+        return f"agent:{hashlib.sha256(key.encode()).hexdigest()[:16]}"
 
-    Returns the agent ID if authenticated, otherwise falls back to IP address.
-    """
-    try:
-        # Try to get API key from Authorization header
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            api_key = auth_header.replace("Bearer ", "")
+    # Check X-API-Key header (used by middleware)
+    api_key = request.headers.get("x-api-key", "")
+    if api_key:
+        import hashlib
+        return f"agent:{hashlib.sha256(api_key.encode()).hexdigest()[:16]}"
 
-            # Look up agent by API key
-            db = SessionLocal()
-            try:
-                agent = verify_api_key(db, api_key)
-                if agent:
-                    return f"agent:{agent.id}"
-            finally:
-                db.close()
-
-    except Exception:
-        pass
-
-    # Fallback to IP address
+    # Fall back to IP
     return f"ip:{get_remote_address(request)}"
+
+
+# Keep backward-compatible alias
+get_agent_id = get_rate_limit_key
 
 
 def get_agent_tier(request: Request) -> str:
@@ -105,7 +100,7 @@ def get_agent_tier(request: Request) -> str:
 # Create limiter with agent-based key function
 if RATE_LIMIT_ENABLED:
     limiter = Limiter(
-        key_func=get_agent_id,
+        key_func=get_rate_limit_key,
         default_limits=[RATE_LIMIT_BURST, RATE_LIMIT_DEFAULT],
         storage_uri=os.getenv("RATE_LIMIT_STORAGE_URI", "memory://"),
         enabled=True,
@@ -113,7 +108,7 @@ if RATE_LIMIT_ENABLED:
 else:
     # Disabled limiter (no limits)
     limiter = Limiter(
-        key_func=get_agent_id,
+        key_func=get_rate_limit_key,
         default_limits=[],
         storage_uri="memory://",
         enabled=False,
@@ -231,6 +226,7 @@ def rate_limit(limit_string: str = None):
 
 __all__ = [
     "limiter",
+    "get_rate_limit_key",
     "get_agent_id",
     "get_agent_tier",
     "agent_rate_limit",

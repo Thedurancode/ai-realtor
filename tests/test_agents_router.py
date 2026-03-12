@@ -21,7 +21,7 @@ class TestRegisterAgent:
             "email": "test@example.com",  # same as agent fixture
         })
         assert response.status_code == 400
-        assert "already registered" in response.json()["detail"]
+        assert "already registered" in response.json().get("message", response.json().get("detail", ""))
 
     def test_register_with_license(self, client):
         response = client.post("/agents/register", json={

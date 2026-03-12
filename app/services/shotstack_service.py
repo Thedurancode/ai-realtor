@@ -29,6 +29,7 @@ from shotstack_sdk.model.video_asset import VideoAsset
 from shotstack_sdk.model.merge_field import MergeField
 
 from app.config import settings
+from app.utils.circuit_breaker import circuit_breakers
 
 logger = logging.getLogger(__name__)
 
@@ -559,9 +560,14 @@ class ShotstackService:
 
     def submit_render(self, edit: Edit) -> Dict:
         """Submit an Edit for rendering. Returns {"id": ..., "status": "queued"}."""
+        breaker = circuit_breakers.get("shotstack")
+        if not breaker.is_available():
+            raise RuntimeError("Shotstack API temporarily unavailable (circuit open)")
+
         try:
             response = self._api.post_render(edit)
         except Exception as e:
+            breaker.record_failure()
             # Extract useful message from SDK exceptions
             body = getattr(e, "body", None)
             if body:
@@ -573,6 +579,7 @@ class ShotstackService:
                 except (ValueError, AttributeError):
                     pass
             raise
+        breaker.record_success()
         inner = response.get("response", {})
         return {"id": inner.get("id"), "status": inner.get("status", "queued")}
 

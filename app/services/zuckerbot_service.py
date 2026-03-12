@@ -5,7 +5,7 @@ https://zuckerbot.ai
 """
 import os
 import logging
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, TYPE_CHECKING
 from dotenv import load_dotenv
 import httpx
 
@@ -414,3 +414,13 @@ async def get_market_intelligence(
         "market_research": market,
         "competitor_analysis": competitors
     }
+
+
+_zuckerbot_service: Optional["ZuckerbotService"] = None
+
+
+def get_zuckerbot_service() -> "ZuckerbotService":
+    global _zuckerbot_service
+    if _zuckerbot_service is None:
+        _zuckerbot_service = ZuckerbotService()
+    return _zuckerbot_service

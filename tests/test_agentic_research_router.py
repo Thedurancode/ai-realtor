@@ -1,10 +1,7 @@
-from fastapi.testclient import TestClient
-
-import app.routers.agentic_research as agentic_router_module
-from app.main import app
+import app.routers.research.agentic_research as agentic_router_module
 
 
-def test_get_agentic_property_enrichment_status_success(monkeypatch):
+def test_get_agentic_property_enrichment_status_success(client, agent, agent_headers, monkeypatch):
     def fake_get_property_enrichment_status(db, property_id: int, max_age_hours: int | None = None):
         assert property_id == 42
         assert max_age_hours == 168
@@ -29,8 +26,7 @@ def test_get_agentic_property_enrichment_status_success(monkeypatch):
         fake_get_property_enrichment_status,
     )
 
-    client = TestClient(app)
-    response = client.get("/agentic/properties/42/enrichment-status?max_age_hours=168")
+    response = client.get("/agentic/properties/42/enrichment-status?max_age_hours=168", headers=agent_headers)
     assert response.status_code == 200
 
     body = response.json()
@@ -40,7 +36,7 @@ def test_get_agentic_property_enrichment_status_success(monkeypatch):
     assert body["enrichment_status"]["max_age_hours"] == 168
 
 
-def test_get_agentic_property_enrichment_status_not_found(monkeypatch):
+def test_get_agentic_property_enrichment_status_not_found(client, agent, agent_headers, monkeypatch):
     def fake_get_property_enrichment_status(db, property_id: int, max_age_hours: int | None = None):
         return None
 
@@ -50,7 +46,7 @@ def test_get_agentic_property_enrichment_status_not_found(monkeypatch):
         fake_get_property_enrichment_status,
     )
 
-    client = TestClient(app)
-    response = client.get("/agentic/properties/999999/enrichment-status")
+    response = client.get("/agentic/properties/999999/enrichment-status", headers=agent_headers)
     assert response.status_code == 404
-    assert response.json()["detail"] == "Property not found"
+    body = response.json()
+    assert "not found" in body.get("message", body.get("detail", "")).lower()

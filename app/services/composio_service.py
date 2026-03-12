@@ -9,7 +9,7 @@ This service provides helper methods to work with existing sessions.
 import os
 import httpx
 import logging
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, TYPE_CHECKING
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -147,3 +147,13 @@ def get_current_session_config() -> Dict:
         "claude_desktop_config": composio.get_claude_desktop_config(session_id),
         "external_user_id": composio.external_user_id
     }
+
+
+_composio_service: Optional["ComposioService"] = None
+
+
+def get_composio_service() -> "ComposioService":
+    global _composio_service
+    if _composio_service is None:
+        _composio_service = ComposioService()
+    return _composio_service

@@ -13,7 +13,7 @@ Providers available via Create API:
 import asyncio
 import logging
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 import shotstack_sdk as shotstack
 from shotstack_sdk.api import create_api
@@ -372,3 +372,13 @@ class ShotstackCreateService:
 
     async def aclose(self):
         self._api_client.close()
+
+
+_shotstack_create_service: Optional["ShotstackCreateService"] = None
+
+
+def get_shotstack_create_service() -> "ShotstackCreateService":
+    global _shotstack_create_service
+    if _shotstack_create_service is None:
+        _shotstack_create_service = ShotstackCreateService()
+    return _shotstack_create_service

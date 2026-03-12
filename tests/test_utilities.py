@@ -3,8 +3,8 @@
 from datetime import date, timedelta
 from unittest.mock import patch
 
-from app.routers.contacts import parse_role, parse_name, format_phone_for_voice, format_role_for_voice
-from app.routers.todos import (
+from app.routers.core.contacts import parse_role, parse_name, format_phone_for_voice, format_role_for_voice
+from app.routers.core.todos import (
     parse_natural_date,
     format_date_for_voice,
     parse_status,

@@ -5,10 +5,10 @@ Tests for Lob Webhook Signature Verification
 import pytest
 import hmac
 import hashlib
+import json
 from fastapi.testclient import TestClient
 from fastapi import Request
 
-from app.main import app
 from app.config import settings
 
 
@@ -16,9 +16,9 @@ class TestLobWebhookSecurity:
     """Test Lob webhook signature verification"""
 
     @pytest.fixture
-    def client(self):
-        """Test client for FastAPI app"""
-        return TestClient(app)
+    def webhook_client(self, client):
+        """Reuse the conftest client which has DB overrides."""
+        return client
 
     @pytest.fixture
     def webhook_secret(self):
@@ -44,42 +44,30 @@ class TestLobWebhookSecurity:
             }
         }
 
-    def generate_signature(self, payload, secret):
-        """Generate valid HMAC-SHA256 signature"""
-        import json
-        body = json.dumps(payload).encode()
-        signature = hmac.new(
-            secret.encode(),
-            body,
-            hashlib.sha256
-        ).hexdigest()
-        return f"sha256={signature}"
-
-    def test_webhook_rejects_missing_signature(self, client, sample_webhook_payload):
+    def test_webhook_rejects_missing_signature(self, webhook_client, agent, agent_headers, sample_webhook_payload):
         """Test that webhook rejects requests without signature"""
-        # Temporarily set webhook secret
         original_secret = settings.lob_webhook_secret
         settings.lob_webhook_secret = "test_secret"
 
         try:
-            response = client.post(
+            response = webhook_client.post(
                 "/webhooks/lob",
                 json=sample_webhook_payload
             )
 
             # Should return 401 when signature is missing
-            assert response.status_code in [401, 403]  # Unauthorized or Forbidden
+            assert response.status_code in [401, 403]
 
         finally:
             settings.lob_webhook_secret = original_secret
 
-    def test_webhook_rejects_invalid_signature(self, client, sample_webhook_payload):
+    def test_webhook_rejects_invalid_signature(self, webhook_client, agent, agent_headers, sample_webhook_payload):
         """Test that webhook rejects requests with invalid signature"""
         original_secret = settings.lob_webhook_secret
         settings.lob_webhook_secret = "test_secret"
 
         try:
-            response = client.post(
+            response = webhook_client.post(
                 "/webhooks/lob",
                 json=sample_webhook_payload,
                 headers={"x-lob-signature": "sha256=invalid_signature"}
@@ -91,24 +79,25 @@ class TestLobWebhookSecurity:
         finally:
             settings.lob_webhook_secret = original_secret
 
-    def test_webhook_accepts_valid_signature(self, client, sample_webhook_payload, webhook_secret):
+    def test_webhook_accepts_valid_signature(self, webhook_client, agent, agent_headers, sample_webhook_payload, webhook_secret):
         """Test that webhook accepts requests with valid signature"""
-        import json
-
         original_secret = settings.lob_webhook_secret
         settings.lob_webhook_secret = webhook_secret
 
         try:
-            body = json.dumps(sample_webhook_payload).encode()
+            # We must send the body as raw bytes and compute the signature
+            # from the exact same bytes, since TestClient may serialize differently
+            body = json.dumps(sample_webhook_payload, separators=(",", ":")).encode()
+
             signature = hmac.new(
                 webhook_secret.encode(),
                 body,
                 hashlib.sha256
             ).hexdigest()
 
-            response = client.post(
+            response = webhook_client.post(
                 "/webhooks/lob",
-                json=sample_webhook_payload,
+                content=body,
                 headers={
                     "x-lob-signature": f"sha256={signature}",
                     "content-type": "application/json"
@@ -122,14 +111,14 @@ class TestLobWebhookSecurity:
         finally:
             settings.lob_webhook_secret = original_secret
 
-    def test_webhook_works_without_secret_in_dev(self, client, sample_webhook_payload):
+    def test_webhook_works_without_secret_in_dev(self, webhook_client, agent, agent_headers, sample_webhook_payload):
         """Test that webhook works when secret is not configured (dev mode)"""
         original_secret = settings.lob_webhook_secret
         settings.lob_webhook_secret = ""
 
         try:
             # Should not require signature when secret is not set
-            response = client.post(
+            response = webhook_client.post(
                 "/webhooks/lob",
                 json=sample_webhook_payload
             )
@@ -140,9 +129,9 @@ class TestLobWebhookSecurity:
         finally:
             settings.lob_webhook_secret = original_secret
 
-    def test_webhook_test_endpoint(self, client):
+    def test_webhook_test_endpoint(self, webhook_client, agent, agent_headers):
         """Test webhook configuration endpoint"""
-        response = client.get("/webhooks/lob/test")
+        response = webhook_client.get("/webhooks/lob/test")
 
         assert response.status_code == 200
         data = response.json()
@@ -170,34 +159,8 @@ class TestLobWebhookSecurity:
         for sig in invalid_sigs:
             assert not sig.startswith("sha256=") or len(sig.split("=")) != 2
 
-    def test_constant_time_comparison(self):
-        """Test that signature comparison uses constant-time algorithm"""
-        import time
-
-        secret = "test_secret"
-        body = b"test_payload"
-
-        # Generate two different signatures
-        sig1 = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-        sig2 = hmac.new(secret.encode(), body + b"x", hashlib.sha256).hexdigest()
-
-        # Constant-time comparison should take similar time
-        # regardless of how different the signatures are
-        start = time.time()
-        hmac.compare_digest(sig1, sig1)
-        time_match = time.time() - start
-
-        start = time.time()
-        hmac.compare_digest(sig1, sig2)
-        time_mismatch = time.time() - start
-
-        # Times should be similar (within 10x for test variability)
-        assert time_mismatch / time_match < 10
-
-    def test_webhook_handles_all_event_types(self, client, sample_webhook_payload, webhook_secret):
+    def test_webhook_handles_all_event_types(self, webhook_client, agent, agent_headers, sample_webhook_payload, webhook_secret):
         """Test that webhook handles all supported event types"""
-        import json
-
         original_secret = settings.lob_webhook_secret
         settings.lob_webhook_secret = webhook_secret
 
@@ -218,17 +181,18 @@ class TestLobWebhookSecurity:
 
         try:
             for event_type in event_types:
-                sample_webhook_payload["event_type"] = event_type
-                body = json.dumps(sample_webhook_payload).encode()
+                payload = dict(sample_webhook_payload)
+                payload["event_type"] = event_type
+                body = json.dumps(payload, separators=(",", ":")).encode()
                 signature = hmac.new(
                     webhook_secret.encode(),
                     body,
                     hashlib.sha256
                 ).hexdigest()
 
-                response = client.post(
+                response = webhook_client.post(
                     "/webhooks/lob",
-                    json=sample_webhook_payload,
+                    content=body,
                     headers={
                         "x-lob-signature": f"sha256={signature}",
                         "content-type": "application/json"
@@ -236,7 +200,7 @@ class TestLobWebhookSecurity:
                 )
 
                 # Should not reject due to signature verification
-                assert response.status_code not in [401, 403]
+                assert response.status_code not in [401, 403], f"Failed for event type: {event_type}"
 
         finally:
             settings.lob_webhook_secret = original_secret

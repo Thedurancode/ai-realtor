@@ -6,9 +6,10 @@ from datetime import datetime, timezone, timedelta
 
 from app.database import SessionLocal, Base, engine
 from app.models import (
-    Property, Agent, PropertyStatus, PropertyType,
+    Property, Agent,
     DealOutcome, OutcomeStatus, AgentPerformanceMetrics, PredictionLog
 )
+from app.models.property import PropertyStatus, PropertyType
 from app.services.predictive_intelligence_service import predictive_intelligence_service
 from app.services.learning_system_service import learning_system_service
 from app.services.market_opportunity_scanner import market_opportunity_scanner
@@ -213,10 +214,11 @@ class TestDocumentAnalyzer:
 class TestCompetitiveIntelligence:
     """Test competitive intelligence service."""
 
-    def test_analyze_market_competition(self, db_session):
+    @pytest.mark.asyncio
+    async def test_analyze_market_competition(self, db_session):
         """Test market competition analysis."""
         # Create some test data
-        result = competitive_intelligence_service.analyze_market_competition(
+        result = await competitive_intelligence_service.analyze_market_competition(
             db_session, city="Miami", state="FL", days_back=90
         )
 

@@ -625,3 +625,10 @@ class AnalyticsService:
 
 
 analytics_service = AnalyticsService()
+
+# Singleton instance for DI
+_analytics_service = AnalyticsService()
+
+
+def get_analytics_service() -> "AnalyticsService":
+    return _analytics_service

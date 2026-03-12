@@ -1,5 +1,8 @@
 """RealtorClaw API — AI-Powered Real Estate Platform."""
 
+from app.logging_config import setup_logging
+setup_logging()
+
 import asyncio
 import logging
 import os
@@ -21,6 +24,8 @@ from app.middleware.request_id import RequestIdMiddleware
 from app.websocket import manager
 from app.api_key_cache import invalidate_api_key_cache
 from app.routers.registry import register_routers
+from app.middleware.error_handler import register_error_handlers
+from app.middleware.metrics import MetricsMiddleware, metrics_endpoint, PROMETHEUS_AVAILABLE
 
 import app.models  # noqa: F401 — ensure all models are registered for Alembic
 
@@ -48,6 +53,21 @@ def custom_openapi():
         "ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "x-api-key"}
     }
     openapi_schema["security"] = [{"ApiKeyAuth": []}]
+    openapi_schema["tags"] = [
+        {"name": "Core", "description": "Agents, properties, contacts, and core entities"},
+        {"name": "Video", "description": "Video generation, rendering, and management"},
+        {"name": "Marketing", "description": "Campaigns, social media, direct mail"},
+        {"name": "Analytics", "description": "Dashboard, alerts, and intelligence"},
+        {"name": "Voice", "description": "Voice calls, campaigns, and assistants"},
+        {"name": "Deals", "description": "Offers, transactions, and deal management"},
+        {"name": "Research", "description": "Property research and market analysis"},
+        {"name": "Workflows", "description": "Scheduling, follow-ups, and automation"},
+        {"name": "Pipeline", "description": "Activities, deal types, and property pipeline"},
+        {"name": "Properties", "description": "Extended property features — comps, websites, photos"},
+        {"name": "Operations", "description": "Bulk operations, approvals, and email triage"},
+        {"name": "Compliance", "description": "Compliance checks and knowledge base"},
+        {"name": "Platform", "description": "System configuration, integrations, and tools"},
+    ]
     app.openapi_schema = openapi_schema
     return openapi_schema
 
@@ -55,17 +75,10 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 # ---------------------------------------------------------------------------
-# Exception handlers
+# Error handlers (must be registered before middleware)
 # ---------------------------------------------------------------------------
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    request_id = getattr(request.state, "request_id", "unknown")
-    logger.error("Unhandled exception on %s %s [%s]: %s", request.method, request.url.path, request_id, exc, exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"error": "internal_server_error", "message": "An unexpected error occurred. Please try again later.", "request_id": request_id},
-    )
+register_error_handlers(app)
 
 # ---------------------------------------------------------------------------
 # Middleware
@@ -79,12 +92,20 @@ app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials
 app.add_middleware(RateLimitToggleMiddleware)
 app.add_middleware(ApiKeyMiddleware)
 app.add_middleware(RequestIdMiddleware)
+if PROMETHEUS_AVAILABLE:
+    app.add_middleware(MetricsMiddleware)
 
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
 
 register_routers(app)
+
+# ---------------------------------------------------------------------------
+# Metrics
+# ---------------------------------------------------------------------------
+
+app.add_route("/metrics", metrics_endpoint, methods=["GET"])
 
 # ---------------------------------------------------------------------------
 # Static files
@@ -193,12 +214,14 @@ def rate_limit_status():
 # ---------------------------------------------------------------------------
 
 @app.get("/cache/stats")
-def cache_stats():
+async def cache_stats():
     from app.services.cache import google_places_cache, zillow_cache, docuseal_cache
+    from app.services.redis_cache import cache_stats as redis_cache_stats
     return {
         "google_places": google_places_cache.stats(),
         "zillow": zillow_cache.stats(),
         "docuseal": docuseal_cache.stats(),
+        "redis": await redis_cache_stats(),
     }
 
 

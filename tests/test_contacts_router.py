@@ -7,7 +7,7 @@ from app.models.contact import ContactRole
 
 class TestCreateContact:
     def test_create_basic(self, client, sample_property, agent_headers):
-        with patch("app.routers.contacts.notification_service") as mock_notif, \
+        with patch("app.routers.core.contacts.notification_service") as mock_notif, \
              patch("app.services.property_recap_service.regenerate_recap_background"):
             mock_notif.notify_new_lead = AsyncMock()
             response = client.post("/contacts/", json={
@@ -26,7 +26,7 @@ class TestCreateContact:
             assert data["last_name"] == "Smith"
 
     def test_create_buyer_triggers_notification(self, client, sample_property, agent_headers):
-        with patch("app.routers.contacts.notification_service") as mock_notif, \
+        with patch("app.routers.core.contacts.notification_service") as mock_notif, \
              patch("app.services.property_recap_service.regenerate_recap_background"):
             mock_notif.notify_new_lead = AsyncMock()
             response = client.post("/contacts/", json={
@@ -47,7 +47,7 @@ class TestCreateContact:
         assert response.status_code == 404
 
     def test_create_with_single_name(self, client, sample_property, agent_headers):
-        with patch("app.routers.contacts.notification_service") as mock_notif, \
+        with patch("app.routers.core.contacts.notification_service") as mock_notif, \
              patch("app.services.property_recap_service.regenerate_recap_background"):
             mock_notif.notify_new_lead = AsyncMock()
             response = client.post("/contacts/", json={
